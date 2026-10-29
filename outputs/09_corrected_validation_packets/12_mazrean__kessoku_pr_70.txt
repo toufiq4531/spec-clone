@@ -1,0 +1,1643 @@
+====================================================================================================
+CORRECTED TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 12/15
+Repository: mazrean/kessoku
+PR: #70
+Tool: speckit
+Language: Go
+Total PR commits: 4
+
+Earlier specification commit position: 1
+Step-7 automated 'first code' hint: 2
+
+IMPORTANT:
+The Step-7 code position is only a screening hint.
+Your task is to identify the FIRST LATER COMMIT that actually implements the earlier requirement.
+
+####################################################################################################
+SECTION A — EARLIER SPECIFICATION COMMIT
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 1
+====================================================================================================
+SHA: 2a775ebbeb125061bd1f6cef71f36b8ca91f267c
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add spec and plan for expanding agent support
+
+Add design documents for FR-001-expand-agent-support feature:
+- Feature specification with supported agents
+- Implementation plan with task breakdown
+- Research on agent skill installation paths
+- Data model for agent configuration
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 7
+
+--- FILE 1/7 ---
+FILE: specs/001-expand-agent-support/checklists/requirements.md
+STATUS: added
+ADDITIONS: 39
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,39 @@
++# Specification Quality Checklist: Expand Agent Support
++
++**Purpose**: Validate specification completeness and quality before proceeding to planning
++**Created**: 2026-01-12
++**Feature**: [spec.md](../spec.md)
++
++## Content Quality
++
++- [x] No implementation details (languages, frameworks, APIs)
++- [x] Focused on user value and business needs
++- [x] Written for non-technical stakeholders
++- [x] All mandatory sections completed
++
++## Requirement Completeness
++
++- [x] No [NEEDS CLARIFICATION] markers remain
++- [x] Requirements are testable and unambiguous
++- [x] Success criteria are measurable
++- [x] Success criteria are technology-agnostic (no implementation details)
++- [x] All acceptance scenarios are defined
++- [x] Edge cases are identified
++- [x] Scope is clearly bounded
++- [x] Dependencies and assumptions identified
++
++## Feature Readiness
++
++- [x] All functional requirements have clear acceptance criteria
++- [x] User scenarios cover primary flows
++- [x] Feature meets measurable outcomes defined in Success Criteria
++- [x] No implementation details leak into specification
++
++## Notes
++
++- All items passed validation
++- Codex MCP review passed (4 iterations)
++- Path Verification Status section documents all agent paths with official documentation links
++- Only Letta user-level path is inferred (no default in official docs)
++- Out of Scope section clearly defines boundaries
++- Ready for `/speckit.plan`
+
+--- FILE 2/7 ---
+FILE: specs/001-expand-agent-support/data-model.md
+STATUS: added
+ADDITIONS: 127
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,127 @@
++# Data Model: Expand Agent Support
++
++**Phase 1 Output** | **Date**: 2026-01-12
++
++## Entities
++
++### Agent (Interface)
++
++Defines configuration for a coding agent that supports skill installation.
++
++```go
++type Agent interface {
++    Name() string           // Subcommand name (e.g., "gemini-cli")
++    Description() string    // Help text for CLI
++    SkillsFS() embed.FS     // Embedded skill files
++    SkillsSrcDir() string   // Source directory in embed.FS
++    SkillsDirName() string  // Installation directory name
++    ProjectSubPath() string // Project-level path (e.g., ".gemini/skills")
++    UserSubPath() string    // User-level path (e.g., ".gemini/skills")
++}
++```
++
++**Validation Rules**:
++- `Name()` must be unique across all agents
++- `Name()` must be lowercase with hyphens (CLI convention)
++- `ProjectSubPath()` and `UserSubPath()` must not be empty
++- `SkillsSrcDir()` must exist in `SkillsFS()`
++
++### New Agent Implementations
++
++| Struct Name | Name() | ProjectSubPath() | UserSubPath() |
++|-------------|--------|------------------|---------------|
++| `GeminiCLIAgent` | `gemini-cli` | `.gemini/skills` | `.gemini/skills` |
++| `OpenCodeAgent` | `opencode` | `.opencode/skill` | `.config/opencode/skill` |
++| `CodexAgent` | `openai-codex` | `.codex/skills` | `.codex/skills` |
++| `AmpAgent` | `amp` | `.agents/skills` | `.config/agents/skills` |
++| `GooseAgent` | `goose` | `.agents/skills` | `.config/goose/skills` |
++| `FactoryAgent` | `factory` | `.factory/skills` | `.factory/skills` |
++
++**Common Fields** (same for all new agents):
++- `SkillsFS()`: Returns `claudeCodeSkillsFS` (shared)
++- `SkillsSrcDir()`: Returns `"skills/kessoku-di"`
++- `SkillsDirName()`: Returns `"kessoku-di"`
++- `Description()`: Returns `"Install {AgentName} skills"`
++
++### Agent Registry
++
++Global slice maintaining ordered list of all supported agents.
++
++```go
++var agents = []Agent{
++    // Existing
++    &ClaudeCodeAgent{},
++    &CursorAgent{},
++    &CopilotAgent{},
++    // New (alphabetical order within new additions)
++    &AmpAgent{},
++    &CodexAgent{},
++    &FactoryAgent{},
++    &GeminiCLIAgent{},
++    &GooseAgent{},
++    &OpenCodeAgent{},
++}
++```
++
++**Invariants**:
++- Order determines help display order
++- All agents must be registered to be accessible via `GetAgent()` and `ListAgents()`
++
++### CLI Command Structure
++
++```go
++type LLMSetupCmd struct {
++    // Existing
++    Usage         UsageCmd      `kong:"cmd,default='1',hidden"`
++    ClaudeCode    ClaudeCodeCmd `kong:"cmd,name='claude-code',help='...'"`
++    Cursor        CursorCmd     `kong:"cmd,name='cursor',help='...'"`
++    GithubCopilot CopilotCmd    `kong:"cmd,name='github-copilot',help='...'"`
++    // New
++    Amp           AmpCmd        `kong:"cmd,name='amp',help='Install Amp skills'"`
++    Factory       FactoryCmd    `kong:"cmd,name='factory',help='Install Factory skills'"`
++    GeminiCLI     GeminiCLICmd  `kong:"cmd,name='gemini-cli',help='Install Gemini CLI skills'"`
++    Goose         GooseCmd      `kong:"cmd,name='goose',help='Install Goose skills'"`
++    OpenAICodex   CodexCmd      `kong:"cmd,name='openai-codex',help='Install OpenAI Codex skills'"`
++    OpenCode      OpenCodeCmd   `kong:"cmd,name='opencode',help='Install OpenCode skills'"`
++}
++```
++
++## Relationships
++
++```
++┌─────────────────────────────────────────────────────────────────┐
++│                         LLMSetupCmd                             │
++│  (kong parent command)                                          │
++└─────────────────────────┬───────────────────────────────────────┘
++                          │ has subcommands
++                          ▼
++┌─────────────────────────────────────────────────────────────────┐
++│                    AgentCmd[T Agent]                            │
++│  (generic command type)                                         │
++│  - Path: string                                                 │
++│  - User: bool                                                   │
++└─────────────────────────┬───────────────────────────────────────┘
++                          │ instantiated as
++                          ▼
++┌───────────────┬───────────────┬───────────────┬─────────────────┐
++│ ClaudeCodeCmd │ CursorCmd     │ CopilotCmd    │ ... 7 new cmds  │
++│ = AgentCmd    │ = AgentCmd    │ = AgentCmd    │                 │
++│ [*Claude...]  │ [*Cursor...]  │ [*Copilot...] │                 │
++└───────────────┴───────────────┴───────────────┴─────────────────┘
++                          │ uses
++                          ▼
++┌─────────────────────────────────────────────────────────────────┐
++│                      Agent interface                            │
++│  Implemented by: ClaudeCodeAgent, CursorAgent, ..., FactoryAgent│
++└─────────────────────────┬───────────────────────────────────────┘
++                          │ shares
++                          ▼
++┌─────────────────────────────────────────────────────────────────┐
+
+[PATCH TRUNCATED: 128 total lines]
+
+--- FILE 3/7 ---
+FILE: specs/001-expand-agent-support/plan.md
+STATUS: added
+ADDITIONS: 68
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,68 @@
++# Implementation Plan: Expand Agent Support
++
++**Branch**: `001-expand-agent-support` | **Date**: 2026-01-12 | **Spec**: [spec.md](./spec.md)
++**Input**: Feature specification from `/specs/001-expand-agent-support/spec.md`
++
++## Summary
++
++Expand the existing agent support in `internal/llmsetup/` from 3 agents (Claude Code, Cursor, GitHub Copilot) to 10 agents by adding 6 new coding agents (Gemini CLI, OpenCode, OpenAI Codex, Amp, Goose, Factory). Each agent follows the established pattern: a struct implementing the `Agent` interface with project-level and user-level skill directory paths, sharing the same embedded skill files.
++
++## Technical Context
++
++**Language/Version**: Go 1.24+
++**Primary Dependencies**: github.com/alecthomas/kong (CLI framework)
++**Storage**: N/A (file-based skill installation)
++**Testing**: Standard Go testing (`go test`)
++**Target Platform**: Linux, macOS, Windows (cross-platform CLI)
++**Project Type**: Single project
++**Performance Goals**: N/A (one-time installation tool)
++**Constraints**: Must maintain backward compatibility with existing agents
++**Scale/Scope**: 7 new agent implementations following established pattern
++
++## Constitution Check
++
++*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
++
++Constitution is not yet defined for this project (template placeholder). Proceeding without gate violations.
++
++## Project Structure
++
++### Documentation (this feature)
++
++```text
++specs/001-expand-agent-support/
++├── plan.md              # This file
++├── research.md          # Phase 0 output
++├── data-model.md        # Phase 1 output
++├── quickstart.md        # Phase 1 output
++└── tasks.md             # Phase 2 output (created by /speckit.tasks)
++```
++
++### Source Code (repository root)
++
++```text
++internal/llmsetup/
++├── agent.go             # Agent interface + registry (modify: add new agents)
++├── claudecode.go        # Existing: ClaudeCodeAgent
++├── cursor.go            # Existing: CursorAgent
++├── copilot.go           # Existing: CopilotAgent
++├── gemini.go            # NEW: GeminiCLIAgent
++├── opencode.go          # NEW: OpenCodeAgent
++├── codex.go             # NEW: CodexAgent (OpenAI Codex)
++├── amp.go               # NEW: AmpAgent
++├── goose.go             # NEW: GooseAgent
++├── factory.go           # NEW: FactoryAgent
++├── llmsetup.go          # LLMSetupCmd (modify: add new subcommands)
++├── llmsetup_test.go     # Tests (modify: add new agent tests)
++├── install.go           # Install function (no changes needed)
++├── install_test.go      # Install tests (no changes needed)
++├── path.go              # Path resolution (no changes needed)
++├── path_test.go         # Path tests (no changes needed)
++└── skills/kessoku-di/   # Embedded skill files (shared by all agents)
++```
++
++**Structure Decision**: Follow existing single-file-per-agent pattern. All 7 new agents are added as separate files in `internal/llmsetup/`, registered in the `agents` slice in `agent.go`, and exposed via CLI in `llmsetup.go`.
++
++## Complexity Tracking
++
++No constitution violations to justify.
+
+--- FILE 4/7 ---
+FILE: specs/001-expand-agent-support/quickstart.md
+STATUS: added
+ADDITIONS: 138
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,138 @@
++# Quickstart: Expand Agent Support
++
++**Phase 1 Output** | **Date**: 2026-01-12
++
++## Overview
++
++Add 6 new coding agent implementations to enable skill installation for Gemini CLI, OpenCode, OpenAI Codex, Amp, Goose, and Factory.
++
++## Implementation Checklist
++
++### Step 1: Create Agent Files
++
++Create 7 new files in `internal/llmsetup/`:
++
++```bash
++# Template for each agent file
++cat > internal/llmsetup/gemini.go << 'EOF'
++package llmsetup
++
++import "embed"
++
++// GeminiCLIAgent implements the Agent interface for Gemini CLI.
++type GeminiCLIAgent struct{}
++
++func (a *GeminiCLIAgent) Name() string           { return "gemini-cli" }
++func (a *GeminiCLIAgent) Description() string    { return "Install Gemini CLI skills" }
++func (a *GeminiCLIAgent) SkillsFS() embed.FS     { return claudeCodeSkillsFS }
++func (a *GeminiCLIAgent) SkillsSrcDir() string   { return "skills/kessoku-di" }
++func (a *GeminiCLIAgent) SkillsDirName() string  { return "kessoku-di" }
++func (a *GeminiCLIAgent) ProjectSubPath() string { return ".gemini/skills" }
++func (a *GeminiCLIAgent) UserSubPath() string    { return ".gemini/skills" }
++EOF
++```
++
++### Step 2: Agent Configuration Reference
++
++| File | Struct | Name | Project Path | User Path |
++|------|--------|------|--------------|-----------|
++| `gemini.go` | `GeminiCLIAgent` | `gemini-cli` | `.gemini/skills` | `.gemini/skills` |
++| `opencode.go` | `OpenCodeAgent` | `opencode` | `.opencode/skill` | `.config/opencode/skill` |
++| `codex.go` | `CodexAgent` | `openai-codex` | `.codex/skills` | `.codex/skills` |
++| `amp.go` | `AmpAgent` | `amp` | `.agents/skills` | `.config/agents/skills` |
++| `goose.go` | `GooseAgent` | `goose` | `.agents/skills` | `.config/goose/skills` |
++| `factory.go` | `FactoryAgent` | `factory` | `.factory/skills` | `.factory/skills` |
++
++### Step 3: Register Agents
++
++Update `internal/llmsetup/agent.go`:
++
++```go
++var agents = []Agent{
++    &ClaudeCodeAgent{},
++    &CursorAgent{},
++    &CopilotAgent{},
++    // Add new agents (alphabetical)
++    &AmpAgent{},
++    &CodexAgent{},
++    &FactoryAgent{},
++    &GeminiCLIAgent{},
++    &GooseAgent{},
++    &OpenCodeAgent{},
++}
++```
++
++### Step 4: Add CLI Commands
++
++Update `internal/llmsetup/llmsetup.go`:
++
++```go
++// Add type aliases
++type AmpCmd = AgentCmd[*AmpAgent]
++type CodexCmd = AgentCmd[*CodexAgent]
++type FactoryCmd = AgentCmd[*FactoryAgent]
++type GeminiCLICmd = AgentCmd[*GeminiCLIAgent]
++type GooseCmd = AgentCmd[*GooseAgent]
++type OpenCodeCmd = AgentCmd[*OpenCodeAgent]
++
++// Add fields to LLMSetupCmd struct
++type LLMSetupCmd struct {
++    // ... existing fields ...
++    Amp         AmpCmd       `kong:"cmd,name='amp',help='Install Amp skills'"`
++    Factory     FactoryCmd   `kong:"cmd,name='factory',help='Install Factory skills'"`
++    GeminiCLI   GeminiCLICmd `kong:"cmd,name='gemini-cli',help='Install Gemini CLI skills'"`
++    Goose       GooseCmd     `kong:"cmd,name='goose',help='Install Goose skills'"`
++    OpenAICodex CodexCmd     `kong:"cmd,name='openai-codex',help='Install OpenAI Codex skills'"`
++    OpenCode    OpenCodeCmd  `kong:"cmd,name='opencode',help='Install OpenCode skills'"`
++}
++```
++
++### Step 5: Update Tests
++
++Extend `TestAgents` table in `internal/llmsetup/llmsetup_test.go`:
++
++```go
++{
++    name:           "GeminiCLIAgent",
++    agent:          &GeminiCLIAgent{},
++    wantName:       "gemini-cli",
++    projectSubPath: ".gemini/skills",
++    userSubPath:    ".gemini/skills",
++},
++// ... repeat for each new agent
++```
++
++Add new tests:
++- `TestGeminiCLICmd`, `TestOpenCodeCmd`, etc. (using `testAgentCmd` helper)
++- Update `TestGetAgent` to include new agent names
++- Update `TestListAgents` expected agents slice
++- Update `TestLLMSetupCmd` subcommands check
++
++## Verification Commands
++
++```bash
++# Run all tests
++go test -v ./internal/llmsetup/...
++
++# Verify CLI help shows new agents
++go tool kessoku --help
++
+
+[PATCH TRUNCATED: 139 total lines]
+
+--- FILE 5/7 ---
+FILE: specs/001-expand-agent-support/research.md
+STATUS: added
+ADDITIONS: 84
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,84 @@
++# Research: Expand Agent Support
++
++**Phase 0 Output** | **Date**: 2026-01-12
++
++## Summary
++
++Research to verify agent skill directory paths and implementation patterns for 7 new coding agents.
++
++## Decisions
++
++### 1. Agent Implementation Pattern
++
++**Decision**: Follow existing single-file-per-agent pattern
++**Rationale**:
++- Existing agents (Claude Code, Cursor, Copilot) each have dedicated files
++- Pattern is proven and well-tested
++- Maintains code organization consistency
++- Each agent struct is small (~40 lines), making separate files appropriate
++
++**Alternatives Considered**:
++- Single file with all agents: Rejected (would become too large with 10 agents)
++- Config-driven agents: Rejected (adds unnecessary complexity for static configuration)
++
++### 2. Skill File Sharing
++
++**Decision**: All agents share the same embedded `claudeCodeSkillsFS`
++**Rationale**:
++- Existing pattern already shares embed.FS across agents
++- No agent-specific skill customization required per spec
++- Reduces binary size by avoiding duplicate embeddings
++
++**Alternatives Considered**:
++- Separate embed.FS per agent: Rejected (wasteful, no benefit)
++- Agent-specific SKILL.md files: Out of scope per spec
++
++### 3. Agent Skill Directory Paths
++
++Paths verified from official documentation (see spec.md Path Verification Status):
++
++| Agent | Project Path | User Path | Source |
++|-------|-------------|-----------|--------|
++| Gemini CLI | `.gemini/skills/` | `~/.gemini/skills/` | [Gemini CLI Docs](https://geminicli.com/docs/cli/skills/) |
++| OpenCode | `.opencode/skill/` | `~/.config/opencode/skill/` | [OpenCode Docs](https://opencode.ai/docs/skills/) |
++| OpenAI Codex | `.codex/skills/` | `~/.codex/skills/` | [Codex Docs](https://developers.openai.com/codex/skills) |
++| Amp | `.agents/skills/` | `~/.config/agents/skills/` | [Amp Docs](https://ampcode.com/news/agent-skills) |
++| Goose | `.agents/skills/` | `~/.config/goose/skills/` | [Goose GitHub](https://github.com/block/goose) |
++| Factory | `.factory/skills/` | `~/.factory/skills/` | [Factory Docs](https://docs.factory.ai/cli/configuration/skills) |
++
++### 4. Shared Project-Level Directory Handling
++
++**Decision**: Amp and Goose share `.agents/skills/` at project level but have distinct user paths
++**Rationale**:
++- Both agents follow the Agent Skills standard convention for project-level
++- User-level directories remain distinct for configuration isolation
++- No special handling needed - existing implementation supports this naturally
++
++### 5. CLI Subcommand Naming
++
++**Decision**: Use lowercase hyphenated names matching agent branding
++
++| Agent | Subcommand |
++|-------|------------|
++| Gemini CLI | `gemini-cli` |
++| OpenCode | `opencode` |
++| OpenAI Codex | `openai-codex` |
++| Amp | `amp` |
++| Goose | `goose` |
++| Factory | `factory` |
++
++**Rationale**: Consistent with existing agents (`claude-code`, `github-copilot`)
++
++## Open Questions Resolved
++
++All technical questions from spec clarification phase have been resolved:
++
++1. **Shared directories**: No special handling needed; works with existing implementation
++2. **Skill file customization**: Out of scope; all agents share same files
++
++## Implementation Notes
++
++1. **File structure**: 6 new files in `internal/llmsetup/`
++2. **Registry update**: Add 6 new agents to `agents` slice in `agent.go`
++3. **CLI update**: Add 6 new type aliases and fields in `llmsetup.go`
++4. **Test update**: Extend table-driven tests to cover new agents
+
+--- FILE 6/7 ---
+FILE: specs/001-expand-agent-support/spec.md
+STATUS: added
+ADDITIONS: 203
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,203 @@
++# Feature Specification: Expand Agent Support
++
++**Feature Branch**: `001-expand-agent-support`
++**Created**: 2026-01-12
++**Status**: Ready for Planning
++**Input**: User description: "Expand agent.go to support all Coding Agents listed on agentskills.io"
++
++## User Scenarios & Testing *(mandatory)*
++
++### User Story 1 - Install Skills for Any Supported Agent (Priority: P1)
++
++Users want to install kessoku-di skills for their preferred coding agent, regardless of which tool they use. Currently, only Claude Code, Cursor, and GitHub Copilot are supported. The agentskills.io adoption section lists 12 tools, but some share implementations (VS Code/GitHub use Copilot, Claude Desktop uses Claude Code paths), resulting in 9 distinct agent configurations.
++
++**Why this priority**: This is the core value proposition - enabling all users of agentskills.io-compatible tools to benefit from kessoku-di skills.
++
++**Independent Test**: Can be fully tested by running `go tool kessoku <agent-name> --project` for each new agent and verifying the skill files are installed to the correct directory.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user with Gemini CLI installed, **When** they run `go tool kessoku gemini-cli --project`, **Then** skills are installed to `.gemini/skills/kessoku-di/`
++2. **Given** a user with OpenCode installed, **When** they run `go tool kessoku opencode --project`, **Then** skills are installed to `.opencode/skill/kessoku-di/`
++3. **Given** a user with OpenAI Codex installed, **When** they run `go tool kessoku openai-codex --project`, **Then** skills are installed to `.codex/skills/kessoku-di/`
++4. **Given** a user with Amp installed, **When** they run `go tool kessoku amp --project`, **Then** skills are installed to `.agents/skills/kessoku-di/`
++5. **Given** a user with Goose installed, **When** they run `go tool kessoku goose --project`, **Then** skills are installed to `.agents/skills/kessoku-di/`
++6. **Given** a user with Factory installed, **When** they run `go tool kessoku factory --project`, **Then** skills are installed to `.factory/skills/kessoku-di/`
++7. **Given** skills already exist in the target directory, **When** a user runs any agent install command, **Then** existing files are silently overwritten with the new version
++8. **Given** the target directory does not exist, **When** a user runs any agent install command, **Then** the directory is created automatically with permissions 0755
++
++---
++
++### User Story 2 - Install Skills at User Level for New Agents (Priority: P2)
++
++Users want to install kessoku-di skills at the user level so they're available across all projects without per-project installation.
++
++**Why this priority**: User-level installation is a convenience feature that follows naturally from project-level support.
++
++**Independent Test**: Can be fully tested by running `go tool kessoku <agent-name> --user` for each new agent and verifying files are installed to the correct user-level directory.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user wants user-level skills, **When** they run `go tool kessoku gemini-cli --user`, **Then** skills are installed to `~/.gemini/skills/kessoku-di/`
++2. **Given** a user wants user-level skills, **When** they run `go tool kessoku opencode --user`, **Then** skills are installed to `~/.config/opencode/skill/kessoku-di/`
++3. **Given** a user wants user-level skills, **When** they run `go tool kessoku openai-codex --user`, **Then** skills are installed to `~/.codex/skills/kessoku-di/`
++4. **Given** a user wants user-level skills, **When** they run `go tool kessoku amp --user`, **Then** skills are installed to `~/.config/agents/skills/kessoku-di/`
++5. **Given** a user wants user-level skills, **When** they run `go tool kessoku goose --user`, **Then** skills are installed to `~/.config/goose/skills/kessoku-di/`
++6. **Given** a user wants user-level skills, **When** they run `go tool kessoku factory --user`, **Then** skills are installed to `~/.factory/skills/kessoku-di/`
++7. **Given** the user-level config directory does not exist, **When** a user runs `--user` install, **Then** the directory is created automatically
++
++---
++
++### User Story 3 - Discover Available Agents (Priority: P3)
++
++Users want to see which agents are supported and choose the appropriate one for their setup.
++
++**Why this priority**: Discoverability enhances user experience but is not essential for core functionality.
++
++**Independent Test**: Can be tested by running `go tool kessoku --help` and verifying all new agents appear in the subcommand list.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user runs `go tool kessoku --help`, **When** viewing the output, **Then** all 9 supported agents are listed (`claude-code`, `cursor`, `github-copilot`, `gemini-cli`, `opencode`, `openai-codex`, `amp`, `goose`, `factory`)
++2. **Given** a user runs `go tool kessoku --help`, **When** viewing the output, **Then** each agent has a unique subcommand name with no duplicates
++3. **Given** a user runs `go tool kessoku --help`, **When** viewing each agent's entry, **Then** each agent displays a descriptive help text (e.g., "Install Gemini CLI skills")
++
++---
++
++### User Story 4 - Default Installation Behavior (Priority: P1)
++
++Users need clear, predictable behavior when running agent commands without explicit flags.
++
++**Why this priority**: Essential for usability - users must know what happens by default.
++
++**Independent Test**: Can be tested by running `go tool kessoku <agent-name>` without flags and verifying default behavior.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user runs `go tool kessoku gemini-cli` without `--project` or `--user`, **When** the command executes, **Then** skills are installed to the project-level directory (`.gemini/skills/kessoku-di/`) by default
++2. **Given** a user runs any agent command without flags, **When** the command executes, **Then** installation defaults to project-level (same as `--project`)
++3. **Given** a user runs `go tool kessoku unknown-agent`, **When** the command executes, **Then** the CLI displays an error message listing valid agent names and exits with non-zero status
++
++---
++
++### User Story 5 - Shared Directory Behavior (Priority: P2)
++
++Users of Amp and Goose need predictable behavior when both agents target the same project-level directory.
++
++**Why this priority**: Prevents confusion when multiple agents share paths.
++
++**Independent Test**: Can be tested by running both `amp --project` and `goose --project` in sequence.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user runs `go tool kessoku amp --project`, **When** they subsequently run `go tool kessoku goose --project`, **Then** skills are overwritten (idempotent, same content)
++2. **Given** Amp and Goose share `.agents/skills/` at project level, **When** either agent installs, **Then** the resulting `kessoku-di/` directory contains identical files regardless of which agent installed last
++3. **Given** skills were installed by Amp, **When** Goose installs to the same directory, **Then** no error occurs and the operation completes successfully
++
++---
++
++### Edge Cases
++
++- What happens when a user tries to install to an existing skill directory? → **FR-013** (silent overwrite)
++- How does the system handle agents with shared project-level skill directories? → **User Story 5** (idempotent overwrite)
++- What happens if the user-level config directory doesn't exist? → **FR-014** (auto-create)
++- What happens when no `--project` or `--user` flag is provided? → **FR-015** (default to project)
++- What happens with an unknown agent name? → **FR-016** (error with valid names)
++
++## Requirements *(mandatory)*
++
++### Agent Configuration Table
++
++All 9 supported agents with their canonical subcommand names and paths:
++
++| Subcommand | Project Path | User Path | Source | Status |
++|------------|--------------|-----------|--------|--------|
++| `claude-code` | `.claude/skills/` | `~/.claude/skills/` | [Claude Code Docs](https://code.claude.com/docs/en/skills) | Existing |
++| `cursor` | `.cursor/rules/` | `~/.cursor/rules/` | [Cursor Docs](https://docs.cursor.com/context/rules) | Existing |
++| `github-copilot` | `.github/skills/` | `~/.github/skills/` | [GitHub Copilot Changelog](https://github.blog/changelog/2025-12-18-github-copilot-now-supports-agent-skills/) | Existing |
++| `gemini-cli` | `.gemini/skills/` | `~/.gemini/skills/` | [Gemini CLI Docs](https://geminicli.com/docs/cli/skills/) | **New** |
++| `opencode` | `.opencode/skill/` | `~/.config/opencode/skill/` | [OpenCode Docs](https://opencode.ai/docs/skills/) | **New** |
+
+[PATCH TRUNCATED: 204 total lines]
+
+--- FILE 7/7 ---
+FILE: specs/001-expand-agent-support/tasks.md
+STATUS: added
+ADDITIONS: 229
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,229 @@
++# Tasks: Expand Agent Support
++
++**Input**: Design documents from `/specs/001-expand-agent-support/`
++**Prerequisites**: plan.md, spec.md, research.md, data-model.md, quickstart.md
++
++**Tests**: Included (existing test infrastructure to be extended)
++
++**Organization**: Due to the nature of this feature (adding 6 parallel agent implementations), tasks are organized by implementation phase rather than strictly by user story. Each agent file enables all user stories for that agent.
++
++## Format: `[ID] [P?] [Story] Description`
++
++- **[P]**: Can run in parallel (different files, no dependencies)
++- **[Story]**: Which user story this task contributes to (US1-US5)
++- Include exact file paths in descriptions
++
++## User Story Reference
++
++| Story | Priority | Description |
++|-------|----------|-------------|
++| US1 | P1 | Install Skills for Any Supported Agent (project-level) |
++| US2 | P2 | Install Skills at User Level for New Agents |
++| US3 | P3 | Discover Available Agents (CLI help) |
++| US4 | P1 | Default Installation Behavior |
++| US5 | P2 | Shared Directory Behavior (Amp/Goose) |
++
++---
++
++## Phase 1: Setup
++
++**Purpose**: No setup required - existing Go project with established patterns
++
++*All dependencies already in place. Proceeding to implementation.*
++
++---
++
++## Phase 2: Foundational - Agent Implementations
++
++**Purpose**: Create all 6 new agent struct files following existing pattern
++
++**Story Coverage**: Each agent file enables US1, US2, US3, US4 for that agent. T005 and T006 additionally enable US5.
++
++- [x] T001 [P] Create GeminiCLIAgent in internal/llmsetup/gemini.go with project path `.gemini/skills` and user path `.gemini/skills`
++- [x] T002 [P] Create OpenCodeAgent in internal/llmsetup/opencode.go with project path `.opencode/skill` and user path `.config/opencode/skill`
++- [x] T003 [P] Create CodexAgent in internal/llmsetup/codex.go with project path `.codex/skills` and user path `.codex/skills`
++- [x] T004 [P] Create AmpAgent in internal/llmsetup/amp.go with project path `.agents/skills` and user path `.config/agents/skills`
++- [x] T005 [P] Create GooseAgent in internal/llmsetup/goose.go with project path `.agents/skills` and user path `.config/goose/skills`
++- [x] T006 [P] Create FactoryAgent in internal/llmsetup/factory.go with project path `.factory/skills` and user path `.factory/skills`
++
++**Checkpoint**: All 6 agent structs exist. Ready for registration.
++
++---
++
++## Phase 3: US1 + US4 - Core Installation (Priority: P1)
++
++**Goal**: Enable project-level skill installation for all new agents with correct default behavior
++
++**Independent Test**: Run `go tool kessoku <agent> --project` for each new agent and verify skills are installed to correct directory
++
++### Implementation
++
++- [x] T007 [US1] [US4] Register 6 new agents in agents slice in internal/llmsetup/agent.go (alphabetical: Amp, Codex, Factory, GeminiCLI, Goose, OpenCode)
++- [x] T008 [P] [US1] [US4] Add 6 type aliases (AmpCmd, CodexCmd, FactoryCmd, GeminiCLICmd, GooseCmd, OpenCodeCmd) in internal/llmsetup/llmsetup.go
++- [x] T009 [US1] [US4] Add 6 new fields to LLMSetupCmd struct in internal/llmsetup/llmsetup.go with kong tags
++
++**Checkpoint**: `go tool kessoku <agent-name>` works for all 6 new agents. Project-level installation enabled.
++
++---
++
++## Phase 4: US2 + US5 - User-Level & Shared Directory (Priority: P2)
++
++**Goal**: Verify user-level installation and shared directory behavior work correctly
++
++**Independent Test**: Run `go tool kessoku <agent> --user` for each new agent. Run both `amp --project` and `goose --project` in same directory.
++
++**Note**: User-level paths are already configured in agent structs (Phase 2). Shared directory behavior is inherent in Amp/Goose configuration. This phase is primarily verification.
++
++### Verification Tasks
++
++- [x] T010 [US2] Verify user-level installation works by testing `go tool kessoku gemini-cli --user` writes to correct path
++- [x] T011 [US5] Verify shared directory behavior: `amp --project` followed by `goose --project` produces identical files in `.agents/skills/kessoku-di/`
++
++**Checkpoint**: User-level installation and shared directory idempotence verified.
++
++---
++
++## Phase 5: US3 - Discovery (Priority: P3)
++
++**Goal**: All 9 agents visible and documented in CLI help
++
++**Independent Test**: Run `go tool kessoku --help` and verify all agents appear
++
++### Verification Tasks
++
++- [x] T012 [US3] Verify `go tool kessoku --help` displays all 9 agents with descriptions
++
++**Checkpoint**: CLI help shows all agents. Discovery complete.
++
++---
++
++## Phase 6: Testing
++
++**Purpose**: Extend existing test suite to cover new agents
++
++### Agent Struct Tests
++
++- [x] T013 [P] Add TestAgents table entries for GeminiCLIAgent in internal/llmsetup/llmsetup_test.go
++- [x] T014 [P] Add TestAgents table entries for OpenCodeAgent in internal/llmsetup/llmsetup_test.go
++- [x] T015 [P] Add TestAgents table entries for CodexAgent in internal/llmsetup/llmsetup_test.go
++- [x] T016 [P] Add TestAgents table entries for AmpAgent in internal/llmsetup/llmsetup_test.go
++- [x] T017 [P] Add TestAgents table entries for GooseAgent in internal/llmsetup/llmsetup_test.go
++- [x] T018 [P] Add TestAgents table entries for FactoryAgent in internal/llmsetup/llmsetup_test.go
++
++### CLI Command Tests
++
++- [x] T019 [P] Add TestGeminiCLICmd using testAgentCmd helper in internal/llmsetup/llmsetup_test.go
++- [x] T020 [P] Add TestOpenCodeCmd using testAgentCmd helper in internal/llmsetup/llmsetup_test.go
++- [x] T021 [P] Add TestCodexCmd using testAgentCmd helper in internal/llmsetup/llmsetup_test.go
++- [x] T022 [P] Add TestAmpCmd using testAgentCmd helper in internal/llmsetup/llmsetup_test.go
++- [x] T023 [P] Add TestGooseCmd using testAgentCmd helper in internal/llmsetup/llmsetup_test.go
+
+[PATCH TRUNCATED: 230 total lines]
+
+
+####################################################################################################
+SECTION B — ALL LATER COMMITS IN THIS PR
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 2  [STEP-7 AUTOMATED CODE HINT — NOT GROUND TRUTH]
+====================================================================================================
+SHA: 963bd8c4f54299f561496b8ed6202fe8be3661bf
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: add support for additional coding agents
+
+Add Agent implementations for 6 new coding assistants:
+- AmpAgent: .agents/skills/ (project), ~/.config/agents/skills/ (user)
+- CodexAgent (OpenAI Codex): .codex/skills/
+- FactoryAgent: .factory/skills/
+- GeminiCLIAgent: .gemini/skills/
+- GooseAgent: .agents/skills/ (project), ~/.config/goose/skills/ (user)
+- OpenCodeAgent: .opencode/skill/ (project), ~/.config/opencode/skill/ (user)
+
+Each agent follows the existing Agent interface pattern with proper
+skill installation paths and CLI subcommands.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 9
+
+--- FILE 1/9 ---
+FILE: internal/llmsetup/agent.go
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 0
+
+PATCH:
+@@ -19,6 +19,12 @@ var agents = []Agent{
+ 	&ClaudeCodeAgent{},
+ 	&CursorAgent{},
+ 	&CopilotAgent{},
++	&AmpAgent{},
++	&CodexAgent{},
++	&FactoryAgent{},
++	&GeminiCLIAgent{},
++	&GooseAgent{},
++	&OpenCodeAgent{},
+ }
+ 
+ // GetAgent returns the agent with the given name, if it exists.
+
+--- FILE 2/9 ---
+FILE: internal/llmsetup/amp.go
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++package llmsetup
++
++import "embed"
++
++// AmpAgent implements the Agent interface for Amp.
++type AmpAgent struct{}
++
++// Name returns the subcommand name.
++func (a *AmpAgent) Name() string {
++	return "amp"
++}
++
++// Description returns the help text.
++func (a *AmpAgent) Description() string {
++	return "Install Amp skills"
++}
++
++// SkillsFS returns the embedded skill files.
++func (a *AmpAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *AmpAgent) SkillsSrcDir() string {
++	return "skills/kessoku-di"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *AmpAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *AmpAgent) ProjectSubPath() string {
++	return ".agents/skills"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *AmpAgent) UserSubPath() string {
++	return ".config/agents/skills"
++}
+
+--- FILE 3/9 ---
+FILE: internal/llmsetup/codex.go
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++package llmsetup
++
++import "embed"
++
++// CodexAgent implements the Agent interface for OpenAI Codex.
++type CodexAgent struct{}
++
++// Name returns the subcommand name.
++func (a *CodexAgent) Name() string {
++	return "openai-codex"
++}
++
++// Description returns the help text.
++func (a *CodexAgent) Description() string {
++	return "Install OpenAI Codex skills"
++}
++
++// SkillsFS returns the embedded skill files.
++func (a *CodexAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *CodexAgent) SkillsSrcDir() string {
++	return "skills/kessoku-di"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *CodexAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *CodexAgent) ProjectSubPath() string {
++	return ".codex/skills"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *CodexAgent) UserSubPath() string {
++	return ".codex/skills"
++}
+
+--- FILE 4/9 ---
+FILE: internal/llmsetup/factory.go
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++package llmsetup
++
++import "embed"
++
++// FactoryAgent implements the Agent interface for Factory.
++type FactoryAgent struct{}
++
++// Name returns the subcommand name.
++func (a *FactoryAgent) Name() string {
++	return "factory"
++}
++
++// Description returns the help text.
++func (a *FactoryAgent) Description() string {
++	return "Install Factory skills"
++}
++
++// SkillsFS returns the embedded skill files.
++func (a *FactoryAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *FactoryAgent) SkillsSrcDir() string {
++	return "skills/kessoku-di"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *FactoryAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *FactoryAgent) ProjectSubPath() string {
++	return ".factory/skills"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *FactoryAgent) UserSubPath() string {
++	return ".factory/skills"
++}
+
+--- FILE 5/9 ---
+FILE: internal/llmsetup/gemini.go
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++package llmsetup
++
++import "embed"
++
++// GeminiCLIAgent implements the Agent interface for Gemini CLI.
++type GeminiCLIAgent struct{}
++
++// Name returns the subcommand name.
++func (a *GeminiCLIAgent) Name() string {
++	return "gemini-cli"
++}
++
++// Description returns the help text.
++func (a *GeminiCLIAgent) Description() string {
++	return "Install Gemini CLI skills"
++}
++
++// SkillsFS returns the embedded skill files.
++func (a *GeminiCLIAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *GeminiCLIAgent) SkillsSrcDir() string {
++	return "skills/kessoku-di"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *GeminiCLIAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *GeminiCLIAgent) ProjectSubPath() string {
++	return ".gemini/skills"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *GeminiCLIAgent) UserSubPath() string {
++	return ".gemini/skills"
++}
+
+--- FILE 6/9 ---
+FILE: internal/llmsetup/goose.go
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++package llmsetup
++
++import "embed"
++
++// GooseAgent implements the Agent interface for Goose.
++type GooseAgent struct{}
++
++// Name returns the subcommand name.
++func (a *GooseAgent) Name() string {
++	return "goose"
++}
++
++// Description returns the help text.
++func (a *GooseAgent) Description() string {
++	return "Install Goose skills"
++}
++
++// SkillsFS returns the embedded skill files.
++func (a *GooseAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *GooseAgent) SkillsSrcDir() string {
++	return "skills/kessoku-di"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *GooseAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *GooseAgent) ProjectSubPath() string {
++	return ".agents/skills"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *GooseAgent) UserSubPath() string {
++	return ".config/goose/skills"
++}
+
+--- FILE 7/9 ---
+FILE: internal/llmsetup/llmsetup.go
+STATUS: modified
+ADDITIONS: 24
+DELETIONS: 0
+
+PATCH:
+@@ -14,6 +14,12 @@ type LLMSetupCmd struct {
+ 	ClaudeCode    ClaudeCodeCmd `kong:"cmd,name='claude-code',help='Install Claude Code skills'"`
+ 	Cursor        CursorCmd     `kong:"cmd,name='cursor',help='Install Cursor skills'"`
+ 	GithubCopilot CopilotCmd    `kong:"cmd,name='github-copilot',help='Install GitHub Copilot skills'"`
++	Amp           AmpCmd        `kong:"cmd,name='amp',help='Install Amp skills'"`
++	Factory       FactoryCmd    `kong:"cmd,name='factory',help='Install Factory skills'"`
++	GeminiCLI     GeminiCLICmd  `kong:"cmd,name='gemini-cli',help='Install Gemini CLI skills'"`
++	Goose         GooseCmd      `kong:"cmd,name='goose',help='Install Goose skills'"`
++	OpenAICodex   CodexCmd      `kong:"cmd,name='openai-codex',help='Install OpenAI Codex skills'"`
++	OpenCode      OpenCodeCmd   `kong:"cmd,name='opencode',help='Install OpenCode skills'"`
+ }
+ 
+ // UsageCmd is a hidden default command that prints usage (FR-003).
+@@ -77,3 +83,21 @@ type CursorCmd = AgentCmd[*CursorAgent]
+ 
+ // CopilotCmd is the subcommand for installing GitHub Copilot Skills.
+ type CopilotCmd = AgentCmd[*CopilotAgent]
++
++// AmpCmd is the subcommand for installing Amp Skills.
++type AmpCmd = AgentCmd[*AmpAgent]
++
++// CodexCmd is the subcommand for installing OpenAI Codex Skills.
++type CodexCmd = AgentCmd[*CodexAgent]
++
++// FactoryCmd is the subcommand for installing Factory Skills.
++type FactoryCmd = AgentCmd[*FactoryAgent]
++
++// GeminiCLICmd is the subcommand for installing Gemini CLI Skills.
++type GeminiCLICmd = AgentCmd[*GeminiCLIAgent]
++
++// GooseCmd is the subcommand for installing Goose Skills.
++type GooseCmd = AgentCmd[*GooseAgent]
++
++// OpenCodeCmd is the subcommand for installing OpenCode Skills.
++type OpenCodeCmd = AgentCmd[*OpenCodeAgent]
+
+--- FILE 8/9 ---
+FILE: internal/llmsetup/llmsetup_test.go
+STATUS: modified
+ADDITIONS: 95
+DELETIONS: 1
+
+PATCH:
+@@ -83,6 +83,42 @@ func TestCopilotCmd(t *testing.T) {
+ 	})
+ }
+ 
++func TestGeminiCLICmd(t *testing.T) {
++	testAgentCmd(t, "GeminiCLI", func(path string, stdout, stderr *bytes.Buffer) *GeminiCLICmd {
++		return &GeminiCLICmd{Path: path, Stdout: stdout, Stderr: stderr}
++	})
++}
++
++func TestOpenCodeCmd(t *testing.T) {
++	testAgentCmd(t, "OpenCode", func(path string, stdout, stderr *bytes.Buffer) *OpenCodeCmd {
++		return &OpenCodeCmd{Path: path, Stdout: stdout, Stderr: stderr}
++	})
++}
++
++func TestCodexCmd(t *testing.T) {
++	testAgentCmd(t, "Codex", func(path string, stdout, stderr *bytes.Buffer) *CodexCmd {
++		return &CodexCmd{Path: path, Stdout: stdout, Stderr: stderr}
++	})
++}
++
++func TestAmpCmd(t *testing.T) {
++	testAgentCmd(t, "Amp", func(path string, stdout, stderr *bytes.Buffer) *AmpCmd {
++		return &AmpCmd{Path: path, Stdout: stdout, Stderr: stderr}
++	})
++}
++
++func TestGooseCmd(t *testing.T) {
++	testAgentCmd(t, "Goose", func(path string, stdout, stderr *bytes.Buffer) *GooseCmd {
++		return &GooseCmd{Path: path, Stdout: stdout, Stderr: stderr}
++	})
++}
++
++func TestFactoryCmd(t *testing.T) {
++	testAgentCmd(t, "Factory", func(path string, stdout, stderr *bytes.Buffer) *FactoryCmd {
++		return &FactoryCmd{Path: path, Stdout: stdout, Stderr: stderr}
++	})
++}
++
+ // TestAgents tests all Agent implementations with table-driven tests.
+ func TestAgents(t *testing.T) {
+ 	tests := []struct {
+@@ -113,6 +149,48 @@ func TestAgents(t *testing.T) {
+ 			projectSubPath: ".github/skills",
+ 			userSubPath:    ".github/skills",
+ 		},
++		{
++			name:           "GeminiCLIAgent",
++			agent:          &GeminiCLIAgent{},
++			wantName:       "gemini-cli",
++			projectSubPath: ".gemini/skills",
++			userSubPath:    ".gemini/skills",
++		},
++		{
++			name:           "OpenCodeAgent",
++			agent:          &OpenCodeAgent{},
++			wantName:       "opencode",
++			projectSubPath: ".opencode/skill",
++			userSubPath:    ".config/opencode/skill",
++		},
++		{
++			name:           "CodexAgent",
++			agent:          &CodexAgent{},
++			wantName:       "openai-codex",
++			projectSubPath: ".codex/skills",
++			userSubPath:    ".codex/skills",
++		},
++		{
++			name:           "AmpAgent",
++			agent:          &AmpAgent{},
++			wantName:       "amp",
++			projectSubPath: ".agents/skills",
++			userSubPath:    ".config/agents/skills",
++		},
++		{
++			name:           "GooseAgent",
++			agent:          &GooseAgent{},
++			wantName:       "goose",
++			projectSubPath: ".agents/skills",
++			userSubPath:    ".config/goose/skills",
++		},
++		{
++			name:           "FactoryAgent",
++			agent:          &FactoryAgent{},
++			wantName:       "factory",
++			projectSubPath: ".factory/skills",
++			userSubPath:    ".factory/skills",
++		},
+ 	}
+ 
+ 	for _, tt := range tests {
+@@ -172,6 +250,12 @@ func TestGetAgent(t *testing.T) {
+ 		{"known agent claude-code", "claude-code", true},
+ 		{"known agent cursor", "cursor", true},
+ 		{"known agent github-copilot", "github-copilot", true},
++		{"known agent gemini-cli", "gemini-cli", true},
++		{"known agent opencode", "opencode", true},
++		{"known agent openai-codex", "openai-codex", true},
++		{"known agent amp", "amp", true},
++		{"known agent goose", "goose", true},
++		{"known agent factory", "factory", true},
+ 		{"unknown agent", "unknown-agent", false},
+ 	}
+ 
+@@ -197,7 +281,11 @@ func TestListAgents(t *testing.T) {
+ 		t.Error("ListAgents should return at least one agent")
+ 	}
+ 
+-	expectedAgents := []string{"claude-code", "cursor", "github-copilot"}
++	expectedAgents := []string{
++		"claude-code", "cursor", "github-copilot",
++		"gemini-cli", "opencode", "openai-codex",
++		"amp", "goose", "factory",
++	}
+ 	for _, expected := range expectedAgents {
+ 		found := false
+ 		for _, a := range agents {
+@@ -224,6 +312,12 @@ func TestLLMSetupCmd(t *testing.T) {
+ 		{"ClaudeCode", cmd.ClaudeCode.Path, cmd.ClaudeCode.User},
+
+[PATCH TRUNCATED: 131 total lines]
+
+--- FILE 9/9 ---
+FILE: internal/llmsetup/opencode.go
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++package llmsetup
++
++import "embed"
++
++// OpenCodeAgent implements the Agent interface for OpenCode.
++type OpenCodeAgent struct{}
++
++// Name returns the subcommand name.
++func (a *OpenCodeAgent) Name() string {
++	return "opencode"
++}
++
++// Description returns the help text.
++func (a *OpenCodeAgent) Description() string {
++	return "Install OpenCode skills"
++}
++
++// SkillsFS returns the embedded skill files.
++func (a *OpenCodeAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *OpenCodeAgent) SkillsSrcDir() string {
++	return "skills/kessoku-di"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *OpenCodeAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *OpenCodeAgent) ProjectSubPath() string {
++	return ".opencode/skill"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *OpenCodeAgent) UserSubPath() string {
++	return ".config/opencode/skill"
++}
+
+
+====================================================================================================
+COMMIT POSITION 3
+====================================================================================================
+SHA: b94aef7f1daace7a4f698c5a2e3f37bcdc5ac03e
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: update documentation for new agent support
+
+- Update README with new supported agents list
+- Simplify usage examples with generic <agent> placeholder
+- Add installation paths for all 9 supported agents
+- Update CLAUDE.md with active technologies for this feature
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: CLAUDE.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -123,6 +123,8 @@ Migration tool location: `internal/migrate/`
+ - File-based output (Skills files installed to filesystem) (002-agent-skills-setup)
+ - Go 1.24+ + golang.org/x/tools (AST/type checking), standard library (testing, flag, os, path/filepath) (003-golden-test)
+ - File-based (testdata directory with input/expected files) (003-golden-test)
++- Go 1.24+ + github.com/alecthomas/kong (CLI framework) (001-expand-agent-support)
++- N/A (file-based skill installation) (001-expand-agent-support)
+ 
+ ## Recent Changes
+ - 001-wire-migrate: Added Go 1.24+ + github.com/alecthomas/kong (CLI), golang.org/x/tools (AST parsing, type checking)
+
+--- FILE 2/2 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 12
+DELETIONS: 11
+
+PATCH:
+@@ -184,31 +184,32 @@ Kessoku provides built-in skills for AI coding assistants to help you write bett
+ **Install skills for your coding agent:**
+ 
+ ```bash
+-# Claude Code
+-go tool kessoku llm-setup claude-code
+-
+-# Cursor
+-go tool kessoku llm-setup cursor
+-
+-# GitHub Copilot
+-go tool kessoku llm-setup github-copilot
++go tool kessoku llm-setup <agent>
+ ```
+ 
++**Supported agents:** Claude Code(`claude-code`), OpenAI Codex(`openai-codex`), Cursor(`cursor`), GitHub Copilot(`github-copilot`), Gemini CLI(`gemini-cli`), OpenCode(`opencode`), Amp(`amp`), Goose(`goose`), Factory(`factory`)
++
+ <details>
+ <summary>Installation Options</summary>
+ 
+ ```bash
+ # Install to user-level directory (available across all projects)
+-go tool kessoku llm-setup claude-code --user
++go tool kessoku llm-setup <agent> --user
+ 
+ # Install to custom directory
+-go tool kessoku llm-setup claude-code --path ./custom/path
++go tool kessoku llm-setup <agent> --path ./custom/path
+ ```
+ 
+ **Default installation paths:**
+ - **Claude Code:** `.claude/skills/` (project) or `~/.claude/skills/` (user)
+ - **Cursor:** `.cursor/rules/` (project) or `~/.cursor/rules/` (user)
+-- **GitHub Copilot:** `.github/copilot-instructions.d/` (project) or `~/.github/copilot-instructions.d/` (user)
++- **GitHub Copilot:** `.github/skills/` (project) or `~/.github/skills/` (user)
++- **Gemini CLI:** `.gemini/skills/` (project) or `~/.gemini/skills/` (user)
++- **OpenCode:** `.opencode/skill/` (project) or `~/.config/opencode/skill/` (user)
++- **OpenAI Codex:** `.codex/skills/` (project) or `~/.codex/skills/` (user)
++- **Amp:** `.agents/skills/` (project) or `~/.config/agents/skills/` (user)
++- **Goose:** `.agents/skills/` (project) or `~/.config/goose/skills/` (user)
++- **Factory:** `.factory/skills/` (project) or `~/.factory/skills/` (user)
+ 
+ </details>
+ 
+
+
+====================================================================================================
+COMMIT POSITION 4
+====================================================================================================
+SHA: 4c333ce0e18d9914f0d095c9ced7729ce819d5c9
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+rename default skills fs
+
+CHANGED FILES: 10
+
+--- FILE 1/10 ---
+FILE: internal/llmsetup/agent.go
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -3,6 +3,9 @@ package llmsetup
+ 
+ import "embed"
+ 
++//go:embed all:skills/kessoku-di
++var defaultSkillsFS embed.FS
++
+ // Agent defines configuration for a coding agent.
+ type Agent interface {
+ 	Name() string           // Subcommand name (e.g., "claude-code")
+
+--- FILE 2/10 ---
+FILE: internal/llmsetup/amp.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ func (a *AmpAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files.
+ func (a *AmpAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+--- FILE 3/10 ---
+FILE: internal/llmsetup/claudecode.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 4
+
+PATCH:
+@@ -2,9 +2,6 @@ package llmsetup
+ 
+ import "embed"
+ 
+-//go:embed all:skills/kessoku-di
+-var claudeCodeSkillsFS embed.FS
+-
+ // ClaudeCodeAgent implements the Agent interface for Claude Code.
+ type ClaudeCodeAgent struct{}
+ 
+@@ -20,7 +17,7 @@ func (a *ClaudeCodeAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files.
+ func (a *ClaudeCodeAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+--- FILE 4/10 ---
+FILE: internal/llmsetup/codex.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ func (a *CodexAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files.
+ func (a *CodexAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+--- FILE 5/10 ---
+FILE: internal/llmsetup/copilot.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ func (a *CopilotAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files (shared with Claude Code).
+ func (a *CopilotAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+--- FILE 6/10 ---
+FILE: internal/llmsetup/cursor.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ func (a *CursorAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files (shared with Claude Code).
+ func (a *CursorAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+--- FILE 7/10 ---
+FILE: internal/llmsetup/factory.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ func (a *FactoryAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files.
+ func (a *FactoryAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+--- FILE 8/10 ---
+FILE: internal/llmsetup/gemini.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ func (a *GeminiCLIAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files.
+ func (a *GeminiCLIAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+--- FILE 9/10 ---
+FILE: internal/llmsetup/goose.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ func (a *GooseAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files.
+ func (a *GooseAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+--- FILE 10/10 ---
+FILE: internal/llmsetup/opencode.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ func (a *OpenCodeAgent) Description() string {
+ 
+ // SkillsFS returns the embedded skill files.
+ func (a *OpenCodeAgent) SkillsFS() embed.FS {
+-	return claudeCodeSkillsFS
++	return defaultSkillsFS
+ }
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+
+
+####################################################################################################
+SECTION C — HUMAN VALIDATION
+####################################################################################################
+
+Q1. Does the earlier specification commit
+INTRODUCE or substantively MODIFY a
+behavioral requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q2. Is there a LATER commit in this PR that
+implements some or all of THAT requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q3. What is the FIRST relevant implementation
+commit?
+
+Position:
+
+SHA:
+
+Commit message:
+
+Relevant file(s):
+
+
+Q4. Was the requirement present BEFORE that
+first relevant implementation change?
+
+YES / NO / UNCERTAIN
+
+
+Q5. Requirement → implementation link confidence:
+
+HIGH / MEDIUM / LOW / NONE
+
+
+Q6. Preliminary classification:
+
+TIER_A_CANDIDATE
+TIER_B
+TIER_C
+EXCLUDE
+UNCERTAIN
+
+
+Reason:
+
+
+Relevant requirement text:
+
+
+Relevant implementation evidence:
+
+
+Notes:

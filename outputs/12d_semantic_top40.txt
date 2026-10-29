@@ -1,0 +1,160 @@
+#1  margin 1.106  cos 0.977  repo alkem-io/server
+  A: - **FR-012**: Test files MUST be co-located alongside source files following the `*.spec.ts` naming convention.
+  B: - NFR-003: Tests MUST be co-located with source files as `*.spec.ts`
+
+#2  margin 1.102  cos 0.976  repo mazrean/kessoku
+  A: - **FR-016**: System MUST create the target directory (and parent directories) with mode 0755 if it does not exist.
+  B: - **FR-014**: System MUST automatically create target directories (and parent directories) with permissions 0755 if they do not exist
+
+#3  margin 1.079  cos 0.942  repo S2thend/cursor-history-mcp
+  A: - **FR-007**: System MUST support optional parameters for limiting results, filtering by workspace, and specifying output format.
+  B: - **FR-003**: System MUST support optional workspace filtering to limit analysis scope
+
+#4  margin 1.074  cos 0.911  repo b0x42/Super-Productivity-MCP
+  A: - **FR-007**: All triage filters MUST be combinable with each other and with existing filters using AND logic
+  B: - **FR-007**: `planned_for_today` MUST be combinable with all existing filters using AND logic
+
+#5  margin 1.072  cos 0.970  repo Flopsstuff/ksef-client-ts
+  A: ### Requirement: Maintenance window type The system SHALL define a `MaintenanceWindow` interface with: `id` (string), `startTime` (ISO 8601), `endTime` (ISO 8601 or null if ongoing), `active` (boolean), `reason` (string or null), `planned` (boolean). #### Scenario: Active maintenance window - **WHEN** a maintenance window has `active: true` and `endTime: null` - **THEN** it SHALL represent an ongo
+  B: ### Requirement: Maintenance window type The system SHALL define `MaintenanceWindow` with fields: `id` (string), `startTime` (ISO 8601), optional `endTime` (ISO 8601, null if ongoing), `active` (boolean), `planned` (boolean), optional `reason` (string). #### Scenario: Active maintenance window - **WHEN** a `MaintenanceWindow` has `active: true` and no `endTime` - **THEN** deadline calculation SHAL
+
+#6  margin 1.071  cos 0.931  repo atman-33/kiro-for-codex-ide
+  A: ### Requirement: Resolve Global Prompt Directory The extension MUST locate the platform-specific global prompt directory when populating the Prompts view. #### Scenario: Detect platform-specific directory - **GIVEN** the user is running on Linux, macOS, or Windows with a `.codex/prompts` folder in their home directory - **WHEN** the Prompts view loads prompt data - **THEN** the extension reads pro
+  B: ### Requirement: Resolve Global Config Path The extension MUST resolve the global Codex config path using the current user's home directory across supported platforms. #### Scenario: Resolve config path for each platform - **GIVEN** the user runs the extension on Linux, macOS, or Windows - **WHEN** the new settings command resolves the global config path - **THEN** it expands the user's home direc
+
+#7  margin 1.070  cos 0.947  repo RacyMind/kalkulator-dla-przedsiebiorcy-vue
+  A: - **FR-013**: All UI text MUST be in Polish language.
+  B: - **FR-012**: All text in screenshots and graphics MUST be in Polish language
+
+#8  margin 1.070  cos 0.951  repo langoai/lango
+  A: ### Requirement: GVisorRuntime stub The system MUST provide a `GVisorRuntime` stub that always reports `IsAvailable() = false` and returns `ErrRuntimeUnavailable` on `Run`.
+  B: ### Requirement: GVisor stub behavior is documented and tested The GVisor runtime stub SHALL clearly document its stub nature and have tests verifying stub behavior. #### Scenario: GVisor not available - **WHEN** IsAvailable() is called on the GVisor stub - **THEN** it returns false #### Scenario: GVisor run returns unavailable error - **WHEN** Run() is called on the GVisor stub - **THEN** it retu
+
+#9  margin 1.069  cos 0.961  repo BlackBeltTechnology/pi-agent-dashboard
+  A: ### Requirement: Content-hash incremental indexing The indexer SHALL detect changed markdown via a layered check (mtime, then sha256), reindex only changed files (replacing that file's chunks and edges), purge rows for files removed from disk, and support a `--force` full rebuild. #### Scenario: Unchanged file is skipped - **WHEN** `kb index` re-runs and a file's mtime and sha256 are unchanged - *
+  B: ### Requirement: Content-hash incremental symbol indexing Symbol indexing SHALL reuse the existing `files` content-hash gate. A file whose `sha256` is unchanged SHALL be skipped. A changed file SHALL have its symbol nodes, outbound edges, and symbol chunks replaced. A deleted file SHALL have its symbol nodes-as-source and outbound edges removed while inbound edges are preserved. #### Scenario: Unc
+
+#10  margin 1.065  cos 0.943  repo fselich/dossier
+  A: ### Requirement: Load project config from explicit root path The loader SHALL expose a `LoadConfigFrom(root string) (ProjectConfig, error)` function that reads `openspec/config.yaml` from the given root path. #### Scenario: Config file exists at root path - **WHEN** `LoadConfigFrom("/path/to/project")` is called and `openspec/config.yaml` exists with valid YAML - **THEN** the function returns the 
+  B: ### Requirement: LoadConfig returns error on failure `LoadConfig()` and `LoadConfigFrom()` SHALL return `(ProjectConfig, error)`. If the config file does not exist, they SHALL return an empty config and nil error. If the file exists but cannot be read for another reason (e.g., permission denied, corrupt filesystem), they SHALL return the error. If the YAML is malformed, they SHALL return an error.
+
+#11  margin 1.065  cos 0.914  repo mbeacom/openleague
+  A: - **FR-013**: Proceeding despite a conflict MUST require an explicit override by an authorized user, and the override MUST be recorded (actor and time).
+  B: - **FR-011**: Conflict warnings MUST identify each conflicting booking's title, time, and source type; proceeding despite conflicts MUST require the explicit recorded override (actor and time), consistent with season scheduling.
+
+#12  margin 1.065  cos 0.932  repo codeforjapan/BirdXplorer
+  A: - **FR-031**: All graph API endpoints MUST be publicly accessible without authentication or authorization requirements
+  B: - **FR-017**: Endpoint MUST be public (no authentication, consistent with existing `/api/v1/data/*` endpoints)
+
+#13  margin 1.064  cos 0.947  repo mverab/eGEOagents
+  A: ### Requirement: Offline Deterministic CLI Execution The `egeo` CLI SHALL run end-to-end without network access or API keys when the mock client is enabled, so it can execute in CI. #### Scenario: Optimize runs offline under the mock client - **WHEN** `GEO_EVAL_MOCK=1 egeo optimize <file>` is run - **THEN** no outbound network request is made - **AND** the pipeline completes and writes its artifac
+  B: ### Requirement: Offline Deterministic Evaluation The evaluation harness SHALL run end-to-end without network access or API keys when a mock mode is enabled, so it can execute in CI. #### Scenario: Mock client is selected by environment flag - **WHEN** `GEO_EVAL_MOCK` is set to a truthy value (`1`, `true`, `yes`, `on`) - **THEN** `get_client()` returns a deterministic mock client - **AND** no outb
+
+#14  margin 1.063  cos 0.949  repo open-software-network/os-june
+  A: - **FR-021**: Retry processing MUST reuse saved source artifacts and the recording source mode without requiring the user to re-record.
+  B: - **FR-011**: Retry MUST recompute or reuse turn ordering from saved source artifacts without requiring a new recording.
+
+#15  margin 1.062  cos 0.969  repo pyArchimate/pyArchimate
+  A: - **FR-012**: `tests/legacy_*` files MUST be excluded from SonarCloud analysis via `sonar.exclusions=tests/legacy_*/**` in `sonar-project.properties`; this ensures their violations do not count toward SC-001.
+  B: - **FR-009**: The `tests/legacy_*` directories MUST remain excluded from SonarCloud analysis (existing `sonar-project.properties` exclusions are not modified).
+
+#16  margin 1.061  cos 0.923  repo pmndrs/react-spring
+  A: - **FR-013**: Type checking (`yarn test:ts`) MUST continue to work unchanged; this migration MUST NOT affect the TypeScript-only verification path.
+  B: - **FR-017**: TypeScript type-checking via `pnpm test:ts` MUST continue to pass for the docs package after migration.
+
+#17  margin 1.059  cos 0.951  repo automateyournetwork/netclaw
+  A: - **FR-007**: System MUST apply content guardrails to generated replies (no IPs, credentials, customer names)
+  B: - **FR-005**: System MUST apply content guardrails to all spoken content (no IP addresses, credentials, customer names, or other sensitive data)
+
+#18  margin 1.059  cos 0.871  repo julep-ai/steadytext
+  A: ### Edge Cases - What happens when rendering a prompt with undefined variables? [NEEDS CLARIFICATION: should undefined variables be left as-is, replaced with empty string, or raise an error?] - How does system handle concurrent version creation for the same prompt? - What happens when trying to render a non-existent prompt or version? - How does the system handle malformed template syntax? - What 
+  B: ### Edge Cases - What happens when OpenRouter API returns rate limit errors? - How does system handle invalid OpenRouter model names? - What occurs if OpenRouter API key is invalid or expired? - How does the system behave when OpenRouter returns unexpected response formats?
+
+#19  margin 1.058  cos 0.960  repo safe-global/safe-wallet-monorepo
+  A: - **FR-009**: System MUST ensure all components render null when feature is disabled (proxy stub behavior)
+  B: - **FR-009**: System MUST ensure all No Fee Campaign components render null when the feature is disabled (via proxy stubs)
+
+#20  margin 1.057  cos 0.941  repo biodatageeks/polars-bio
+  A: ### Requirement: Explicit VCF Zarr Read APIs The system SHALL provide explicit `scan_vcf_zarr` and `read_vcf_zarr` APIs for reading local VCF Zarr stores. #### Scenario: Scan VCF Zarr lazily - **WHEN** a user calls `scan_vcf_zarr` with a supported local VCF Zarr path - **THEN** the system returns a Polars `LazyFrame` - **AND** no records are materialized until the lazy query is collected. #### Sce
+  B: ### Requirement: Explicit BigBed APIs The system SHALL provide explicit `scan_bigbed` and `read_bigbed` APIs for reading BigBed files. #### Scenario: Scan BigBed lazily - **WHEN** a user calls `scan_bigbed` with a supported local BigBed path - **THEN** the system returns a Polars `LazyFrame` - **AND** no interval records are materialized until the lazy query is collected. #### Scenario: Read BigBe
+
+#21  margin 1.056  cos 0.933  repo smart-mcp-proxy/mcpproxy-go
+  A: - **FR-001**: System MUST implement RFC 9728 Protected Resource Metadata scope discovery by parsing `WWW-Authenticate` header's `resource_metadata` field and fetching the metadata URL
+  B: - **FR-001**: System MUST extract the `resource` field from RFC 9728 Protected Resource Metadata when available.
+
+#22  margin 1.054  cos 0.958  repo halo-dev/halo
+  A: ### Requirement: Theme menu output remains compatible The system SHALL preserve the existing theme menu value object shape while sourcing hierarchy from the new fields. #### Scenario: Menu tree is returned to themes - **WHEN** the theme menu API returns a Menu - **THEN** the response SHALL include the tree under `MenuVo.menuItems` - **AND** child MenuItems SHALL be nested under `MenuItemVo.childre
+  B: ### Requirement: Theme category output remains compatible The system SHALL preserve existing theme-facing category value object shapes while sourcing hierarchy from `spec.parent`. #### Scenario: Category tree is returned to themes - **WHEN** a theme queries category trees - **THEN** child Categories SHALL be nested under `CategoryTreeVo.children` - **AND** each child CategoryTreeVo SHALL expose `p
+
+#23  margin 1.053  cos 0.928  repo MemberJunction/MJ
+  A: - **FR-021**: System MUST store dynamically registered clients in memory with configurable TTL (clients re-register on expiration).
+  B: - **FR-016**: System MUST handle client registration expiration by re-registering when needed.
+
+#24  margin 1.052  cos 0.920  repo pyArchimate/pyArchimate
+  A: - **FR-009**: Refactored helpers MUST be private functions (prefixed `_`) defined in the same file as the original function. **Exception**: for modules whose original cognitive complexity exceeds 100 (`arisAMLreader.py`, `archiReader.py`), a private sibling module named `_<module>_helpers.py` in the same package directory is acceptable.
+  B: - **FR-002**: Refactored functions MUST be decomposed into private helper functions without altering any public method signatures, return types, or observable behaviour. All extracted helpers MUST remain in the same file as the original function (module-private, prefixed `_`); no new sub-modules may be created as part of this refactoring.
+
+#25  margin 1.052  cos 0.961  repo aucontraire/echomine
+  A: - **FR-024**: System MUST support `title_filter` for partial title matching
+  B: - **FR-011**: System MUST support filtering by conversation title using partial matches
+
+#26  margin 1.052  cos 0.955  repo aucontraire/echomine
+  A: - **FR-003**: Phrase matching MUST be case-insensitive (consistent with keyword search)
+  B: - **FR-326**: Keyword matching MUST be case-insensitive ("Python" matches "python")
+
+#27  margin 1.051  cos 0.931  repo S2thend/cursor-history
+  A: ### User Story 6 - Dry Run Preview (Priority: P3) A user wants to preview what will be migrated before actually performing the operation. **Why this priority**: Safety feature that helps users avoid mistakes. **Independent Test**: Can be fully tested by adding `--dry-run` flag to any migrate command. **Acceptance Scenarios**: 1. **Given** any migrate command with `--dry-run`, **When** executed, **
+  B: ### User Story 4 - Dry Run Shows Path Changes (Priority: P2) A developer wants to preview what paths would change before committing to a migration. **Why this priority**: Useful for confidence but not critical for the core fix. **Independent Test**: Run migration with `--dry-run` flag and verify the output indicates file paths will be updated. **Acceptance Scenarios**: 1. **Given** a session with 
+
+#28  margin 1.051  cos 0.943  repo epam/ai-dial-admin-frontend
+  A: ### Requirement: Purpose-specific server action for images A `getImageMcpServers()` server action SHALL support `minResults` accumulation identical to `getContainerMcpServers()`. #### Scenario: Single fetch without minResults - **WHEN** `getImageMcpServers({ limit: 100 })` is called without `minResults` - **THEN** a single fetch SHALL be made #### Scenario: Accumulation with minResults - **WHEN** 
+  B: ### Requirement: Purpose-specific server action for toolset MCP servers A `getToolsetMcpServers()` server action SHALL be created that accepts `{ search?, cursor?, limit?, minResults? }`, authenticates via `getUserToken()`, and delegates to `McpRegistryApi.getToolsetMcpServers()`. When `minResults` is provided, the action SHALL fetch multiple BE pages until `minResults` results are accumulated or 
+
+#29  margin 1.050  cos 0.937  repo smart-mcp-proxy/mcpproxy-go
+  A: - **FR-025**: CLI command MUST exit with non-zero status code when execution fails and display error details (message, stack, code)
+  B: - **FR-009**: CLI MUST exit with non-zero code on validation errors
+
+#30  margin 1.049  cos 0.933  repo alkem-io/client-web
+  A: - **FR-007**: A visibility notice MUST appear when the space status is Archived, Demo, or Inactive, with appropriate messaging
+  B: - **FR-024**: The system MUST display a visibility notice (archived / demo / inactive) at the top of the page when the subspace is in any of those states.
+
+#31  margin 1.048  cos 0.924  repo alkem-io/client-web
+  A: - **FR-018**: Section titles for "Why" and "Who" MUST adapt to the Space's level (top-level vs. subspace) so that copy reflects the appropriate framing for the current entity.
+  B: - **FR-014**: The "Why"/"Who" section headings MUST continue to use the level-appropriate wording for the entity (top-level space vs. subspace).
+
+#32  margin 1.048  cos 0.954  repo b310-digital/teammapper
+  A: ### Requirement: Node fields SHALL have maximum length limits The system SHALL enforce maximum lengths on node text fields. Values exceeding the limit SHALL be rejected. #### Scenario: Name within limit accepted - **WHEN** a user enters a node name of 500 characters - **THEN** the system SHALL accept it #### Scenario: Name exceeding limit rejected - **WHEN** a user enters a node name exceeding 512
+  B: ### Requirement: The system SHALL enforce size limits on node content Node names SHALL have a maximum length of 5000 characters across all entry points (map creation, node addition, node editing). This prevents abuse and ensures consistent behavior. #### Scenario: Normal node name accepted - **WHEN** a user creates or edits a node with a 2000-character name - **THEN** the system SHALL accept it ##
+
+#33  margin 1.048  cos 0.936  repo onlineeric/speedy-git-ext
+  A: - **FR-006**: The command preview MUST be selectable text and offer a Copy button (matching the existing `CommandPreview` component behavior).
+  B: - **FR-006**: The push dialog MUST include a copy button adjacent to the command preview that copies the command text to the system clipboard.
+
+#34  margin 1.048  cos 0.947  repo alfredoperez/speckit-companion
+  A: - **FR-010**: All styling MUST be token-driven and theme-safe; color encodes state only.
+  B: - **FR-010**: All styling MUST remain token-driven and theme-safe; no capture or schema changes.
+
+#35  margin 1.048  cos 0.935  repo seiggy/lucia-dotnet
+  A: - **FR-011**: System MUST emit OpenTelemetry spans, metrics, and structured logs for all orchestration operations
+  B: - **FR-028**: System MUST emit OpenTelemetry spans and metrics for each pipeline stage with standardized naming conventions
+
+#36  margin 1.047  cos 0.932  repo epam/ai-dial-admin-frontend
+  A: ### Requirement: Duplicate error integrates with existing validation The duplicate name error SHALL integrate with the existing `SaveValidationContext` error tracking so that the container variables section shows an error indicator when duplicates exist. #### Scenario: Section error indicator with duplicates - **WHEN** duplicate variable names exist - **THEN** the container variables accordion sec
+  B: ### Requirement: Validation behavior unaffected The duplicate-name validation, required-name validation, and the error indicator on the Environment Variables accordion SHALL behave identically to the prior implementation. The `SaveValidationContext` interactions, error highlighting on the Name input, and the section-level error indicator SHALL continue to function for the new layout. #### Scenario
+
+#37  margin 1.047  cos 0.962  repo nold-ai/specfact-cli
+  A: ### Requirement: Mode switch (scrum|kanban|safe) The system SHALL support `--mode scrum|kanban|safe` to change defaults for filters and sections (e.g. Kanban: flow columns; SAFe: PI context). **Rationale**: Plan E1—ceremony-native defaults per framework. #### Scenario: Standup with mode **Given**: SpecFact CLI and backlog adapter **When**: The user runs `specfact backlog daily --mode kanban` **The
+  B: ### Requirement: Mode switch at ceremony level The system SHALL support `--mode scrum|kanban|safe` at ceremony level so defaults for filters and sections follow the selected framework (e.g. Kanban: flow-oriented sections; SAFe: PI-oriented hints when available). **Rationale**: Δ3—one flag for framework context. #### Scenario: Ceremony with mode **Given**: User runs `specfact backlog ceremony stand
+
+#38  margin 1.047  cos 0.927  repo automateyournetwork/netclaw
+  A: - **FR-004**: System MUST enforce rate limits: maximum 3 outbound calls per hour, maximum 10 per 24-hour period
+  B: - **FR-010**: System MUST enforce 30-minute call duration limit
+
+#39  margin 1.047  cos 0.948  repo elastic/terraform-provider-elasticstack
+  A: ### Requirement: YAML validation and semantic equality (REQ-008) `configuration_yaml` SHALL be validated as YAML. If the configured string is not valid YAML, Terraform validation SHALL fail with an `Invalid YAML` attribute diagnostic and the provider SHALL not call the workflow API. When two `configuration_yaml` values parse to the same YAML structure, the resource SHALL treat them as semantically
+  B: ### Requirement: Workflow YAML semantic equality (REQ-014) The `workflow_configuration_yaml` attribute SHALL use a normalized YAML type that compares values semantically (by parsing YAML to canonical JSON with sorted keys) rather than by string equality, so that formatting and key-order differences do not produce spurious plan diffs. #### Scenario: Equivalent YAML with different formatting - GIVEN
+
+#40  margin 1.046  cos 0.943  repo raphaeltm/simple-agent-manager
+  A: - **FR-021**: The dashboard MUST display projects as the primary content, with associated workspaces grouped under their project.
+  B: - **FR-002**: The dashboard MUST show projects as the primary content, with each project card navigating directly to the chat interface on click.
+

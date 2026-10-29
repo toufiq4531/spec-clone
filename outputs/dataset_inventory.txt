@@ -1,0 +1,377 @@
+SPECMINE DATASET INVENTORY
+================================================================================
+
+Dataset root: D:\USask\specmine\datasets\specmine-full
+Python: 3.14.5
+DuckDB: 1.5.6
+Pandas: 3.0.6
+PyArrow: 25.0.1
+
+Parquet files found: 10
+
+================================================================================
+FILE: kiro_files.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\kiro_files.parquet
+SIZE: 13.22 MB
+ROWS: 98,574
+COLUMNS: 12
+
+SCHEMA:
+  id                                       BIGINT
+  repo_name                                VARCHAR
+  owner_login                              VARCHAR
+  repo_id                                  BIGINT
+  file_path                                VARCHAR
+  file_name                                VARCHAR
+  kind                                     VARCHAR
+  feature                                  VARCHAR
+  file_sha                                 VARCHAR
+  html_url                                 VARCHAR
+  git_url                                  VARCHAR
+  fetched_at                               VARCHAR
+
+================================================================================
+FILE: openspec_artifact_files.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\openspec_artifact_files.parquet
+SIZE: 400.50 MB
+ROWS: 266,230
+COLUMNS: 12
+
+SCHEMA:
+  id                                       BIGINT
+  repo_name                                VARCHAR
+  file_path                                VARCHAR
+  kind                                     VARCHAR
+  content                                  VARCHAR
+  content_sha                              VARCHAR
+  n_bytes                                  BIGINT
+  n_tasks                                  BIGINT
+  n_tasks_done                             BIGINT
+  n_code_refs                              BIGINT
+  fetch_status                             VARCHAR
+  fetched_at                               VARCHAR
+
+================================================================================
+FILE: openspec_code_refs.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\openspec_code_refs.parquet
+SIZE: 9.93 MB
+ROWS: 435,401
+COLUMNS: 8
+
+SCHEMA:
+  id                                       BIGINT
+  repo_name                                VARCHAR
+  artifact_path                            VARCHAR
+  code_path                                VARCHAR
+  task_done                                BIGINT
+  anchor_sha                               VARCHAR
+  exists_at_anchor                         BIGINT
+  resolved_path                            VARCHAR
+
+================================================================================
+FILE: pr_files.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\pr_files.parquet
+SIZE: 5.54 MB
+ROWS: 348,141
+COLUMNS: 12
+
+SCHEMA:
+  tool                                     VARCHAR
+  id                                       BIGINT
+  repo_name                                VARCHAR
+  pr_number                                BIGINT
+  file_path                                VARCHAR
+  change_status                            VARCHAR
+  additions                                BIGINT
+  deletions                                BIGINT
+  is_specdir                               BIGINT
+  is_spec                                  BIGINT
+  is_code                                  BIGINT
+  ext                                      VARCHAR
+
+================================================================================
+FILE: pull_requests.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\pull_requests.parquet
+SIZE: 576.51 KB
+ROWS: 5,992
+COLUMNS: 25
+
+SCHEMA:
+  tool                                     VARCHAR
+  id                                       BIGINT
+  repo_name                                VARCHAR
+  pr_number                                BIGINT
+  title                                    VARCHAR
+  state                                    VARCHAR
+  is_merged                                BIGINT
+  merged_at                                VARCHAR
+  created_at                               VARCHAR
+  closed_at                                VARCHAR
+  author_login                             VARCHAR
+  head_branch                              VARCHAR
+  base_branch                              VARCHAR
+  n_files                                  BIGINT
+  n_specdir_files                          BIGINT
+  n_spec_files                             BIGINT
+  n_code_files                             BIGINT
+  n_md_files                               BIGINT
+  n_other_files                            BIGINT
+  additions                                BIGINT
+  deletions                                BIGINT
+  files_status                             VARCHAR
+  touches_code                             BIGINT
+  n_code_outside                           BIGINT
+  n_prs_in_repo                            BIGINT
+
+================================================================================
+FILE: repo_trees.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\repo_trees.parquet
+SIZE: 1.46 MB
+ROWS: 73,030
+COLUMNS: 5
+
+SCHEMA:
+  repo_name                                VARCHAR
+  status                                   VARCHAR
+  n_entries                                BIGINT
+  truncated                                BIGINT
+  fetched_at                               VARCHAR
+
+================================================================================
+FILE: spec_content_features.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\spec_content_features.parquet
+SIZE: 10.28 MB
+ROWS: 468,307
+COLUMNS: 40
+
+SCHEMA:
+  file_url_sha16                           VARCHAR
+  n_bytes                                  BIGINT
+  n_lines                                  BIGINT
+  n_words                                  BIGINT
+  n_headings                               BIGINT
+  max_heading_depth                        BIGINT
+  n_code_fences                            BIGINT
+  n_mermaid                                BIGINT
+  n_tables                                 BIGINT
+  n_links                                  BIGINT
+  n_images                                 BIGINT
+  n_list_items                             BIGINT
+  n_checkboxes                             BIGINT
+  n_checked                                BIGINT
+  n_shall                                  BIGINT
+  n_gherkin                                BIGINT
+  n_scenario_blocks                        BIGINT
+  n_delta_headers                          BIGINT
+  n_needs_clarification                    BIGINT
+  n_todo                                   BIGINT
+  has_ears                                 BIGINT
+  has_gherkin                              BIGINT
+  has_user_story                           BIGINT
+  has_requirements                         BIGINT
+  has_acceptance_criteria                  BIGINT
+  has_user_scenarios                       BIGINT
+  has_non_goals                            BIGINT
+  has_out_of_scope                         BIGINT
+  has_overview                             BIGINT
+  has_success_criteria                     BIGINT
+  has_edge_cases                           BIGINT
+  has_open_questions                       BIGINT
+  has_dependencies                         BIGINT
+  has_purpose                              BIGINT
+  has_mandatory_marker                     BIGINT
+  is_tiny                                  BIGINT
+  has_unfilled_placeholder                 BIGINT
+  has_lorem                                BIGINT
+  lang                                     VARCHAR
+  content_family                           VARCHAR
+
+================================================================================
+FILE: spec_file_commits.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\spec_file_commits.parquet
+SIZE: 403.22 MB
+ROWS: 780,335
+COLUMNS: 24
+
+SCHEMA:
+  id                                       BIGINT
+  file_url_sha16                           VARCHAR
+  repo_name                                VARCHAR
+  file_path                                VARCHAR
+  seq_from_oldest                          BIGINT
+  commit_sha                               VARCHAR
+  node_id                                  VARCHAR
+  html_url                                 VARCHAR
+  message                                  VARCHAR
+  comment_count                            BIGINT
+  authored_at                              VARCHAR
+  author_name                              VARCHAR
+  author_login                             VARCHAR
+  author_id                                BIGINT
+  author_type                              VARCHAR
+  committed_at                             VARCHAR
+  committer_name                           VARCHAR
+  committer_login                          VARCHAR
+  committer_id                             BIGINT
+  committer_type                           VARCHAR
+  tree_sha                                 VARCHAR
+  parents                                  VARCHAR
+  verified                                 BIGINT
+  verification_reason                      VARCHAR
+
+================================================================================
+FILE: spec_files.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\spec_files.parquet
+SIZE: 644.33 MB
+ROWS: 470,795
+COLUMNS: 124
+
+SCHEMA:
+  file_url_sha16                           VARCHAR
+  file_url                                 VARCHAR
+  file_path                                VARCHAR
+  file_name                                VARCHAR
+  file_sha                                 VARCHAR
+  git_url                                  VARCHAR
+  search_run_id                            VARCHAR
+  repo_id                                  BIGINT
+  repo_node_id                             VARCHAR
+  repo_name                                VARCHAR
+  repo_url                                 VARCHAR
+  repo_homepage                            VARCHAR
+  repo_description                         VARCHAR
+  repo_fork                                BIGINT
+  repo_private                             BIGINT
+  repo_visibility                          VARCHAR
+  owner_login                              VARCHAR
+  owner_id                                 BIGINT
+  owner_node_id                            VARCHAR
+  owner_type                               VARCHAR
+  owner_html_url                           VARCHAR
+  owner_site_admin                         BIGINT
+  repo_stars                               BIGINT
+  repo_forks                               BIGINT
+  repo_watchers                            BIGINT
+  repo_subscribers_count                   BIGINT
+  repo_network_count                       BIGINT
+  repo_open_issues                         BIGINT
+  repo_size_kb                             BIGINT
+  repo_language                            VARCHAR
+  repo_license                             VARCHAR
+  repo_license_key                         VARCHAR
+  repo_license_spdx_id                     VARCHAR
+  repo_default_branch                      VARCHAR
+  repo_topics                              VARCHAR
+  repo_archived                            BIGINT
+  repo_disabled                            BIGINT
+  repo_is_template                         BIGINT
+  repo_allow_forking                       BIGINT
+  repo_web_commit_signoff_required         BIGINT
+  repo_has_issues                          BIGINT
+  repo_has_projects                        BIGINT
+  repo_has_wiki                            BIGINT
+  repo_has_pages                           BIGINT
+  repo_has_downloads                       BIGINT
+  repo_has_discussions                     BIGINT
+  repo_clone_url                           VARCHAR
+  repo_ssh_url                             VARCHAR
+  repo_svn_url                             VARCHAR
+  repo_git_url                             VARCHAR
+  repo_mirror_url                          VARCHAR
+  repo_created_at                          VARCHAR
+  repo_updated_at                          VARCHAR
+  repo_pushed_at                           VARCHAR
+  file_last_commit_sha                     VARCHAR
+  file_last_commit_node_id                 VARCHAR
+  file_last_commit_html_url                VARCHAR
+  file_last_commit_message                 VARCHAR
+  file_last_commit_comment_count           BIGINT
+  file_last_commit_at                      VARCHAR
+  file_last_commit_author                  VARCHAR
+  file_last_commit_author_login            VARCHAR
+  file_last_commit_author_id               BIGINT
+  file_last_commit_author_type             VARCHAR
+  file_last_commit_author_html_url         VARCHAR
+  file_last_commit_author_site_admin       BIGINT
+  file_last_commit_committer               VARCHAR
+  file_last_commit_committer_at            VARCHAR
+  file_last_commit_committer_login         VARCHAR
+  file_last_commit_committer_id            BIGINT
+  file_last_commit_committer_type          VARCHAR
+  file_last_commit_committer_html_url      VARCHAR
+  file_last_commit_committer_site_admin    BIGINT
+  file_last_commit_tree_sha                VARCHAR
+  file_last_commit_parents                 VARCHAR
+  file_last_commit_verified                BIGINT
+  file_last_commit_verification_reason     VARCHAR
+  file_last_commit_verified_at             VARCHAR
+  size_partition_label                     VARCHAR
+  updated_at                               VARCHAR
+  not_spec_filter                          BIGINT
+  file_first_commit_sha                    VARCHAR
+  file_first_commit_node_id                VARCHAR
+  file_first_commit_html_url               VARCHAR
+  file_first_commit_message                VARCHAR
+  file_first_commit_comment_count          BIGINT
+  file_first_commit_at                     VARCHAR
+  file_first_commit_author                 VARCHAR
+  file_first_commit_author_login           VARCHAR
+  file_first_commit_author_id              BIGINT
+  file_first_commit_author_type            VARCHAR
+  file_first_commit_author_html_url        VARCHAR
+  file_first_commit_author_site_admin      BIGINT
+  file_first_commit_committer              VARCHAR
+  file_first_commit_committer_at           VARCHAR
+  file_first_commit_committer_login        VARCHAR
+  file_first_commit_committer_id           BIGINT
+  file_first_commit_committer_type         VARCHAR
+  file_first_commit_committer_html_url     VARCHAR
+  file_first_commit_committer_site_admin   BIGINT
+  file_first_commit_tree_sha               VARCHAR
+  file_first_commit_parents                VARCHAR
+  file_first_commit_verified               BIGINT
+  file_first_commit_verification_reason    VARCHAR
+  file_first_commit_verified_at            VARCHAR
+  file_total_commits                       BIGINT
+  commit_history_status                    VARCHAR
+  commit_history_fetched_at                VARCHAR
+  spec_tool                                VARCHAR
+  spec_role                                VARCHAR
+  file_content_sha                         VARCHAR
+  file_content_bytes                       BIGINT
+  content_fetch_status                     VARCHAR
+  content_fetched_at                       VARCHAR
+  feature_branch                           VARCHAR
+  n_linked_prs                             BIGINT
+  n_linked_issues                          BIGINT
+  n_sibling_docs                           BIGINT
+  n_code_links                             BIGINT
+  has_tasks                                BIGINT
+  has_plan                                 BIGINT
+  has_proposal                             BIGINT
+  has_design                               BIGINT
+  trace_rollup_at                          VARCHAR
+
+================================================================================
+FILE: spec_links.parquet
+PATH: D:\USask\specmine\datasets\specmine-full\data\spec_links.parquet
+SIZE: 39.00 MB
+ROWS: 2,421,323
+COLUMNS: 5
+
+SCHEMA:
+  id                                       BIGINT
+  spec_url_sha16                           VARCHAR
+  rel                                      VARCHAR
+  target                                   VARCHAR
+  provenance                               VARCHAR
+
+================================================================================
+OTHER IMPORTANT FILES
+
+README.md: 6.10 KB | D:\USask\specmine\datasets\specmine-full\README.md
+DATA_DICTIONARY.md: 14.90 KB | D:\USask\specmine\datasets\specmine-full\DATA_DICTIONARY.md
+schema.sql: 9.11 KB | D:\USask\specmine\datasets\specmine-full\schema.sql
+specs.jsonl.gz: 951.63 MB | D:\USask\specmine\datasets\specmine-full\specs.jsonl.gz
+specmine-mysql.sql.gz: 1.29 GB | D:\USask\specmine\datasets\specmine-full\specmine-mysql.sql.gz
+LICENSE.txt: 1.74 KB | D:\USask\specmine\datasets\specmine-full\LICENSE.txt

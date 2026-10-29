@@ -1,0 +1,3030 @@
+====================================================================================================
+CORRECTED TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 13/15
+Repository: smart-mcp-proxy/mcpproxy-go
+PR: #481
+Tool: speckit
+Language: Go
+Total PR commits: 9
+
+Earlier specification commit position: 1
+Step-7 automated 'first code' hint: 5
+
+IMPORTANT:
+The Step-7 code position is only a screening hint.
+Your task is to identify the FIRST LATER COMMIT that actually implements the earlier requirement.
+
+####################################################################################################
+SECTION A — EARLIER SPECIFICATION COMMIT
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 1
+====================================================================================================
+SHA: 3633b6e51233e54bb3a4debe95219310dd223721
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+spec(050): global tools overview page
+
+Related #437
+
+Single table-style page listing every tool across all configured MCP
+servers, with substring search, server/state/risk/approval filters,
+column sorting, and batch enable/disable. Replaces the orphaned Tools
+view. Backend usage aggregation + consolidated tools payload.
+
+Scope, data source, search approach, and v1 columns settled in
+brainstorming with the user.
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: specs/050-global-tools-page/checklists/requirements.md
+STATUS: added
+ADDITIONS: 36
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,36 @@
++# Specification Quality Checklist: Global Tools Overview Page
++
++**Purpose**: Validate specification completeness and quality before proceeding to planning
++**Created**: 2026-05-18
++**Feature**: [spec.md](../spec.md)
++
++## Content Quality
++
++- [x] No implementation details (languages, frameworks, APIs)
++- [x] Focused on user value and business needs
++- [x] Written for non-technical stakeholders
++- [x] All mandatory sections completed
++
++## Requirement Completeness
++
++- [x] No [NEEDS CLARIFICATION] markers remain
++- [x] Requirements are testable and unambiguous
++- [x] Success criteria are measurable
++- [x] Success criteria are technology-agnostic (no implementation details)
++- [x] All acceptance scenarios are defined
++- [x] Edge cases are identified
++- [x] Scope is clearly bounded
++- [x] Dependencies and assumptions identified
++
++## Feature Readiness
++
++- [x] All functional requirements have clear acceptance criteria
++- [x] User scenarios cover primary flows
++- [x] Feature meets measurable outcomes defined in Success Criteria
++- [x] No implementation details leak into specification
++
++## Notes
++
++- Spec passes all quality gates on first iteration. Scope was bounded during the brainstorming session with the user (data source, v1 columns, search approach, and disposition of the existing orphaned tools view all decided), so no [NEEDS CLARIFICATION] markers were required.
++- The spec deliberately keeps endpoint/component specifics out of the mandatory sections; the technical decisions agreed during brainstorming are recorded as Assumptions and will be expanded in `plan.md`.
++- Ready for `/speckit.plan`.
+
+--- FILE 2/2 ---
+FILE: specs/050-global-tools-page/spec.md
+STATUS: added
+ADDITIONS: 166
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,166 @@
++# Feature Specification: Global Tools Overview Page
++
++**Feature Branch**: `050-global-tools-page`
++**Created**: 2026-05-18
++**Status**: Draft
++**Input**: User description: "Global Tools Overview page (issue #437): a single table-style page listing every tool across all configured MCP servers, with filtering, sorting, and batch enable/disable, for auditing and curating large MCP setups."
++
++## User Scenarios & Testing *(mandatory)*
++
++### User Story 1 - See every tool in one place (Priority: P1)
++
++A user with many MCP servers configured (e.g., 12 servers exposing ~500 tools, some setups ~700) opens a single "Tools" page and sees one table containing every tool from every configured server — including tools from disabled servers and tools that are individually disabled or denied by config. Each row shows the tool name, its server, a short description, a risk indicator, approval status, whether it is currently enabled, how many times it has been used recently, and when it was last used.
++
++**Why this priority**: This is the core of the request. Without a single global view, auditing tools across many servers is impractical — the user must visit each server's detail page individually. This story alone delivers the primary value: visibility.
++
++**Independent Test**: Configure multiple servers (including one disabled), open the Tools page, and confirm every tool from every server appears in the table with its server, state, approval status, and usage columns populated.
++
++**Acceptance Scenarios**:
++
++1. **Given** several configured servers with many tools, **When** the user opens the Tools page, **Then** all tools from all servers are listed in one table with no per-server navigation required.
++2. **Given** a server that is disabled, **When** the user opens the Tools page, **Then** that server's tools still appear, clearly indicated as not enabled.
++3. **Given** a tool that has never been called, **When** the user views its row, **Then** its usage count shows zero and its last-used value shows that it has never been used.
++4. **Given** the page is open, **When** the user reads the summary cards, **Then** the total number of tools and the counts of enabled, disabled, and pending-approval tools are shown and match the table contents.
++
++---
++
++### User Story 2 - Find and narrow down tools (Priority: P1)
++
++The user filters and sorts the table to focus on a subset: typing in a search box to match by tool name, description, or server; choosing a specific server; filtering by enabled/disabled state, by risk level, or by approval status; and sorting any column (e.g., by last-used to find stale tools, or by usage count to find unused ones).
++
++**Why this priority**: With hundreds of tools, an unfiltered list is unusable for decision-making. Search and filter are required for the page to deliver on its "audit and cleanup" purpose, so this is co-equal P1 with the listing itself.
++
++**Independent Test**: With the full list loaded, type a substring and confirm only matching tools remain; apply each dropdown filter and confirm the list narrows correctly; click a column header and confirm the order changes; confirm disabled and config-denied tools remain visible when matched (search must not hide them).
++
++**Acceptance Scenarios**:
++
++1. **Given** the full tool list, **When** the user types text in the search box, **Then** only tools whose name, description, or server contains that text remain visible, and disabled/denied tools are not excluded from results.
++2. **Given** the full tool list, **When** the user selects a server in the server filter, **Then** only that server's tools are shown.
++3. **Given** the full tool list, **When** the user filters by state, risk, or approval status, **Then** only tools matching that criterion are shown, and filters combine (all active filters apply together).
++4. **Given** a filtered/unfiltered list, **When** the user clicks a sortable column header, **Then** the rows reorder by that column and a second click reverses the order.
++5. **Given** more tools than fit on one page, **When** the user pages through results, **Then** the active filters and sort order are preserved across pages.
++
++---
++
++### User Story 3 - Bulk enable/disable tools (Priority: P2)
++
++The user selects multiple tools (individually, or all tools currently shown on the page) and applies a single batch action to enable or disable them all at once. Progress is shown, and if some tools fail, the user is told which succeeded and which did not.
++
++**Why this priority**: This is the highest-leverage cleanup action and explicitly requested ("50–100 of them needing to be disabled"). It depends on the listing and filtering stories existing first, so it is P2 — valuable but built on P1.
++
++**Independent Test**: Select several tools across different servers, choose "Disable selected", and confirm each selected tool's state changes to disabled and the table reflects it; repeat with "Enable selected"; simulate a partial failure and confirm the user sees a per-tool success/failure summary.
++
++**Acceptance Scenarios**:
++
++1. **Given** the tools table, **When** the user checks individual rows, **Then** a batch action bar appears showing how many tools are selected.
++2. **Given** a filtered table, **When** the user uses "select all", **Then** only the tools currently shown (matching active filters, on the current page) are selected.
++3. **Given** one or more selected tools, **When** the user clicks "Disable selected", **Then** every selected tool becomes disabled and the table and summary cards update to reflect the new states.
++4. **Given** a batch action where some tools fail to update, **When** the action completes, **Then** the user sees how many succeeded and which specific tools failed, and successfully changed tools remain changed.
++
++---
++
++### Edge Cases
++
++- **No servers / no tools**: The page shows an empty state explaining that connecting MCP servers will populate it, with a link to server management.
++- **A server is unreachable or errors while listing its tools**: The page still renders all tools it could gather and indicates that one or more servers could not be fully read, rather than failing the whole page.
++- **Very large tool count (700+)**: The page remains usable — filtering, sorting, and paging stay responsive and do not require the user to wait on a server-by-server load.
++- **A tool's state changes elsewhere (another client, CLI) while the page is open**: Refreshing the page reflects the current authoritative state; the page does not show stale enable/disable state after a refresh.
++- **Search interacts with cleanup intent**: Searching must never hide disabled or config-denied tools that match the query, because those are exactly the tools a user is trying to find and clean up.
++- **Batch action partially applied then interrupted**: Tools already changed stay changed; the summary makes the partial outcome explicit so the user can retry only the failures.
++- **Config-denied tools**: Tools blocked by configuration policy are shown as not enabled and are visually distinguishable from user-disabled tools; the page does not let the user "enable" a config-denied tool into an inconsistent state.
++
++## Requirements *(mandatory)*
++
++### Functional Requirements
++
++- **FR-001**: The system MUST provide a single page that lists every tool from every configured MCP server, including tools from disabled servers and individually disabled or config-denied tools.
++- **FR-002**: The system MUST present the global tool list from one consolidated data source so the page does not degrade as the number of servers grows (no per-server sequential loading visible to the user).
++- **FR-003**: Each tool row MUST display: tool name, originating server, a truncated description, a risk indicator (read / write / destructive), approval status, current enabled state, recent usage count, and last-used time (or an explicit "never used" indication).
++- **FR-004**: The page MUST show summary counts for total tools, enabled tools, disabled tools, and tools pending approval, and these MUST stay consistent with the underlying list.
++- **FR-005**: The system MUST derive "enabled" as a single clear state from the underlying user-disabled and config-denied conditions, so the user is never shown an ambiguous enabled/disabled status.
++- **FR-006**: Recent usage count and last-used time MUST be derived from recorded activity over a fixed recent window; tools with no activity in that window MUST report zero usage and "never used" (within the window) without error.
++- **FR-007**: The page MUST provide a free-text search that filters the visible tools by substring match against tool name, description, and server, and MUST NOT exclude disabled or config-denied tools from search results.
++- **FR-008**: The page MUST provide filters for server, enabled/disabled (and config-denied) state, risk level, and approval status, and these filters MUST combine (logical AND).
++- **FR-009**: The page MUST allow sorting by any displayed column, with ascending/descending toggle, and MUST preserve active filters and sort order while paging through results.
++- **FR-010**: The page MUST allow the user to inspect a single tool's full details (including its input schema) without leaving the page.
++- **FR-011**: The user MUST be able to select multiple tools, including a "select all currently shown" action that selects only the tools matching active filters on the current page.
++- **FR-012**: The user MUST be able to apply a batch "enable" or "disable" action to all selected tools in one operation, with visible progress.
++- **FR-013**: When a batch action partially fails, the system MUST report which tools succeeded and which failed, and MUST leave successfully changed tools in their new state.
++- **FR-014**: The page MUST be reachable from the primary navigation and MUST display a live count of total tools in the navigation entry.
++- **FR-015**: The page MUST show clear empty, loading, and partial-error states.
++- **FR-016**: The existing tool-discovery mechanism used by AI agents MUST remain unchanged and unaffected by this feature (this page is a separate audit surface, not a change to agent discovery).
++
++### Out of Scope (v1)
++
++The following appear in the originating issue as desirable but are explicitly deferred to a future iteration and MUST NOT be implemented in this feature:
++
++- Permanently hiding tools (distinct from disabling them)
++- Assigning custom tags or categories to tools
++- Resetting tool permissions in bulk
++- User-configurable usage/analytics time window
++- Any change to the agent-facing relevance-ranked tool discovery
++
++### Key Entities *(include if feature involves data)*
++
++- **Tool (global view)**: A single tool exposed by one MCP server, as presented on this page. Attributes: name, owning server, description, risk/operation classification, approval status, user-disabled flag, config-denied flag, derived enabled state, recent usage count, last-used timestamp.
++- **Tool usage summary**: Per-tool aggregation over a fixed recent activity window — a count of invocations and the most recent invocation time. Absence of records means zero usage / never used within the window.
++- **Global tools response**: The consolidated payload backing the page: the full list of tools (across all servers) plus aggregate counts (total, enabled, disabled, pending approval).
++- **Batch selection**: The set of tools the user has selected for a bulk action, scoped to what is currently shown when "select all" is used.
++
++## Success Criteria *(mandatory)*
++
++### Measurable Outcomes
++
++- **SC-001**: A user managing 12+ servers and ~500 tools can see all tools in one place and locate a specific tool by name or server in under 15 seconds, without visiting any per-server page.
++- **SC-002**: A user can disable a set of 50+ unwanted tools in a single batch operation from one screen, instead of toggling them one by one across multiple server pages.
++- **SC-003**: With 700 tools loaded, applying a search term, a filter, or a column sort updates the visible list in under 1 second as perceived by the user.
++- **SC-004**: Disabled and config-denied tools remain discoverable on the page (including via search), so 100% of cleanup-candidate tools can be located from this single surface.
++- **SC-005**: After a batch enable/disable, the page's displayed states and summary counts match the system's authoritative state on the next load, with any partial failures explicitly surfaced to the user.
++- **SC-006**: Opening or using the page does not slow down or alter AI-agent tool discovery; agent discovery behavior is unchanged.
+
+[PATCH TRUNCATED: 167 total lines]
+
+
+####################################################################################################
+SECTION B — ALL LATER COMMITS IN THIS PR
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 2
+====================================================================================================
+SHA: 3469296efefa30bdcf079c1759edd1640d62f02b
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+spec(050): add CLI parity (US4, FR-017..020, SC-007)
+
+Related #437
+
+Global tools page must have a CLI equivalent per the project's CLI/UI
+parity pattern. Folded into spec 050 (same consolidated data source +
+per-tool state change), not a separate spec.
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: specs/050-global-tools-page/execution_log.md
+STATUS: added
+ADDITIONS: 7
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,7 @@
++# Execution Log — Spec 050 Global Tools Page
++
++State file per CLAUDE.md autonomous-operation constraint. One line per completed step.
++
++- 2026-05-18 brainstormed feature with user; design approved (aggregation endpoint, v1 columns, substring search, replace orphaned Tools.vue).
++- 2026-05-18 speckit.specify → spec.md + checklists/requirements.md committed (3633b6e5). SynapBus SPEC announcement posted (#my-agents-algis, msg 37429).
++- 2026-05-18 CLI gap analysis: `tools list` requires --server, name+desc only; no per-tool enable/disable CLI. Decision: fold CLI parity into spec 050 (same endpoint/feature), not a new spec.
+
+--- FILE 2/2 ---
+FILE: specs/050-global-tools-page/spec.md
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 0
+
+PATCH:
+@@ -59,6 +59,23 @@ The user selects multiple tools (individually, or all tools currently shown on t
+ 
+ ---
+ 
++### User Story 4 - CLI parity for global tool curation (Priority: P2)
++
++A user driving mcpproxy from the terminal or scripts needs the same global view and curation actions the web page offers, without a browser. They run a single command to list every tool across all servers (with the same server/state/risk/approval filters and machine-readable JSON/YAML output), and run enable/disable commands that accept one or more `server:tool` targets to curate in bulk from a script.
++
++**Why this priority**: mcpproxy's product principle is CLI/UI parity for every management surface (the project ships activity, tokens, upstream, quarantine, etc. as CLI commands mirroring the UI). A global tools page with no CLI equivalent breaks that contract and blocks automation/scripted cleanup. It depends on the same consolidated data source as the web page, so it is P2.
++
++**Independent Test**: With multiple servers configured, run the global list command with no server argument and confirm all tools across all servers are listed with state/approval/usage columns and that `-o json` emits the same consolidated data; run the disable command with several `server:tool` arguments and confirm each becomes disabled (verifiable via the list command and the web page).
++
++**Acceptance Scenarios**:
++
++1. **Given** multiple configured servers, **When** the user runs the tools list command without specifying a server, **Then** tools from all servers are listed in one output, including disabled-server and individually-disabled tools.
++2. **Given** the global list command, **When** the user applies server/state/risk/approval filters or requests JSON/YAML output, **Then** the output reflects exactly the same filtering semantics and data as the web page's consolidated source.
++3. **Given** one or more `server:tool` targets, **When** the user runs the enable (or disable) command, **Then** every targeted tool's state changes accordingly and a per-target success/failure summary is printed; partial failures leave succeeded targets changed and exit with a non-zero status.
++4. **Given** an invalid or unknown `server:tool` target, **When** the user runs an enable/disable command, **Then** a clear error identifies the bad target without aborting valid targets in the same invocation.
++
++---
++
+ ### Edge Cases
+ 
+ - **No servers / no tools**: The page shows an empty state explaining that connecting MCP servers will populate it, with a link to server management.
+@@ -89,6 +106,10 @@ The user selects multiple tools (individually, or all tools currently shown on t
+ - **FR-014**: The page MUST be reachable from the primary navigation and MUST display a live count of total tools in the navigation entry.
+ - **FR-015**: The page MUST show clear empty, loading, and partial-error states.
+ - **FR-016**: The existing tool-discovery mechanism used by AI agents MUST remain unchanged and unaffected by this feature (this page is a separate audit surface, not a change to agent discovery).
++- **FR-017**: The CLI MUST provide a command that lists every tool across all configured servers when no specific server is given, drawing from the same consolidated data source as the web page (no per-server invocation required by the user).
++- **FR-018**: The CLI global list command MUST support the same filtering dimensions as the web page (server, enabled/disabled/config-denied state, risk level, approval status) and MUST support machine-readable output (JSON/YAML) consistent with the rest of the CLI.
++- **FR-019**: The CLI MUST provide commands to enable and to disable tools that accept one or more `server:tool` targets in a single invocation, applying the same per-tool state change as the web page's batch action.
++- **FR-020**: When a CLI enable/disable invocation contains multiple targets, the command MUST process each independently, print a per-target success/failure summary, leave successfully changed targets changed, and exit non-zero if any target failed; an invalid target MUST NOT abort the remaining valid targets.
+ 
+ ### Out of Scope (v1)
+ 
+@@ -117,6 +138,7 @@ The following appear in the originating issue as desirable but are explicitly de
+ - **SC-004**: Disabled and config-denied tools remain discoverable on the page (including via search), so 100% of cleanup-candidate tools can be located from this single surface.
+ - **SC-005**: After a batch enable/disable, the page's displayed states and summary counts match the system's authoritative state on the next load, with any partial failures explicitly surfaced to the user.
+ - **SC-006**: Opening or using the page does not slow down or alter AI-agent tool discovery; agent discovery behavior is unchanged.
++- **SC-007**: A user with no browser can list all tools across all servers and disable a set of unwanted tools entirely from the command line, with the same filtering and data as the web page, and a script can detect partial failures via exit status.
+ 
+ ## Assumptions
+ 
+@@ -127,6 +149,7 @@ The following appear in the originating issue as desirable but are explicitly de
+ - The page replaces the existing unused/orphaned tools view rather than adding a parallel one, to avoid two competing "tools" surfaces.
+ - Search is a deterministic substring filter over the already-loaded set, deliberately not relevance-ranked discovery, because the audit use case requires seeing every matching tool (including disabled ones) in a stable, user-sortable order.
+ - Reasonable web-app defaults apply for pagination size, debounce on search input, and user-friendly error messaging.
++- CLI parity is delivered within this feature (not a separate spec) because it consumes the same consolidated data source and per-tool state-change capability as the web page; it extends the existing `mcpproxy tools` command group (today `tools list --server` is debug-only and server-scoped) with a global default and curation subcommands, following the project's established CLI/UI parity pattern (activity, tokens, upstream, quarantine).
+ 
+ ## Commit Message Conventions *(mandatory)*
+ 
+
+
+====================================================================================================
+COMMIT POSITION 3
+====================================================================================================
+SHA: 17b0f62f4b20f04376436458b8b15d825c83a0c4
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+plan(050): impl plan + Phase 0/1 design artifacts
+
+Related #437
+
+plan.md, research.md (6 decisions), data-model.md, contracts/global-tools-api.md,
+quickstart.md. Constitution check passes (no violations). No new deps, no schema
+change — reuses activity bucket + per-server enrichment loop.
+
+CHANGED FILES: 6
+
+--- FILE 1/6 ---
+FILE: CLAUDE.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -770,6 +770,8 @@ See `docs/prerelease-builds.md` for download instructions.
+ - BBolt (`~/.mcpproxy/config.db`) — read-only on the hot path; no schema change. (047-cpu-hotpath-fix)
+ - Swift 5.9 (macOS 13+); Go 1.24 only for the verification harness, no Go changes in scope. + SwiftUI/AppKit (existing), Combine (existing for the periodic timer pattern). No new deps. (048-tray-refetch-elimination)
+ - None. Pure in-memory state. (048-tray-refetch-elimination)
++- Go 1.24 (toolchain go1.24.10); TypeScript 5.9 / Vue 3.5 (frontend) + Chi router, BBolt (`go.etcd.io/bbolt`), Zap, Cobra (CLI), `mark3labs/mcp-go`; Vue 3, Pinia, Vue Router, Tailwind/DaisyUI, Vite — all existing, no new deps (050-global-tools-page)
++- BBolt `~/.mcpproxy/config.db` — read-only on the hot path. Reuses existing `ActivityRecordsBucket` (aggregation pass) and `ToolApprovalBucket` (enrichment). No schema change, no migration. (050-global-tools-page)
+ 
+ ## Recent Changes
+ - 001-update-version-display: Added Go 1.24 (toolchain go1.24.10)
+
+--- FILE 2/6 ---
+FILE: specs/050-global-tools-page/contracts/global-tools-api.md
+STATUS: added
+ADDITIONS: 71
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,71 @@
++# Contract — `GET /api/v1/tools`
++
++Consolidated, read-only listing of every tool across all configured servers.
++Single source of truth for the web Tools page and the CLI `tools list` (global).
++
++## Request
++
++```
++GET /api/v1/tools
++Authentication: X-API-Key header or ?apikey= (REST always authenticated)
++```
++
++No query parameters in v1. Filtering/sorting/search are performed by the
++consumer (web client, CLI) over the full returned set — deliberate per spec
++(audit use case needs the full set; disabled tools must never be filtered out
++server-side). `?apikey=` accepted for browser/SSE parity with other endpoints.
++
++## Response `200`
++
++```jsonc
++{
++  "success": true,
++  "data": {
++    "tools": [
++      {
++        "name": "create_issue",
++        "server_name": "github",
++        "description": "Create a new issue ...",
++        "approval_status": "approved",        // "pending" | "changed" | "approved" | ""
++        "disabled": false,                     // per-tool user toggle
++        "config_denied": false,                // layered config (read-only; not user-overridable)
++        "usage": 42,                           // calls in last 30 days
++        "last_used": "2026-05-18T09:30:51Z",   // omitted if never used in window
++        "annotations": { /* operation-type/risk; existing shape */ }
++      }
++    ],
++    "stats": { "total": 478, "enabled": 450, "disabled": 28, "pending_approval": 0 },
++    "partial": false,                          // true if some servers failed
++    "failed_servers": []                       // names of servers that errored (omitted if none)
++  }
++}
++```
++
++Derived (consumer-side): `enabled = !disabled && !config_denied`. Risk badge
++maps from `annotations` (read/write/destructive — existing classification).
++
++## Behaviour requirements
++
++| # | Requirement | Spec ref |
++|---|-------------|----------|
++| C1 | Includes tools from **disabled** servers and **individually disabled / config-denied** tools — nothing filtered out server-side. | FR-001, FR-007 |
++| C2 | One response covers all servers; no per-server request required by the consumer. | FR-002 |
++| C3 | `usage`/`last_used` reflect a fixed 30-day activity window; never-used tools → `usage:0`, `last_used` omitted, no error. | FR-006 |
++| C4 | `stats` is internally consistent with `tools` (total = len; disabled counts user-disabled OR config-denied; pending counts pending/changed approval). | FR-004 |
++| C5 | If a server cannot be read, the endpoint still returns every tool it could gather and sets `partial:true` + `failed_servers`; it does NOT 500 the whole request. | Edge case |
++| C6 | Endpoint is read-only and MUST NOT touch the BM25/Bleve index or alter agent discovery. | FR-016, SC-006 |
++| C7 | Requires REST authentication like all `/api/v1` endpoints; returns `X-Request-Id`. | Repo security model |
++
++## Errors
++
++| Status | When |
++|--------|------|
++| `401` | Missing/invalid API key |
++| `500` | Catastrophic failure (e.g., cannot enumerate servers at all). Partial per-server failures use `200` + `partial:true` instead. |
++
++## Batch enable/disable (no new endpoint)
++
++Reuses existing `POST /api/v1/servers/{id}/tools/{tool}/enabled` per target,
++grouped by server. Consumer aggregates per-target outcomes into a
++success/failure summary. Config-denied targets fail individually (server
++rejects) without aborting other targets.
+
+--- FILE 3/6 ---
+FILE: specs/050-global-tools-page/data-model.md
+STATUS: added
+ADDITIONS: 71
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,71 @@
++# Phase 1 Data Model — Global Tools Page
++
++No persisted schema changes. New in-memory/transport types only.
++
++## Existing types reused (no change)
++
++- `contracts.Tool` (`internal/contracts/types.go:185`) — already has every field needed:
++  `Name`, `ServerName`, `Description`, `Schema`, `Usage int`, `LastUsed *time.Time`,
++  `Annotations`, `ApprovalStatus`, `Disabled`, `ConfigDenied`.
++  Risk indicator = derived from `Annotations` / operation-type classification already inferred for spec 018 tool variants.
++- `storage.ActivityRecord` — fields used: `Type` (filter `tool_call`), `ServerName`, `ToolName`, `Timestamp`.
++- `ToolApprovalRecord` / `ToolApprovalBucket` — read for `ApprovalStatus` + `Disabled` enrichment (existing `controller.GetToolApproval`).
++
++## New: `storage.ToolUsageStat`
++
++```go
++type ToolUsageStat struct {
++    Count    int
++    LastUsed time.Time // zero value = never used in window
++}
++```
++
++`AggregateToolUsage(since time.Time) (map[string]ToolUsageStat, error)` — map key is
++`serverName + "\x00" + toolName` (NUL separator avoids collision with `:` in names).
++Empty bucket → empty map, no error. Records outside `[since, now]` skipped. `tool_call`
++type only (read/write/destructive variants all record as tool calls).
++
++## New: `contracts.GlobalToolsResponse`
++
++```go
++type GlobalToolsStats struct {
++    Total           int `json:"total"`
++    Enabled         int `json:"enabled"`
++    Disabled        int `json:"disabled"`
++    PendingApproval int `json:"pending_approval"`
++}
++
++type GlobalToolsResponse struct {
++    Tools  []contracts.Tool  `json:"tools"`
++    Stats  GlobalToolsStats  `json:"stats"`
++    // Partial is set when one or more servers could not be read; the list
++    // still contains every tool that could be gathered (spec edge case).
++    Partial      bool     `json:"partial,omitempty"`
++    FailedServers []string `json:"failed_servers,omitempty"`
++}
++```
++
++### Derivation rules
++
++- `enabled` (per tool, presented value) = `!Disabled && !ConfigDenied`. The JSON keeps the
++  raw `disabled` / `config_denied` flags so the UI can distinguish user-disabled vs
++  config-denied; `enabled` is computed client/CLI-side from them (no ambiguous third state).
++- `Stats.Total` = len(tools). `Stats.Disabled` = count where `Disabled || ConfigDenied`.
++  `Stats.Enabled` = Total − Disabled. `Stats.PendingApproval` = count where
++  `ApprovalStatus == pending || changed`.
++- `Usage` / `LastUsed` filled from `AggregateToolUsage`; absent key → `Usage=0`, `LastUsed=nil`.
++
++## State transitions
++
++Tools have no new lifecycle. Batch enable/disable simply flips the existing per-tool
++`Disabled` flag via `POST /servers/{id}/tools/{tool}/enabled`; `ConfigDenied` tools reject
++the flip (existing server behavior) and surface as a per-target failure.
++
++## Entity relationships
++
++```
++GlobalToolsResponse 1—* Tool
++Tool *—1 Server (by ServerName; server may be disabled — tool still listed)
++Tool 0..1—1 ToolApprovalRecord (enrichment; absent = approved/never-toggled)
++Tool 0..1—1 ToolUsageStat (from activity aggregation; absent = never used in window)
++```
+
+--- FILE 4/6 ---
+FILE: specs/050-global-tools-page/plan.md
+STATUS: added
+ADDITIONS: 85
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,85 @@
++# Implementation Plan: Global Tools Overview Page
++
++**Branch**: `050-global-tools-page` | **Date**: 2026-05-18 | **Spec**: [spec.md](./spec.md)
++**Input**: Feature specification from `/specs/050-global-tools-page/spec.md`
++
++## Summary
++
++Add one consolidated read endpoint, `GET /api/v1/tools`, that returns every tool from every configured server enriched with approval/disabled/config-denied state plus per-tool usage (count + last-used) aggregated from the activity log over a fixed 30-day window. Surface it three ways: a rewritten web Tools page (replacing the orphaned `frontend/src/views/Tools.vue`) modeled on `Activity.vue` with summary cards, filter bar, sortable table, and batch enable/disable; and CLI parity by extending the existing `mcpproxy tools` group with a global `tools list` (no `--server`, filters, JSON/YAML) and `tools enable|disable <server:tool ...>` batch subcommands. The agent-facing BM25 discovery path is untouched.
++
++## Technical Context
++
++**Language/Version**: Go 1.24 (toolchain go1.24.10); TypeScript 5.9 / Vue 3.5 (frontend)
++**Primary Dependencies**: Chi router, BBolt (`go.etcd.io/bbolt`), Zap, Cobra (CLI), `mark3labs/mcp-go`; Vue 3, Pinia, Vue Router, Tailwind/DaisyUI, Vite — all existing, no new deps
++**Storage**: BBolt `~/.mcpproxy/config.db` — read-only on the hot path. Reuses existing `ActivityRecordsBucket` (aggregation pass) and `ToolApprovalBucket` (enrichment). No schema change, no migration.
++**Testing**: `go test -race ./...` (table tests), `./scripts/test-api-e2e.sh` (API E2E), Playwright UI sweep with self-contained HTML report
++**Target Platform**: Cross-platform desktop/server (personal + server editions, same code path; no build-tagged code)
++**Project Type**: web (Go backend + Vue frontend) + CLI
++**Performance Goals**: Per Constitution I (≤1000 tools): aggregation endpoint responds well under typical web latency; client-side filter/sort/search over the full set updates in <1s at 700 tools (SC-003). Usage aggregation is a single bounded cursor pass over the activity bucket.
++**Constraints**: No change to BM25/`retrieve_tools` behavior (FR-016/SC-006). Disabled & config-denied tools MUST remain listed (FR-001/FR-007). 30-day window fixed in v1.
++**Scale/Scope**: 12+ servers, 500–700 tools typical; one new endpoint, one new storage method, one rewritten Vue view + router/sidebar wiring, three CLI subcommands.
++
++## Constitution Check
++
++*GATE: re-checked after Phase 1 design — still passing.*
++
++| Principle | Status | Notes |
++|-----------|--------|-------|
++| I. Performance at Scale | PASS | Single bounded cursor pass for usage; endpoint reuses the existing per-server enrichment loop (already used by the tool-export endpoint). No new per-tool DB round-trips beyond the existing approval lookup. Client-side filter/sort avoids per-interaction server round-trips. |
++| II. Actor-Based Concurrency | PASS | Read-only endpoint. No new goroutines/locks; reuses management service + storage `View` transactions. No shared mutable state. |
++| III. Configuration-Driven Architecture | PASS | No tray state. Frontend reads via REST. 30-day window is a documented constant, not new config — keeps v1 surface minimal per spec Out-of-Scope. |
++| IV. Security by Default | PASS | Read endpoint behind existing API-key auth. Batch enable/disable reuses the existing authenticated per-tool endpoint; a config-denied tool cannot be force-enabled (server enforces). BM25/quarantine untouched. |
++| V. Test-Driven Development | PASS | Backend: failing table tests first for `AggregateToolUsage` + handler. CLI: command tests incl. partial-failure exit code. UI: Playwright sweep. E2E extended. `golangci-lint` clean. |
++| VI. Documentation Hygiene | PASS | Update `CLAUDE.md`, `oas/swagger.yaml`, `docs/api/rest-api.md`, `docs/cli-management-commands.md`, hints panel; commit verification report. |
++
++No violations → Complexity Tracking not required.
++
++## Project Structure
++
++### Documentation (this feature)
++
++```text
++specs/050-global-tools-page/
++├── plan.md              # This file
++├── spec.md              # Feature spec (committed)
++├── research.md          # Phase 0 — decisions
++├── data-model.md        # Phase 1 — entities & response shape
++├── quickstart.md        # Phase 1 — manual verification recipe
++├── contracts/
++│   └── global-tools-api.md   # GET /api/v1/tools contract
++├── checklists/requirements.md
++├── execution_log.md     # autonomous-run state
++├── verification/        # Playwright screenshots + report.html (added during impl)
++└── tasks.md             # Phase 2 — /speckit.tasks output
++```
++
++### Source Code (repository root)
++
++```text
++internal/
++├── storage/
++│   ├── activity.go            # + AggregateToolUsage(since) — single cursor pass
++│   └── activity_test.go       # + table tests (no activity / multi / window boundary / never-used)
++├── contracts/
++│   └── types.go               # + GlobalToolsResponse, GlobalToolsStats (Tool already has Usage/LastUsed)
++├── httpapi/
++│   ├── server.go              # + route GET /api/v1/tools + handleGetGlobalTools (mirrors export loop globally)
++│   └── server_global_tools_test.go  # handler tests (multi-server merge, disabled servers, enrichment)
++└── runtime / management       # thin pass-through to expose AggregateToolUsage to httpapi if needed
++
++cmd/mcpproxy/
++├── tools_cmd.go               # global `tools list` (no --server) + filters; `tools enable|disable <server:tool ...>`
++└── tools_cmd_test.go          # + command tests incl. partial-failure exit code
++
++frontend/src/
++├── views/Tools.vue            # REWRITTEN: Activity.vue-style table (delete dead grid/list code)
++├── router/index.ts            # + /tools route
++├── services/api.ts            # + getGlobalTools()
++└── (sidebar component)        # WORKSPACE "Tools" item with live tool-count badge
++
++oas/swagger.yaml               # + /api/v1/tools
++docs/                          # rest-api.md, cli-management-commands.md, CLAUDE.md
++scripts/test-api-e2e.sh        # + assertion for GET /api/v1/tools shape+stats
++```
++
++**Structure Decision**: Web + CLI feature on the existing single-repo layout. No new packages — extend `internal/storage`, `internal/contracts`, `internal/httpapi`, `cmd/mcpproxy`, and the Vue app in place, following the established `GET /api/v1/servers/{id}/tools` → export-loop pattern (`server.go` ~4268) hoisted to global scope.
+
+--- FILE 5/6 ---
+FILE: specs/050-global-tools-page/quickstart.md
+STATUS: added
+ADDITIONS: 69
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,69 @@
++# Quickstart — Verify Global Tools Page
++
++Prereqs: built `mcpproxy` binary, Node/npm, `jq`, `curl`.
++
++## 1. Stand up a throwaway instance with a couple of servers
++
++```bash
++pkill -f 'mcpproxy serve.*18081' 2>/dev/null; sleep 1
++rm -rf /tmp/mcpproxy-uitest/{config.db,index.bleve,logs} 2>/dev/null
++mkdir -p /tmp/mcpproxy-uitest
++cat > /tmp/mcpproxy-uitest/mcp_config.json <<'EOF'
++{ "listen": "127.0.0.1:18081", "data_dir": "/tmp/mcpproxy-uitest", "api_key": "uitest",
++  "enable_web_ui": true, "enable_socket": true, "telemetry": {"enabled": false},
++  "mcpServers": [
++    {"name":"everything","command":"npx","args":["-y","@modelcontextprotocol/server-everything"],"protocol":"stdio","enabled":true},
++    {"name":"memory","command":"npx","args":["-y","@modelcontextprotocol/server-memory"],"protocol":"stdio","enabled":false}
++  ] }
++EOF
++./mcpproxy serve --config=/tmp/mcpproxy-uitest/mcp_config.json --listen=127.0.0.1:18081 --log-level=info > /tmp/mcpproxy-uitest/server.log 2>&1 &
++until curl -sf -H "X-API-Key: uitest" http://127.0.0.1:18081/api/v1/status >/dev/null; do sleep 1; done
++```
++
++## 2. API: consolidated listing (curl)
++
++```bash
++# Full payload shape + stats
++curl -s -H "X-API-Key: uitest" http://127.0.0.1:18081/api/v1/tools | jq '.data.stats, (.data.tools|length), .data.partial'
++
++# A disabled server's tools must still appear
++curl -s -H "X-API-Key: uitest" http://127.0.0.1:18081/api/v1/tools \
++  | jq '.data.tools | map(select(.server_name=="memory")) | length'   # > 0 expected (server disabled, tools still listed)
++
++# Usage fields present (0 / null until tools are called)
++curl -s -H "X-API-Key: uitest" http://127.0.0.1:18081/api/v1/tools | jq '.data.tools[0] | {name,server_name,usage,last_used,disabled,config_denied,approval_status}'
++```
++
++Expected: `stats.total == tools|length`; `memory` (disabled server) tools present;
++`partial:false`; usage `0` and `last_used` absent before any tool call.
++
++## 3. CLI parity
++
++```bash
++mcpproxy tools list                                  # global, all servers (no --server)
++mcpproxy tools list -o json | jq '.[0]'
++mcpproxy tools list --server everything              # still works (scoped)
++mcpproxy tools list --status disabled                # only disabled/config-denied
++mcpproxy tools disable everything:echo memory:foo    # batch; per-target summary
++echo "exit: $?"                                      # non-zero if any target failed
++mcpproxy tools list --server everything | grep echo  # echo now shows disabled
++mcpproxy tools enable everything:echo
++```
++
++## 4. Web UI
++
++```bash
++open "http://127.0.0.1:18081/ui/?apikey=uitest"      # → sidebar WORKSPACE → "Tools" (badge shows total)
++```
++
++Check: summary cards (Total/Enabled/Disabled/Pending) match; type in search box →
++list narrows incl. disabled tools; server/status/risk/approval dropdowns combine;
++click column header → sort toggles; select rows → batch bar → Disable selected →
++states + cards update; row click → schema modal. Empty state when `mcpServers: []`.
++
++## 5. Automated
++
++```bash
++./scripts/test-api-e2e.sh        # includes GET /api/v1/tools shape+stats assertion
++# Playwright sweep → specs/050-global-tools-page/verification/report.html
++```
+
+--- FILE 6/6 ---
+FILE: specs/050-global-tools-page/research.md
+STATUS: added
+ADDITIONS: 39
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,39 @@
++# Phase 0 Research — Global Tools Page
++
++All open questions were resolved during the brainstorming session with the user; this records the decisions and rejected alternatives. No NEEDS CLARIFICATION remain.
++
++## D1 — Global tool list assembly
++
++**Decision**: New `GET /api/v1/tools` aggregation endpoint, server-side merge of all configured servers.
++**Rationale**: One request scales to 500–700 tools; the per-server enrichment loop (approval/disabled/config-denied) already exists in `handleGetServerTools` and the tool-export handler — hoist it over `controller.GetAllServers()`. Single source of truth for web + CLI.
++**Alternatives rejected**: Client-side N+1 fan-out (current orphaned `Tools.vue`) — slow, no global sort/paginate, brittle on partial server failure. Reusing the Bleve/BM25 index — excludes disabled tools (spec 049) and imposes relevance order conflicting with column sort.
++
++## D2 — Usage count & last-used
++
++**Decision**: New `storage.Manager.AggregateToolUsage(since time.Time) (map[string]ToolUsageStat, error)` — one reverse cursor pass over `ActivityRecordsBucket`, keyed `serverName + "\x00" + toolName`, counting `tool_call` records with `Timestamp >= since`, tracking max timestamp. Window fixed at 30 days (`time.Now().Add(-30*24h)`).
++**Rationale**: The activity bucket is the only authoritative usage source; a single bounded pass is O(records-in-window) and avoids any new persisted counter (no schema change, consistent with privacy/storage minimalism). `Tool` contract already carries `Usage int` / `LastUsed *time.Time` — no contract churn.
++**Alternatives rejected**: Maintaining a live per-tool counter bucket — new write path, migration, retention coupling, out of scope per spec. Configurable window — explicitly deferred (spec Out-of-Scope).
++
++## D3 — Search semantics
++
++**Decision**: Client-side (and CLI-side) deterministic substring filter over name+description+server on the full aggregated set; not BM25.
++**Rationale**: Audit/cleanup requires seeing *every* match including disabled/config-denied tools, in a stable user-sortable order. At ≤1000 tools the full set filters in <1s client-side (SC-003).
++**Alternatives rejected**: BM25 — hides disabled tools, relevance order fights sort (see D1).
++
++## D4 — Disposition of existing `Tools.vue`
++
++**Decision**: Rewrite in place as the table page; delete dead grid/list/card code. Add `/tools` route + WORKSPACE sidebar entry with live count badge.
++**Rationale**: The file is orphaned (no route, not in nav). Two competing "tools" surfaces would confuse. Modeling on `Activity.vue` reuses an established, tested layout (stat cards + filter bar + table + pagination + `data-test` hooks) — matches the user's annotated mockup.
++**Alternatives rejected**: Keep grid + add table toggle (more surface, no value); brand-new component (leaves dead code, risks divergence).
++
++## D5 — CLI parity placement
++
++**Decision**: Extend the existing `mcpproxy tools` command group: make `tools list` global when `--server` is omitted (filters: `--server`, `--status`, `--risk`, `--approval`; `-o json|yaml`), add `tools enable|disable <server:tool ...>`.
++**Rationale**: Project ships CLI/UI parity for every management surface (activity, tokens, upstream, quarantine). Same consolidated endpoint backs it. Today `tools list --server` is debug-only and server-scoped — making the no-arg form global is the least-surprising extension.
++**Alternatives rejected**: Separate spec/command group — fragments a cohesive feature; new top-level command — inconsistent with the existing `tools` group.
++
++## D6 — Batch enable/disable mechanism
++
++**Decision**: Orchestrate the existing authenticated per-tool endpoint `POST /api/v1/servers/{id}/tools/{tool}/enabled`, grouped by server, with progress + partial-failure summary (UI toast; CLI per-target lines + non-zero exit on any failure).
++**Rationale**: No new write path or persistence; the per-tool toggle is already the authority (spec 049 layered filter). Config-denied tools cannot be force-enabled — server rejects, surfaced as a per-target failure.
++**Alternatives rejected**: New bulk endpoint — extra surface for a v1 that's pure orchestration; can be added later if latency demands it (≤700 sequential small POSTs is acceptable for an admin action).
+
+
+====================================================================================================
+COMMIT POSITION 4
+====================================================================================================
+SHA: f695e79878f72ce6befb76ce1736c3c830dbd27d
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+tasks(050): 26 tasks, 4 user stories, TDD
+
+Related #437
+
+US1 (global listing/MVP), US2 (filter/sort/search), US3 (batch),
+US4 (CLI parity). Phase 2 foundational = AggregateToolUsage + contracts.
+Fan-out: backend / frontend / CLI agents after T007.
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: specs/050-global-tools-page/tasks.md
+STATUS: added
+ADDITIONS: 108
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,108 @@
++# Tasks: Global Tools Overview Page
++
++**Input**: Design documents from `/specs/050-global-tools-page/`
++**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/global-tools-api.md
++**Tests**: REQUIRED (Constitution V — TDD; spec mandates table/E2E/Playwright coverage).
++
++## Format: `[ID] [P?] [Story] Description`
++
++- **[P]**: parallelizable (different files, no incomplete deps)
++- **[Story]**: US1 (global listing), US2 (filter/sort/search), US3 (batch enable/disable), US4 (CLI parity)
++- Paths: Go backend `internal/`, CLI `cmd/mcpproxy/`, frontend `frontend/src/`
++
++---
++
++## Phase 1: Setup
++
++- [ ] T001 Confirm branch `050-global-tools-page`, deps unchanged (no go.mod / package.json edits expected); create `specs/050-global-tools-page/verification/` dir placeholder.
++
++---
++
++## Phase 2: Foundational (blocking — all stories depend on the consolidated data source)
++
++- [ ] T002 [P] Add `ToolUsageStat` type and `AggregateToolUsage(since time.Time) (map[string]ToolUsageStat, error)` test stubs (failing) in `internal/storage/activity_test.go`: cases — empty bucket → empty map; multiple tools across servers; window boundary (record exactly at `since`, just-before excluded); never-used tool absent from map; non-`tool_call` types ignored. Run `go test ./internal/storage/ -run AggregateToolUsage` → RED.
++- [ ] T003 Implement `ToolUsageStat` + `AggregateToolUsage` in `internal/storage/activity.go`: single reverse cursor pass over `ActivityRecordsBucket`, key `serverName + "\x00" + toolName`, count `Type==tool_call` with `Timestamp >= since`, track max `Timestamp`. `go test -race ./internal/storage/ -run AggregateToolUsage` → GREEN.
++- [ ] T004 [P] Add `GlobalToolsStats` + `GlobalToolsResponse` types in `internal/contracts/types.go` per data-model.md (reuse existing `Tool.Usage`/`Tool.LastUsed`); add to contract-type registry/test if `internal/httpapi/contracts_test.go` enumerates response types.
++- [ ] T005 Expose `AggregateToolUsage` to the httpapi layer: add method to the storage accessor the controller already holds (or a thin `ServerController`/management pass-through). Wire so `internal/httpapi` can call it without import cycles. Build must pass.
++
++---
++
++## Phase 3: US1 — See every tool in one place (P1) 🎯 MVP
++
++**Goal**: One endpoint + page listing every tool across all servers (incl. disabled servers / disabled / config-denied) with state, approval, usage. **Independent test**: quickstart §2 + §4 empty/loaded.
++
++- [ ] T006 [US1] Failing handler test `internal/httpapi/server_global_tools_test.go`: `GET /api/v1/tools` — multi-server merge; tools from a disabled server present; enrichment (`approval_status`/`disabled`/`config_denied`) applied; `stats` consistent (total=len, disabled counts user-disabled OR config-denied, pending counts pending/changed); `usage`/`last_used` populated from a seeded activity record; `partial:true`+`failed_servers` when one server's tool fetch errors; never 500 on partial. RED.
++- [ ] T007 [US1] Implement `handleGetGlobalTools` in `internal/httpapi/server.go` + register route `r.Get("/tools", ...)` under `/api/v1`: iterate `controller.GetAllServers()`, per server reuse the existing typed-tool enrichment loop (approval/disabled/config-denied) from `handleGetServerTools`/export path, fold in `AggregateToolUsage(now-30d)`, compute `stats`, collect `failed_servers`. `go test -race ./internal/httpapi/ -run GlobalTools` → GREEN.
++- [ ] T008 [P] [US1] Add `GET /api/v1/tools` to `oas/swagger.yaml` and `docs/api/rest-api.md`; run `./scripts/verify-oas-coverage.sh`.
++- [ ] T009 [P] [US1] Add `getGlobalTools()` to `frontend/src/services/api.ts` + TS types for the response.
++- [ ] T010 [US1] Rewrite `frontend/src/views/Tools.vue` (delete dead grid/list/card code): Activity.vue-style header w/ live total badge, summary cards (Total/Enabled/Disabled/Pending), dense table (Tool, Server, Description truncated, Risk badge, Approval badge, Enabled state, Usage, Last used), loading/empty/partial-error states, row → existing schema modal. `data-test` attributes on header, cards, rows, cells.
++- [ ] T011 [US1] Add `/tools` route in `frontend/src/router/index.ts` and a WORKSPACE sidebar entry with a live tool-count badge (source the count from the page/store; reuse existing badge pattern).
++- [ ] T012 [US1] Add `./scripts/test-api-e2e.sh` assertion: `GET /api/v1/tools` returns `success`, `data.stats` keys, `data.tools` array, `stats.total == tools|length`.
++
++**Checkpoint**: US1 independently demoable — open `/tools`, see all tools incl. disabled-server tools; curl shows consistent stats.
++
++---
++
++## Phase 4: US2 — Find and narrow down (P1)
++
++**Goal**: search + filters + sort + paginate over the full set, disabled tools never hidden.
++
++- [ ] T013 [US2] In `Tools.vue`: client-side substring search over name+description+server (debounced); MUST NOT exclude disabled/config-denied matches.
++- [ ] T014 [US2] In `Tools.vue`: server, status (enabled/disabled/config-denied), risk (read/write/destructive), approval dropdown filters — combine with AND; reuse Activity.vue filter-bar layout + `data-test` hooks.
++- [ ] T015 [US2] In `Tools.vue`: sortable column headers (asc/desc toggle) for every displayed column; pagination preserving active filters+sort across pages (reuse Activity pagination pattern).
++
++**Checkpoint**: filter/sort/search verified at ~700 tools updating <1s (SC-003); disabled tools still surface via search (SC-004).
++
++---
++
++## Phase 5: US3 — Bulk enable/disable (P2)
++
++**Goal**: multi-select + batch enable/disable via existing per-tool endpoint, partial-failure summary.
++
++- [ ] T016 [US3] In `Tools.vue`: per-row + "select all currently shown" checkboxes (scoped to active filters on current page); selection-count action bar appears when ≥1 selected; `data-test` hooks.
++- [ ] T017 [US3] In `Tools.vue`: "Enable selected"/"Disable selected" → group selected by server, call existing `POST /servers/{id}/tools/{tool}/enabled` per tool with progress toast; on completion show per-tool success/failure summary; successfully-changed tools stay changed; refresh list + cards. Config-denied target failure surfaced, not silently swallowed.
++
++**Checkpoint**: select 50+ across servers → Disable selected → states + cards update; simulated partial failure reports which failed (SC-002, SC-005).
++
++---
++
++## Phase 6: US4 — CLI parity (P2)
++
++**Goal**: global `tools list` + `tools enable|disable <server:tool ...>` mirroring the page/data.
++
++- [ ] T018 [US4] Failing tests in `cmd/mcpproxy/tools_cmd_test.go`: global `tools list` (no `--server`) hits `/api/v1/tools` and lists all servers' tools; `--status disabled` filter; `-o json` shape; `tools disable a:x b:y` returns per-target summary and exits non-zero on any failure; invalid `server:tool` target reported without aborting valid targets. RED.
++- [ ] T019 [US4] In `cmd/mcpproxy/tools_cmd.go`: make `--server` optional on `tools list`; when absent, call the consolidated endpoint via the daemon/socket client (fallback message if daemon down), add `--status`/`--risk`/`--approval` flags, extend table columns (state/approval/usage/last-used) and keep `-o json|yaml` consistent.
++- [ ] T020 [US4] Add `toolsEnableCmd` + `toolsDisableCmd` (`tools enable|disable <server:tool ...>`) to `cmd/mcpproxy/tools_cmd.go`: parse `server:tool` args, group by server, call per-tool enabled endpoint via client, print per-target lines, non-zero exit on any failure, invalid target = per-target error not abort. `go test -race ./cmd/mcpproxy/ -run Tools` → GREEN.
++- [ ] T021 [P] [US4] Update `docs/cli-management-commands.md` + `CLAUDE.md` CLI section + Tools.vue hints panel CLI snippet to document the new global list + enable/disable.
++
++**Checkpoint**: quickstart §3 passes end-to-end incl. exit codes.
++
++---
++
++## Phase 7: Polish & Verification
++
++- [ ] T022 Run `./scripts/run-linter.sh` (golangci-lint) + `npm --prefix frontend run build` + `npm --prefix frontend run lint`; fix all.
++- [ ] T023 `go test -race ./...` and `./scripts/test-api-e2e.sh` green.
++- [ ] T024 Playwright sweep per CLAUDE.md → screenshots + self-contained `specs/050-global-tools-page/verification/report.html` covering: empty state, loaded table, search filter, column sort, batch disable, sidebar badge count. Commit screenshots+report.
++- [ ] T025 chrome-ext spot check of the live page (sidebar badge, batch action toast) for states hard to assert in Playwright; note in execution_log.md.
++- [ ] T026 Update `execution_log.md`; final review of FR-001..020 / SC-001..007 coverage; ensure BM25/`retrieve_tools` untouched (grep diff for index changes — must be none).
++
++---
++
++## Dependencies
++
++- Phase 2 (T002–T005) blocks everything (consolidated data source).
++- US1 (Phase 3) blocks US2/US3 (they operate on the page+endpoint) and US4 (consumes same endpoint).
++- US2, US3 are frontend-only on top of US1 and can proceed in parallel once US1 lands.
++- US4 (CLI) depends only on T007 endpoint, parallel to US2/US3.
++- Phase 7 after all stories.
++
++## Parallel Opportunities
++
++- T002 / T004 in parallel (storage vs contracts).
++- After T007: US4 (CLI, `cmd/`) ∥ US2+US3 (frontend `Tools.vue`) ∥ T008 (docs/oas).
++- T009 ∥ T010 start (api service vs view) then converge.
++
++## Implementation Strategy
++
++**MVP = Phase 1+2+3 (US1)**: consolidated endpoint + read-only global table + sidebar = the issue's core ask, independently shippable. US2/US3/US4 are incremental value layered on the same endpoint. Fan-out plan: one agent on backend (T002–T008,T012), one on frontend (T009–T017), one on CLI (T018–T021) after T007 is green.
+
+
+====================================================================================================
+COMMIT POSITION 5  [STEP-7 AUTOMATED CODE HINT — NOT GROUND TRUTH]
+====================================================================================================
+SHA: 9e8705f19aecef5bf59b9827bbd707bb94b6d4cd
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat(050): global tools overview — endpoint, page, CLI parity
+
+Related #437
+
+Backend: storage.AggregateToolUsage (single bounded cursor pass over the
+activity bucket, 30d window, no schema change); GET /api/v1/tools merging
+all servers via a shared enrichServerTools helper + usage fold-in;
+partial-server-failure tolerant. Frontend: Tools.vue rewritten
+Activity.vue-style (cards, filters, sortable table, batch enable/disable,
+schema modal); /tools route + sidebar badge. CLI: global tools list +
+tools enable|disable <server:tool ...> batch. Docs/OAS/E2E updated.
+Tests: storage + httpapi + CLI; lint + frontend build clean.
+
+CHANGED FILES: 23
+
+--- FILE 1/23 ---
+FILE: CLAUDE.md
+STATUS: modified
+ADDITIONS: 16
+DELETIONS: 0
+
+PATCH:
+@@ -229,6 +229,21 @@ mcpproxy doctor                     # Run health checks
+ 
+ See [docs/cli-management-commands.md](docs/cli-management-commands.md) for complete reference.
+ 
++### Global Tools CLI (Spec 050)
++```bash
++mcpproxy tools list                              # Global list — all tools across all servers (requires daemon)
++mcpproxy tools list -o json                      # JSON output for scripting
++mcpproxy tools list --status disabled            # Only disabled/config-denied tools
++mcpproxy tools list --risk read                  # Only read-only tools
++mcpproxy tools list --approval pending           # Only tools pending approval
++mcpproxy tools list --server=github-server       # Server-scoped debug listing
++mcpproxy tools enable github:create_issue        # Enable a specific tool
++mcpproxy tools disable github:create_issue       # Disable a specific tool
++mcpproxy tools disable everything:echo memory:foo  # Batch disable; per-target summary; non-zero exit on any failure
++```
++
++See [docs/cli-management-commands.md](docs/cli-management-commands.md) for complete reference.
++
+ ### Activity Log CLI
+ ```bash
+ mcpproxy activity list              # List recent activity
+@@ -393,6 +408,7 @@ See [docs/configuration.md](docs/configuration.md) for complete reference.
+ | `POST /api/v1/servers/{name}/disable` | Disable server |
+ | `POST /api/v1/servers/{name}/quarantine` | Quarantine a server |
+ | `POST /api/v1/servers/{name}/unquarantine` | Unquarantine a server |
++| `GET /api/v1/tools` | Global tools overview: every tool across all servers + stats (spec 050, issue #437) |
+ | `GET /api/v1/index/search` | Search tools across servers (`?q=query&limit=N`) |
+ | `GET /api/v1/activity` | List activity records with filtering |
+ | `GET /api/v1/activity/{id}` | Get activity record details |
+
+--- FILE 2/23 ---
+FILE: cmd/mcpproxy/tools_cmd.go
+STATUS: modified
+ADDITIONS: 357
+DELETIONS: 34
+
+PATCH:
+@@ -5,6 +5,7 @@ import (
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"time"
+ 
+ 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/cli/output"
+@@ -30,26 +31,158 @@ var (
+ 
+ 	toolsListCmd = &cobra.Command{
+ 		Use:   "list",
+-		Short: "List tools from an upstream server",
+-		Long: `List all available tools from a specific upstream server.
+-This command is primarily used for debugging upstream server connections and tool discovery.
++		Short: "List tools from upstream servers",
++		Long: `List all available tools. Without --server, lists every tool across all
++configured servers from the running daemon (global view). With --server,
++lists tools from that specific server only.
+ 
+ Examples:
+-  mcpproxy tools list --server=github-server --log-level=trace
+-  mcpproxy tools list --server=weather-api --log-level=debug
+-  mcpproxy tools list --server=local-script --log-level=info
+-  mcpproxy tools list --server=jetbrains-sse --trace-transport  # Enable HTTP/SSE frame tracing`,
++  mcpproxy tools list                            # global list, all servers
++  mcpproxy tools list -o json                    # JSON output
++  mcpproxy tools list --status disabled          # only disabled/config-denied
++  mcpproxy tools list --risk read                # read-only tools
++  mcpproxy tools list --approval pending         # tools pending approval
++  mcpproxy tools list --server=github-server     # server-scoped (debug mode)
++  mcpproxy tools list --server=github-server --log-level=trace`,
+ 		RunE: runToolsList,
+ 	}
+ 
++	toolsEnableCmd = &cobra.Command{
++		Use:   "enable <server:tool> [<server:tool>...]",
++		Short: "Enable one or more tools",
++		Long: `Enable one or more tools by their server:tool identifier.
++
++Multiple targets are processed independently. If any target fails, the
++command exits non-zero but all other targets are still attempted.
++
++Examples:
++  mcpproxy tools enable github:create_issue
++  mcpproxy tools enable github:create_issue github:list_repos`,
++		Args: cobra.MinimumNArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			return runToolsSetEnabled(args, true)
++		},
++	}
++
++	toolsDisableCmd = &cobra.Command{
++		Use:   "disable <server:tool> [<server:tool>...]",
++		Short: "Disable one or more tools",
++		Long: `Disable one or more tools by their server:tool identifier.
++
++Multiple targets are processed independently. If any target fails, the
++command exits non-zero but all other targets are still attempted.
++
++Examples:
++  mcpproxy tools disable github:create_issue
++  mcpproxy tools disable github:create_issue memory:foo`,
++		Args: cobra.MinimumNArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			return runToolsSetEnabled(args, false)
++		},
++	}
++
+ 	// Command flags
+ 	serverName     string
+ 	toolsLogLevel  string
+ 	configPath     string
+ 	timeout        time.Duration
+ 	traceTransport bool // Enable HTTP/SSE frame-by-frame tracing
++
++	// Global list filter flags (T019)
++	toolsStatusFilter   string // enabled | disabled | config-denied
++	toolsRiskFilter     string // read | write | destructive
++	toolsApprovalFilter string // approved | pending | changed
+ )
+ 
++// serverToolTarget holds a parsed server:tool pair.
++type serverToolTarget struct {
++	server string
++	tool   string
++}
++
++// parseServerTool splits an arg of the form "server:tool" on the first ':'.
++// The tool name itself may contain further colons.
++func parseServerTool(arg string) (server, tool string, err error) {
++	if arg == "" {
++		return "", "", fmt.Errorf("invalid target %q: must be in <server>:<tool> format", arg)
++	}
++	idx := strings.Index(arg, ":")
++	if idx < 0 {
++		return "", "", fmt.Errorf("invalid target %q: missing ':' separator (use <server>:<tool>)", arg)
++	}
++	server = arg[:idx]
++	tool = arg[idx+1:]
++	if server == "" {
++		return "", "", fmt.Errorf("invalid target %q: server name is empty", arg)
++	}
++	if tool == "" {
++		return "", "", fmt.Errorf("invalid target %q: tool name is empty", arg)
++	}
++	return server, tool, nil
++}
++
++// groupByServer groups targets by their server name.
++func groupByServer(targets []serverToolTarget) map[string][]string {
++	groups := make(map[string][]string)
++	for _, t := range targets {
++		groups[t.server] = append(groups[t.server], t.tool)
++	}
++	return groups
++}
++
++// applyGlobalToolFilters applies client-side filters to the global tool list.
++// statusFilter: "enabled" | "disabled" | "config-denied" | ""
+
+[PATCH TRUNCATED: 490 total lines]
+
+--- FILE 3/23 ---
+FILE: cmd/mcpproxy/tools_cmd_test.go
+STATUS: modified
+ADDITIONS: 276
+DELETIONS: 0
+
+PATCH:
+@@ -1,13 +1,17 @@
+ package main
+ 
+ import (
++	"bytes"
++	"encoding/json"
++	"os"
+ 	"runtime"
+ 	"strings"
+ 	"testing"
+ 
+ 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/socket"
+ 
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestShouldUseToolsDaemon(t *testing.T) {
+@@ -39,3 +43,275 @@ func TestDetectSocketPath_Tools(t *testing.T) {
+ 			"Unix socket should have unix:// prefix")
+ 	}
+ }
++
++// ---------------------------------------------------------------------------
++// T018: Unit tests for new global-tools CLI logic
++// ---------------------------------------------------------------------------
++
++// TestParseServerTool verifies that parseServerTool correctly splits on the
++// first ':' only, handles edge cases, and rejects malformed input.
++func TestParseServerTool(t *testing.T) {
++	tests := []struct {
++		input      string
++		wantServer string
++		wantTool   string
++		wantErr    bool
++	}{
++		{"github:create_issue", "github", "create_issue", false},
++		{"my-server:some_tool", "my-server", "some_tool", false},
++		// Tool name may contain colons — only the first colon is the separator
++		{"server:tool:with:colons", "server", "tool:with:colons", false},
++		// Missing colon → error
++		{"notaservertool", "", "", true},
++		// Empty server → error
++		{":toolonly", "", "", true},
++		// Empty tool → error
++		{"serveronly:", "", "", true},
++		// Completely empty → error
++		{"", "", "", true},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.input, func(t *testing.T) {
++			srv, tool, err := parseServerTool(tc.input)
++			if tc.wantErr {
++				assert.Error(t, err, "expected error for input %q", tc.input)
++				return
++			}
++			require.NoError(t, err)
++			assert.Equal(t, tc.wantServer, srv)
++			assert.Equal(t, tc.wantTool, tool)
++		})
++	}
++}
++
++// TestGroupByServer verifies that groupByServer correctly groups
++// (server, tool) pairs by their server name.
++func TestGroupByServer(t *testing.T) {
++	targets := []serverToolTarget{
++		{server: "github", tool: "create_issue"},
++		{server: "github", tool: "list_repos"},
++		{server: "gitlab", tool: "merge_request"},
++	}
++
++	groups := groupByServer(targets)
++
++	assert.Len(t, groups, 2)
++	assert.ElementsMatch(t, []string{"create_issue", "list_repos"}, groups["github"])
++	assert.ElementsMatch(t, []string{"merge_request"}, groups["gitlab"])
++}
++
++// TestApplyGlobalToolFilters_Status verifies that the status filter correctly
++// identifies enabled vs disabled/config-denied tools.
++func TestApplyGlobalToolFilters_Status(t *testing.T) {
++	tools := []map[string]interface{}{
++		{"name": "tool_a", "server_name": "srv", "disabled": false, "config_denied": false},
++		{"name": "tool_b", "server_name": "srv", "disabled": true, "config_denied": false},
++		{"name": "tool_c", "server_name": "srv", "disabled": false, "config_denied": true},
++		{"name": "tool_d", "server_name": "srv", "disabled": false, "config_denied": false},
++	}
++
++	// Filter to disabled only
++	got := applyGlobalToolFilters(tools, "disabled", "", "")
++	assert.Len(t, got, 2, "expect tool_b (disabled) and tool_c (config_denied)")
++	names := toolNames(got)
++	assert.Contains(t, names, "tool_b")
++	assert.Contains(t, names, "tool_c")
++
++	// Filter to enabled only
++	got = applyGlobalToolFilters(tools, "enabled", "", "")
++	assert.Len(t, got, 2, "expect tool_a and tool_d")
++	names = toolNames(got)
++	assert.Contains(t, names, "tool_a")
++	assert.Contains(t, names, "tool_d")
++
++	// No filter → all returned
++	got = applyGlobalToolFilters(tools, "", "", "")
++	assert.Len(t, got, 4)
++}
++
++// TestApplyGlobalToolFilters_Risk verifies the risk filter matches annotations.
++func TestApplyGlobalToolFilters_Risk(t *testing.T) {
++	tools := []map[string]interface{}{
++		{
++			"name":        "read_file",
++			"server_name": "srv",
++			"annotations": map[string]interface{}{"operation_type": "read"},
++		},
++		{
++			"name":        "write_file",
++			"server_name": "srv",
+
+[PATCH TRUNCATED: 294 total lines]
+
+--- FILE 4/23 ---
+FILE: docs/api/rest-api.md
+STATUS: modified
+ADDITIONS: 27
+DELETIONS: 12
+
+PATCH:
+@@ -496,25 +496,40 @@ See [Routing Modes](../features/routing-modes.md) for details on each mode.
+ 
+ #### GET /api/v1/tools
+ 
+-Search tools across all servers.
+-
+-**Query Parameters:**
+-- `q` - Search query (optional)
+-- `limit` - Maximum results (default: 15)
++Global tools overview (spec 050, issue #437): every tool from **every** configured
++server — including disabled servers and individually disabled / config-denied tools —
++enriched with approval state and 30-day usage. Read-only; consumers apply their own
++search/filter/sort over the full set. For relevance-ranked discovery use
++`GET /api/v1/index/search` instead.
+ 
+ **Response:**
+ ```json
+ {
+-  "tools": [
+-    {
+-      "name": "github:create_issue",
+-      "server": "github-server",
+-      "description": "Create a new GitHub issue"
+-    }
+-  ]
++  "success": true,
++  "data": {
++    "tools": [
++      {
++        "name": "create_issue",
++        "server_name": "github",
++        "description": "Create a new GitHub issue",
++        "approval_status": "approved",
++        "disabled": false,
++        "config_denied": false,
++        "usage": 42,
++        "last_used": "2026-05-18T09:30:51Z"
++      }
++    ],
++    "stats": { "total": 478, "enabled": 450, "disabled": 28, "pending_approval": 0 },
++    "partial": false,
++    "failed_servers": []
++  }
+ }
+ ```
+ 
++`enabled` is derived by the consumer as `!disabled && !config_denied`. When a
++server cannot be read the endpoint still returns every tool it could gather and
++sets `partial: true` with `failed_servers` (it does not fail the whole request).
++
+ #### GET /api/v1/servers/{name}/tools
+ 
+ List tools for a specific server.
+
+--- FILE 5/23 ---
+FILE: docs/cli-management-commands.md
+STATUS: modified
+ADDITIONS: 92
+DELETIONS: 0
+
+PATCH:
+@@ -578,6 +578,98 @@ Shows what will be affected before proceeding.
+ 
+ ---
+ 
++## Tool Management (`mcpproxy tools`)
++
++Global view and per-tool enable/disable across all configured servers.
++
++### `mcpproxy tools list`
++
++List tools from upstream servers. Without `--server`, lists every tool across
++all servers from the consolidated endpoint (requires daemon). With `--server`,
++lists tools from that specific server only (daemon or standalone).
++
++**Usage:**
++```bash
++mcpproxy tools list [flags]
++```
++
++**Flags:**
++- `--server, -s` - Server name (optional; omit for global list)
++- `--status` - Filter by state: `enabled`, `disabled`, `config-denied`
++- `--risk` - Filter by risk level: `read`, `write`, `destructive`
++- `--approval` - Filter by approval: `approved`, `pending`, `changed`
++- `--output, -o` - Output format: `table`, `json`, `yaml`
++- `--log-level, -l` - Log level [default: info]
++- `--config, -c` - Path to config file
++- `--timeout, -t` - Connection timeout [default: 30s]
++- `--trace-transport` - Enable HTTP/SSE frame-by-frame tracing
++
++**Examples:**
++```bash
++# Global list (all servers) — requires daemon
++mcpproxy tools list
++mcpproxy tools list -o json | jq '.[0]'
++
++# Filtered list
++mcpproxy tools list --status disabled
++mcpproxy tools list --risk read
++mcpproxy tools list --approval pending
++
++# Server-scoped debug listing (daemon or standalone)
++mcpproxy tools list --server=github-server
++mcpproxy tools list --server=github-server --log-level=trace
++```
++
++**Output Columns (global view):**
++- NAME, SERVER, STATE (enabled/disabled/config-denied), APPROVAL, USAGE, LAST USED, DESCRIPTION
++
++---
++
++### `mcpproxy tools enable <server:tool> [...]`
++
++Enable one or more tools. Requires daemon.
++
++**Usage:**
++```bash
++mcpproxy tools enable <server:tool> [<server:tool>...]
++```
++
++**Examples:**
++```bash
++mcpproxy tools enable github:create_issue
++mcpproxy tools enable github:create_issue github:list_repos memory:create_entities
++```
++
++**Behavior:**
++- Each `server:tool` is parsed by splitting on the first `:` (tool names may contain `:`)
++- All targets are attempted independently; invalid targets are reported without aborting others
++- Prints `OK <server:tool>: enabled` or `FAILED <server:tool>: <reason>` per target
++- Exits non-zero if any target failed (enabling partial failure detection in scripts)
++
++---
++
++### `mcpproxy tools disable <server:tool> [...]`
++
++Disable one or more tools. Requires daemon.
++
++**Usage:**
++```bash
++mcpproxy tools disable <server:tool> [<server:tool>...]
++```
++
++**Examples:**
++```bash
++mcpproxy tools disable github:create_issue
++mcpproxy tools disable everything:echo memory:foo
++echo "exit: $?"   # non-zero if any failed
++```
++
++**Behavior:**
++- Same per-target processing and exit-code semantics as `tools enable`
++- Config-denied tools fail individually (server rejects) without aborting other targets
++
++---
++
+ ## Exit Codes
+ 
+ - `0` - Success
+
+--- FILE 6/23 ---
+FILE: frontend/src/components/SidebarNav.vue
+STATUS: modified
+ADDITIONS: 36
+DELETIONS: 1
+
+PATCH:
+@@ -213,6 +213,21 @@
+                 <span v-show="!collapsed">Servers</span>
+               </router-link>
+             </li>
++            <li>
++              <router-link
++                to="/tools"
++                :class="{ 'active': isActiveRoute('/tools') }"
++                class="rounded-lg font-medium"
++                :title="collapsed ? 'Tools' : ''"
++              >
++                <IconTools class="w-5 h-5 shrink-0" />
++                <span v-show="!collapsed">Tools</span>
++                <span
++                  v-if="!collapsed && toolCount > 0"
++                  class="badge badge-sm badge-ghost ml-auto tabular-nums"
++                >{{ toolCount }}</span>
++              </router-link>
++            </li>
+             <li>
+               <router-link
+                 to="/secrets"
+@@ -388,11 +403,12 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { computed, h, onMounted, type FunctionalComponent } from 'vue'
++import { computed, h, onMounted, ref, type FunctionalComponent } from 'vue'
+ import { useRoute, useRouter } from 'vue-router'
+ import { useSystemStore } from '@/stores/system'
+ import { useAuthStore } from '@/stores/auth'
+ import { useOnboardingStore } from '@/stores/onboarding'
++import api from '@/services/api'
+ 
+ const route = useRoute()
+ const router = useRouter()
+@@ -434,6 +450,7 @@ onMounted(() => {
+   // edition only — the surrounding template gates this for personal users.
+   if (!authStore.isTeamsEdition) {
+     void onboardingStore.fetchState()
++    void fetchToolCount()
+   }
+ })
+ 
+@@ -526,6 +543,24 @@ const IconSettings = makeIcon(
+ const IconSparkles = makeIcon(
+   'M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3zm6 11l.8 2.4L21 17l-2.2.6L18 20l-.8-2.4L15 17l2.2-.6L18 14zM6 14l.8 2.4L9 17l-2.2.6L6 20l-.8-2.4L3 17l2.2-.6L6 14z'
+ )
++// Spec 050: wrench/tool icon for the global Tools nav entry.
++const IconTools = makeIcon(
++  'M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3-3a1 1 0 000-1.4l-1.6-1.6a1 1 0 00-1.4 0l-1 1L15 3l-5 5-1.3-1.3a1 1 0 00-1.4 0l-3 3a1 1 0 000 1.4L6 13l-3 3a1 1 0 000 1.4l2.6 2.6a1 1 0 001.4 0l3-3a1 1 0 000-1.4L8.7 14l5-5 1.6 1.6z'
++)
++
++// Spec 050: live tool count for the sidebar badge.
++const toolCount = ref(0)
++
++async function fetchToolCount() {
++  try {
++    const resp = await api.getGlobalTools()
++    if (resp.success && resp.data) {
++      toolCount.value = resp.data.stats.total
++    }
++  } catch {
++    // Silently ignore — badge is non-critical
++  }
++}
+ 
+ // Server edition menus (unchanged behavior)
+ const teamsUserMenu = [
+
+--- FILE 7/23 ---
+FILE: frontend/src/router/index.ts
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 0
+
+PATCH:
+@@ -85,6 +85,14 @@ const router = createRouter({
+         title: 'MCP Sessions',
+       },
+     },
++    {
++      path: '/tools',
++      name: 'tools',
++      component: () => import('@/views/Tools.vue'),
++      meta: {
++        title: 'Tools',
++      },
++    },
+     {
+       path: '/activity',
+       name: 'activity',
+
+--- FILE 8/23 ---
+FILE: frontend/src/services/api.ts
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,4 @@
+-import type { APIResponse, Server, Tool, ToolApproval, SearchResult, StatusUpdate, SecretRef, MigrationAnalysis, ConfigSecretsResponse, GetToolCallsResponse, GetToolCallDetailResponse, GetServerToolCallsResponse, GetConfigResponse, ValidateConfigResponse, ConfigApplyResult, ServerTokenMetrics, GetRegistriesResponse, SearchRegistryServersResponse, RepositoryServer, GetSessionsResponse, GetSessionDetailResponse, InfoResponse, ActivityListResponse, ActivityDetailResponse, ActivitySummaryResponse, ImportResponse, AgentTokenInfo, CreateAgentTokenRequest, CreateAgentTokenResponse, RoutingInfo, ConnectStatusResponse, ConnectResult, OnboardingStateResponse, OnboardingMarkRequest, DiagnosticFixResponse } from '@/types'
++import type { APIResponse, Server, Tool, ToolApproval, SearchResult, StatusUpdate, SecretRef, MigrationAnalysis, ConfigSecretsResponse, GetToolCallsResponse, GetToolCallDetailResponse, GetServerToolCallsResponse, GetConfigResponse, ValidateConfigResponse, ConfigApplyResult, ServerTokenMetrics, GetRegistriesResponse, SearchRegistryServersResponse, RepositoryServer, GetSessionsResponse, GetSessionDetailResponse, InfoResponse, ActivityListResponse, ActivityDetailResponse, ActivitySummaryResponse, ImportResponse, AgentTokenInfo, CreateAgentTokenRequest, CreateAgentTokenResponse, RoutingInfo, ConnectStatusResponse, ConnectResult, OnboardingStateResponse, OnboardingMarkRequest, DiagnosticFixResponse, GlobalToolsResponse } from '@/types'
+ 
+ // Event types for API service
+ export interface APIAuthEvent {
+@@ -329,6 +329,11 @@ class APIService {
+     return this.request<{ tools: Tool[] }>(`/api/v1/servers/${encodeURIComponent(serverName)}/tools`)
+   }
+ 
++  // Global tools listing (Spec 050) — all tools across all servers from a single consolidated endpoint.
++  async getGlobalTools(): Promise<APIResponse<GlobalToolsResponse>> {
++    return this.request<GlobalToolsResponse>('/api/v1/tools')
++  }
++
+   // Tool-level quarantine (Spec 032)
+   async getToolApprovals(serverName: string): Promise<APIResponse<{ tools: ToolApproval[], count: number }>> {
+     const response = await this.request<{ tools: ToolApproval[], count: number }>(`/api/v1/servers/${encodeURIComponent(serverName)}/tools/export`)
+
+--- FILE 9/23 ---
+FILE: frontend/src/types/api.ts
+STATUS: modified
+ADDITIONS: 28
+DELETIONS: 0
+
+PATCH:
+@@ -213,6 +213,34 @@ export interface DiagnosticFixResponse {
+   failure_msg?: string
+ }
+ 
++// Global Tools response types (Spec 050)
++export interface GlobalTool {
++  name: string
++  server_name: string
++  description: string
++  approval_status: string  // "pending" | "changed" | "approved" | ""
++  disabled: boolean        // per-tool user toggle
++  config_denied: boolean   // layered config (read-only)
++  usage: number
++  last_used?: string       // ISO 8601; omitted if never used in window
++  annotations?: ToolAnnotation
++  // derived locally: enabled = !disabled && !config_denied
++}
++
++export interface GlobalToolsStats {
++  total: number
++  enabled: number
++  disabled: number
++  pending_approval: number
++}
++
++export interface GlobalToolsResponse {
++  tools: GlobalTool[]
++  stats: GlobalToolsStats
++  partial: boolean
++  failed_servers: string[]
++}
++
+ // Tool Annotation types
+ export interface ToolAnnotation {
+   title?: string
+
+--- FILE 10/23 ---
+FILE: frontend/src/views/Tools.vue
+STATUS: modified
+ADDITIONS: 643
+DELETIONS: 310
+
+PATCH:
+@@ -1,431 +1,764 @@
+ <template>
+-  <div class="space-y-6">
++  <div class="space-y-6" data-test="tools-page">
+     <!-- Page Header -->
+-    <div class="flex justify-between items-center">
++    <div class="flex flex-wrap justify-between items-start gap-4">
+       <div>
+         <h1 class="text-3xl font-bold">Tools</h1>
+-        <p class="text-base-content/70 mt-1">Browse and manage MCP tools across all servers</p>
++        <p class="text-base-content/70 mt-1">Monitor and edit all individual tools</p>
+       </div>
+-      <div class="flex items-center space-x-2">
+-        <div class="badge badge-outline">{{ totalTools }} tools</div>
+-        <div class="badge badge-success">{{ connectedServers }} servers</div>
++      <div class="flex items-center gap-3">
++        <div v-if="stats" class="badge badge-outline badge-lg">
++          {{ stats.total }} tools
++        </div>
++        <button @click="loadTools" class="btn btn-sm btn-ghost" :disabled="loading">
++          <svg class="w-4 h-4" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
++          </svg>
++        </button>
++      </div>
++    </div>
++
++    <!-- Summary Stat Cards -->
++    <div v-if="stats" class="stats shadow bg-base-100 w-full">
++      <div class="stat" data-test="stat-total">
++        <div class="stat-title">Total</div>
++        <div class="stat-value text-2xl">{{ stats.total }}</div>
++      </div>
++      <div class="stat" data-test="stat-enabled">
++        <div class="stat-title">Enabled</div>
++        <div class="stat-value text-2xl text-success">{{ stats.enabled }}</div>
++      </div>
++      <div class="stat" data-test="stat-disabled">
++        <div class="stat-title">Disabled</div>
++        <div class="stat-value text-2xl text-warning">{{ stats.disabled }}</div>
++      </div>
++      <div class="stat" data-test="stat-pending">
++        <div class="stat-title">Pending Approval</div>
++        <div class="stat-value text-2xl" :class="stats.pending_approval > 0 ? 'text-error' : ''">
++          {{ stats.pending_approval }}
++        </div>
+       </div>
+     </div>
+ 
+-    <!-- Search and Filters -->
++    <!-- Partial-error banner -->
++    <div v-if="partial && failedServers.length > 0" class="alert alert-warning">
++      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
++      </svg>
++      <div>
++        <div class="font-medium">Partial results — some servers could not be read</div>
++        <div class="text-sm">Failed servers: {{ failedServers.join(', ') }}</div>
++      </div>
++    </div>
++
++    <!-- Filters -->
+     <div class="card bg-base-100 shadow-md">
+-      <div class="card-body">
+-        <div class="flex flex-col lg:flex-row gap-4">
+-          <!-- Search Input -->
+-          <div class="flex-1">
++      <div class="card-body py-4">
++        <div class="flex flex-wrap gap-4 items-end">
++          <!-- Search -->
++          <div class="form-control flex-1 min-w-[200px]">
++            <label class="label py-1">
++              <span class="label-text text-xs">Search</span>
++            </label>
+             <div class="relative">
+               <input
+                 v-model="searchQuery"
+                 type="text"
+-                placeholder="Search tools by name or description..."
+-                class="input input-bordered w-full pl-10"
+-                @input="debouncedSearch"
++                placeholder="Search by name, description, or server..."
++                class="input input-bordered input-sm w-full pl-8"
++                data-test="tools-search"
+               />
+-              <svg class="absolute left-3 top-3 w-5 h-5 text-base-content/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++              <svg class="absolute left-2.5 top-2 w-4 h-4 text-base-content/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+               </svg>
+             </div>
+           </div>
+ 
+-          <!-- Server Filter -->
+-          <div class="lg:w-64">
+-            <select v-model="selectedServer" class="select select-bordered w-full">
++          <!-- Server filter -->
++          <div class="form-control min-w-[140px]">
++            <label class="label py-1">
++              <span class="label-text text-xs">Server</span>
++            </label>
++            <select v-model="filterServer" class="select select-bordered select-sm" data-test="filter-server">
+               <option value="">All Servers</option>
+-              <option v-for="server in availableServers" :key="server" :value="server">
+-                {{ server }}
+-              </option>
++              <option v-for="srv in availableServers" :key="srv" :value="srv">{{ srv }}</option>
+             </select>
+           </div>
+ 
+-          <!-- View Toggle -->
+-          <div class="btn-group">
+-            <button
+-              :class="['btn', viewMode === 'grid' ? 'btn-active' : '']"
+-              @click="viewMode = 'grid'"
+-            >
+-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+-              </svg>
+-            </button>
+-            <button
+
+[PATCH TRUNCATED: 1076 total lines]
+
+--- FILE 11/23 ---
+FILE: internal/cliclient/client.go
+STATUS: modified
+ADDITIONS: 46
+DELETIONS: 0
+
+PATCH:
+@@ -899,6 +899,52 @@ func (c *Client) DisableAll(ctx context.Context) (*BulkOperationResult, error) {
+ 	return apiResp.Data, nil
+ }
+ 
++// GetGlobalTools retrieves all tools across every configured server from the
++// consolidated GET /api/v1/tools endpoint (Spec 050). The returned slice
++// contains one map per tool with the same fields as the web page's data source.
++func (c *Client) GetGlobalTools(ctx context.Context) ([]map[string]interface{}, error) {
++	url := c.baseURL + "/api/v1/tools"
++	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
++	if err != nil {
++		return nil, fmt.Errorf("failed to create request: %w", err)
++	}
++	c.prepareRequest(ctx, req)
++
++	resp, err := c.httpClient.Do(req)
++	if err != nil {
++		return nil, fmt.Errorf("failed to call global tools API: %w", err)
++	}
++	defer resp.Body.Close()
++
++	bodyBytes, err := io.ReadAll(resp.Body)
++	if err != nil {
++		return nil, fmt.Errorf("failed to read response: %w", err)
++	}
++
++	if resp.StatusCode != http.StatusOK {
++		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(bodyBytes))
++	}
++
++	var apiResp struct {
++		Success bool `json:"success"`
++		Data    struct {
++			Tools []map[string]interface{} `json:"tools"`
++		} `json:"data"`
++		Error     string `json:"error"`
++		RequestID string `json:"request_id"`
++	}
++
++	if err := json.Unmarshal(bodyBytes, &apiResp); err != nil {
++		return nil, fmt.Errorf("failed to parse response: %w", err)
++	}
++
++	if !apiResp.Success {
++		return nil, parseAPIError(apiResp.Error, apiResp.RequestID)
++	}
++
++	return apiResp.Data.Tools, nil
++}
++
+ // GetServerTools retrieves tools for a specific server from daemon.
+ func (c *Client) GetServerTools(ctx context.Context, serverName string) ([]map[string]interface{}, error) {
+ 	url := fmt.Sprintf("%s/api/v1/servers/%s/tools", c.baseURL, serverName)
+
+--- FILE 12/23 ---
+FILE: internal/contracts/types.go
+STATUS: modified
+ADDITIONS: 22
+DELETIONS: 0
+
+PATCH:
+@@ -333,6 +333,28 @@ type GetServerToolsResponse struct {
+ 	Count      int    `json:"count"`
+ }
+ 
++// GlobalToolsStats is the aggregate rollup shown on the global tools page
++// (spec 050). Disabled counts a tool that is user-disabled OR config-denied;
++// Enabled = Total - Disabled; PendingApproval counts pending/changed approval.
++type GlobalToolsStats struct {
++	Total           int `json:"total"`
++	Enabled         int `json:"enabled"`
++	Disabled        int `json:"disabled"`
++	PendingApproval int `json:"pending_approval"`
++}
++
++// GlobalToolsResponse is the response for GET /api/v1/tools — every tool from
++// every configured server (including disabled servers and disabled/
++// config-denied tools), enriched with approval state and usage. Partial is set
++// when one or more servers could not be read; the list still contains every
++// tool that could be gathered.
++type GlobalToolsResponse struct {
++	Tools         []Tool           `json:"tools"`
++	Stats         GlobalToolsStats `json:"stats"`
++	Partial       bool             `json:"partial,omitempty"`
++	FailedServers []string         `json:"failed_servers,omitempty"`
++}
++
+ // SearchToolsResponse is the response for GET /api/v1/index/search
+ type SearchToolsResponse struct {
+ 	Query   string         `json:"query"`
+
+--- FILE 13/23 ---
+FILE: internal/httpapi/contracts_test.go
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -258,6 +258,9 @@ func (m *MockServerController) ListActivities(_ storage.ActivityFilter) ([]*stor
+ func (m *MockServerController) GetActivity(_ string) (*storage.ActivityRecord, error) {
+ 	return nil, nil
+ }
++func (m *MockServerController) AggregateToolUsage(_ time.Time) (map[string]storage.ToolUsageStat, error) {
++	return map[string]storage.ToolUsageStat{}, nil
++}
+ func (m *MockServerController) StreamActivities(_ storage.ActivityFilter) <-chan *storage.ActivityRecord {
+ 	ch := make(chan *storage.ActivityRecord)
+ 	close(ch)
+
+--- FILE 14/23 ---
+FILE: internal/httpapi/security_test.go
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -7,6 +7,7 @@ import (
+ 	"net/http"
+ 	"net/http/httptest"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/config"
+ 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/contracts"
+@@ -324,6 +325,9 @@ func (m *baseController) ListActivities(_ storage.ActivityFilter) ([]*storage.Ac
+ func (m *baseController) GetActivity(_ string) (*storage.ActivityRecord, error) {
+ 	return nil, nil
+ }
++func (m *baseController) AggregateToolUsage(_ time.Time) (map[string]storage.ToolUsageStat, error) {
++	return map[string]storage.ToolUsageStat{}, nil
++}
+ func (m *baseController) StreamActivities(_ storage.ActivityFilter) <-chan *storage.ActivityRecord {
+ 	ch := make(chan *storage.ActivityRecord)
+ 	close(ch)
+
+--- FILE 15/23 ---
+FILE: internal/httpapi/server.go
+STATUS: modified
+ADDITIONS: 106
+DELETIONS: 18
+
+PATCH:
+@@ -124,6 +124,9 @@ type ServerController interface {
+ 	ListActivities(filter storage.ActivityFilter) ([]*storage.ActivityRecord, int, error)
+ 	GetActivity(id string) (*storage.ActivityRecord, error)
+ 	StreamActivities(filter storage.ActivityFilter) <-chan *storage.ActivityRecord
++	// AggregateToolUsage rolls up tool_call activity per (server,tool) since the
++	// given time. Backs the global tools page usage columns (spec 050).
++	AggregateToolUsage(since time.Time) (map[string]storage.ToolUsageStat, error)
+ 
+ 	// Tool-level quarantine (Spec 032)
+ 	ListToolApprovals(serverName string) ([]*storage.ToolApprovalRecord, error)
+@@ -563,6 +566,9 @@ func (s *Server) setupRoutes() {
+ 		// Search
+ 		r.Get("/index/search", s.handleSearchTools)
+ 
++		// Global tools overview — every tool across all servers (spec 050, issue #437)
++		r.Get("/tools", s.handleGetGlobalTools)
++
+ 		// Docker recovery status
+ 		r.Get("/docker/status", s.handleGetDockerStatus)
+ 
+@@ -2427,23 +2433,40 @@ func (s *Server) handleGetServerTools(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 
+-	// Convert to typed tools
+-	typedTools := contracts.ConvertGenericToolsToTyped(tools)
++	// Convert + enrich (shared with the global tools endpoint, spec 050).
++	typedTools := s.enrichServerTools(serverID, tools)
+ 
+-	// Enrich with approval status + per-tool disabled state from storage.
+-	// Using GetToolApproval (instead of GetToolApprovalStatus) lets us
+-	// surface the disabled flag without a second lookup. Missing records
+-	// are normal — they just mean the tool has never been quarantined or
+-	// explicitly toggled.
+-	enrichedCount := 0
+-	var firstErr error
++	// Sort: pending/changed tools first, then approved
++	sort.SliceStable(typedTools, func(i, j int) bool {
++		return toolApprovalPriority(typedTools[i].ApprovalStatus) < toolApprovalPriority(typedTools[j].ApprovalStatus)
++	})
++
++	response := contracts.GetServerToolsResponse{
++		ServerName: serverID,
++		Tools:      typedTools,
++		Count:      len(typedTools),
++	}
++
++	s.writeSuccess(w, response)
++}
++
++// enrichServerTools converts generic upstream tools to typed tools and enriches
++// each with approval status, per-tool disabled state, and config-denied state.
++// Shared by the per-server tools endpoint and the global tools endpoint
++// (spec 050). ServerName is forced to serverID so the global merge can attribute
++// every tool to its server even if the upstream payload omits server_name.
++func (s *Server) enrichServerTools(serverID string, tools []map[string]interface{}) []contracts.Tool {
++	typedTools := contracts.ConvertGenericToolsToTyped(tools)
+ 
+ 	type configDeniedChecker interface {
+ 		IsToolConfigDenied(serverName, toolName string) bool
+ 	}
+ 	configChecker, hasConfigChecker := s.controller.(configDeniedChecker)
+ 
++	enrichedCount := 0
++	var firstErr error
+ 	for i := range typedTools {
++		typedTools[i].ServerName = serverID
+ 		record, err := s.controller.GetToolApproval(serverID, typedTools[i].Name)
+ 		if err == nil && record != nil {
+ 			typedTools[i].ApprovalStatus = record.Status
+@@ -2459,19 +2482,84 @@ func (s *Server) handleGetServerTools(w http.ResponseWriter, r *http.Request) {
+ 	if firstErr != nil {
+ 		s.logger.Debug("Tool approval enrichment partial", "server", serverID, "enriched", enrichedCount, "total", len(typedTools), "error", firstErr)
+ 	}
++	return typedTools
++}
+ 
+-	// Sort: pending/changed tools first, then approved
+-	sort.SliceStable(typedTools, func(i, j int) bool {
+-		return toolApprovalPriority(typedTools[i].ApprovalStatus) < toolApprovalPriority(typedTools[j].ApprovalStatus)
+-	})
++// globalToolsUsageWindow is the fixed look-back window for the usage columns on
++// the global tools page (spec 050). Not user-configurable in v1.
++const globalToolsUsageWindow = 30 * 24 * time.Hour
+ 
+-	response := contracts.GetServerToolsResponse{
+-		ServerName: serverID,
+-		Tools:      typedTools,
+-		Count:      len(typedTools),
++// handleGetGlobalTools godoc
++// @Summary List every tool across all servers
++// @Description Consolidated, read-only listing of all tools from every configured server (including disabled servers and disabled/config-denied tools), enriched with approval state and 30-day usage. Backs the global Tools page and the CLI global `tools list` (spec 050, issue #437).
++// @Tags tools
++// @Produce json
++// @Security ApiKeyAuth
++// @Security ApiKeyQuery
++// @Success 200 {object} contracts.GlobalToolsResponse "All tools across all servers"
++// @Failure 500 {object} contracts.ErrorResponse "Could not enumerate servers"
++// @Router /api/v1/tools [get]
++func (s *Server) handleGetGlobalTools(w http.ResponseWriter, r *http.Request) {
++	allServers, err := s.controller.GetAllServers()
++	if err != nil {
++		s.writeError(w, r, http.StatusInternalServerError, "Failed to enumerate servers")
++		return
+ 	}
+ 
+-	s.writeSuccess(w, response)
++	// Usage rollup is a single bounded pass over the activity log; a failure
++	// here must not fail the whole page — usage columns just stay zero.
++	usage, usageErr := s.controller.AggregateToolUsage(time.Now().Add(-globalToolsUsageWindow))
++	if usageErr != nil {
++		s.logger.Warn("Global tools: usage aggregation failed, continuing without usage", "error", usageErr)
++		usage = map[string]storage.ToolUsageStat{}
++	}
++
++	resp := contracts.GlobalToolsResponse{
++		Tools: make([]contracts.Tool, 0, 256),
++	}
++
++	for _, srv := range allServers {
+
+[PATCH TRUNCATED: 164 total lines]
+
+--- FILE 16/23 ---
+FILE: internal/httpapi/server_global_tools_test.go
+STATUS: added
+ADDITIONS: 168
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,168 @@
++package httpapi
++
++import (
++	"encoding/json"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++	"go.uber.org/zap/zaptest"
++
++	"github.com/smart-mcp-proxy/mcpproxy-go/internal/storage"
++)
++
++// globalToolsController drives the GET /api/v1/tools handler (spec 050).
++type globalToolsController struct {
++	MockServerController
++	allServers   []map[string]interface{}
++	serverTools  map[string][]map[string]interface{}
++	serverErr    map[string]error
++	approvals    map[string]*storage.ToolApprovalRecord // key serverName + "\x00" + toolName
++	configDenied map[string]bool
++	usage        map[string]storage.ToolUsageStat
++	usageErr     error
++}
++
++func (m *globalToolsController) GetAllServers() ([]map[string]interface{}, error) {
++	return m.allServers, nil
++}
++
++func (m *globalToolsController) GetServerTools(serverName string) ([]map[string]interface{}, error) {
++	if err, ok := m.serverErr[serverName]; ok {
++		return nil, err
++	}
++	return m.serverTools[serverName], nil
++}
++
++func (m *globalToolsController) GetToolApproval(serverName, toolName string) (*storage.ToolApprovalRecord, error) {
++	if r, ok := m.approvals[serverName+"\x00"+toolName]; ok {
++		return r, nil
++	}
++	return nil, nil
++}
++
++func (m *globalToolsController) IsToolConfigDenied(serverName, toolName string) bool {
++	return m.configDenied[serverName+"\x00"+toolName]
++}
++
++func (m *globalToolsController) AggregateToolUsage(_ time.Time) (map[string]storage.ToolUsageStat, error) {
++	if m.usageErr != nil {
++		return nil, m.usageErr
++	}
++	return m.usage, nil
++}
++
++func doGlobalTools(t *testing.T, ctrl *globalToolsController) map[string]interface{} {
++	t.Helper()
++	srv := NewServer(ctrl, zaptest.NewLogger(t).Sugar(), nil)
++	req := httptest.NewRequest("GET", "/api/v1/tools", nil)
++	req.Header.Set("X-Request-Source", "socket")
++	w := httptest.NewRecorder()
++	srv.router.ServeHTTP(w, req)
++	require.Equal(t, http.StatusOK, w.Code)
++	var resp map[string]interface{}
++	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
++	data, ok := resp["data"].(map[string]interface{})
++	require.True(t, ok, "expected data object")
++	return data
++}
++
++func TestGlobalTools_MergeEnrichmentStatsUsage(t *testing.T) {
++	lastUsed := time.Now().Add(-2 * time.Hour).UTC()
++	ctrl := &globalToolsController{
++		allServers: []map[string]interface{}{
++			{"name": "github"},
++			{"name": "memory"}, // disabled server — tools must still appear
++		},
++		serverTools: map[string][]map[string]interface{}{
++			"github": {
++				{"name": "create_issue", "description": "Create issue"},
++				{"name": "delete_repo", "description": "Delete repo"},
++			},
++			"memory": {
++				{"name": "store", "description": "Store memory"},
++			},
++		},
++		approvals: map[string]*storage.ToolApprovalRecord{
++			"github\x00create_issue": {Status: storage.ToolApprovalStatusApproved, Disabled: true},
++			"github\x00delete_repo":  {Status: storage.ToolApprovalStatusPending},
++		},
++		configDenied: map[string]bool{"memory\x00store": true},
++		usage: map[string]storage.ToolUsageStat{
++			"github\x00create_issue": {Count: 7, LastUsed: lastUsed},
++		},
++	}
++
++	data := doGlobalTools(t, ctrl)
++
++	tools := data["tools"].([]interface{})
++	assert.Len(t, tools, 3, "all tools from all servers incl. disabled server")
++
++	byName := map[string]map[string]interface{}{}
++	for _, x := range tools {
++		tm := x.(map[string]interface{})
++		byName[tm["name"].(string)] = tm
++	}
++	// disabled-server tool present and attributed
++	require.Contains(t, byName, "store")
++	assert.Equal(t, "memory", byName["store"]["server_name"])
++	assert.Equal(t, true, byName["store"]["config_denied"])
++	// enrichment + usage
++	assert.Equal(t, true, byName["create_issue"]["disabled"])
++	assert.Equal(t, float64(7), byName["create_issue"]["usage"])
++	assert.NotEmpty(t, byName["create_issue"]["last_used"])
++	// never-used tool: usage 0, no last_used
++	assert.Equal(t, float64(0), byName["delete_repo"]["usage"])
+
+[PATCH TRUNCATED: 169 total lines]
+
+--- FILE 17/23 ---
+FILE: internal/runtime/runtime.go
+STATUS: modified
+ADDITIONS: 9
+DELETIONS: 0
+
+PATCH:
+@@ -2464,6 +2464,15 @@ func (r *Runtime) GetActivity(id string) (*storage.ActivityRecord, error) {
+ 	return r.storageManager.GetActivity(id)
+ }
+ 
++// AggregateToolUsage rolls up tool_call activity per (server,tool) since the
++// given time (spec 050). Returns an empty map when storage is unavailable.
++func (r *Runtime) AggregateToolUsage(since time.Time) (map[string]storage.ToolUsageStat, error) {
++	if r.storageManager == nil {
++		return map[string]storage.ToolUsageStat{}, nil
++	}
++	return r.storageManager.AggregateToolUsage(since)
++}
++
+ // StreamActivities returns a channel that yields activity records matching the filter.
+ func (r *Runtime) StreamActivities(filter storage.ActivityFilter) <-chan *storage.ActivityRecord {
+ 	if r.storageManager == nil {
+
+--- FILE 18/23 ---
+FILE: internal/server/server.go
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 0
+
+PATCH:
+@@ -2467,6 +2467,12 @@ func (s *Server) StreamActivities(filter storage.ActivityFilter) <-chan *storage
+ 	return s.runtime.StreamActivities(filter)
+ }
+ 
++// AggregateToolUsage rolls up tool_call activity per (server,tool) since the
++// given time (spec 050).
++func (s *Server) AggregateToolUsage(since time.Time) (map[string]storage.ToolUsageStat, error) {
++	return s.runtime.AggregateToolUsage(since)
++}
++
+ // ListToolApprovals returns tool approval records for a server (Spec 032).
+ func (s *Server) ListToolApprovals(serverName string) ([]*storage.ToolApprovalRecord, error) {
+ 	return s.runtime.ListToolApprovals(serverName)
+
+--- FILE 19/23 ---
+FILE: internal/storage/activity.go
+STATUS: modified
+ADDITIONS: 64
+DELETIONS: 0
+
+PATCH:
+@@ -227,6 +227,70 @@ func (m *Manager) CountActivities() (int, error) {
+ 	return count, err
+ }
+ 
++// ToolUsageStat is a per-tool rollup of activity over a bounded window.
++// Used by the global tools view (spec 050). A zero LastUsed means the tool
++// was never used within the window.
++type ToolUsageStat struct {
++	Count    int
++	LastUsed time.Time
++}
++
++// toolUsageKey builds the map key for AggregateToolUsage. A NUL separator is
++// used so it cannot collide with ':' or other characters valid in server/tool
++// names.
++func toolUsageKey(serverName, toolName string) string {
++	return serverName + "\x00" + toolName
++}
++
++// AggregateToolUsage performs a single pass over the activity bucket and
++// returns per-(server,tool) call counts and last-used time for tool_call
++// records with Timestamp >= since. Records outside the window and non
++// tool_call records are skipped. An empty/absent bucket yields an empty map
++// (not an error). This is the consolidated usage source for GET /api/v1/tools
++// (spec 050) — read-only, no schema change.
++func (m *Manager) AggregateToolUsage(since time.Time) (map[string]ToolUsageStat, error) {
++	stats := make(map[string]ToolUsageStat)
++
++	err := m.db.db.View(func(tx *bbolt.Tx) error {
++		bucket := tx.Bucket([]byte(ActivityRecordsBucket))
++		if bucket == nil {
++			return nil // no activity yet
++		}
++
++		cursor := bucket.Cursor()
++		for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
++			var record ActivityRecord
++			if err := record.UnmarshalBinary(v); err != nil {
++				m.logger.Warnw("Failed to unmarshal activity record during usage aggregation",
++					"key", string(k), "error", err)
++				continue
++			}
++
++			if record.Type != ActivityTypeToolCall {
++				continue
++			}
++			if record.ToolName == "" {
++				continue
++			}
++			if record.Timestamp.Before(since) {
++				continue
++			}
++
++			key := toolUsageKey(record.ServerName, record.ToolName)
++			st := stats[key]
++			st.Count++
++			if record.Timestamp.After(st.LastUsed) {
++				st.LastUsed = record.Timestamp
++			}
++			stats[key] = st
++		}
++
++		return nil
++	})
++
++	return stats, err
++}
++
+ // StreamActivities returns a channel that yields activity records matching the filter.
+ // The channel is closed when all matching records have been sent.
+ // This is useful for streaming large exports without loading all records into memory.
+
+--- FILE 20/23 ---
+FILE: internal/storage/activity_test.go
+STATUS: modified
+ADDITIONS: 95
+DELETIONS: 22
+
+PATCH:
+@@ -73,38 +73,38 @@ func TestActivityRecord_MarshalUnmarshal(t *testing.T) {
+ 
+ func TestActivityFilter_Validate(t *testing.T) {
+ 	tests := []struct {
+-		name     string
+-		filter   ActivityFilter
++		name       string
++		filter     ActivityFilter
+ 		wantLimit  int
+ 		wantOffset int
+ 	}{
+ 		{
+-			name:     "default values",
+-			filter:   ActivityFilter{},
++			name:       "default values",
++			filter:     ActivityFilter{},
+ 			wantLimit:  50,
+ 			wantOffset: 0,
+ 		},
+ 		{
+-			name:     "negative limit becomes default",
+-			filter:   ActivityFilter{Limit: -5},
++			name:       "negative limit becomes default",
++			filter:     ActivityFilter{Limit: -5},
+ 			wantLimit:  50,
+ 			wantOffset: 0,
+ 		},
+ 		{
+-			name:     "limit over 100 capped",
+-			filter:   ActivityFilter{Limit: 200},
++			name:       "limit over 100 capped",
++			filter:     ActivityFilter{Limit: 200},
+ 			wantLimit:  100,
+ 			wantOffset: 0,
+ 		},
+ 		{
+-			name:     "negative offset becomes 0",
+-			filter:   ActivityFilter{Limit: 50, Offset: -10},
++			name:       "negative offset becomes 0",
++			filter:     ActivityFilter{Limit: 50, Offset: -10},
+ 			wantLimit:  50,
+ 			wantOffset: 0,
+ 		},
+ 		{
+-			name:     "valid values unchanged",
+-			filter:   ActivityFilter{Limit: 25, Offset: 10},
++			name:       "valid values unchanged",
++			filter:     ActivityFilter{Limit: 25, Offset: 10},
+ 			wantLimit:  25,
+ 			wantOffset: 10,
+ 		},
+@@ -195,39 +195,39 @@ func TestActivityFilter_Matches(t *testing.T) {
+ 			matches: false,
+ 		},
+ 		{
+-			name:    "time range matches",
+-			filter:  ActivityFilter{
++			name: "time range matches",
++			filter: ActivityFilter{
+ 				StartTime: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+ 				EndTime:   time.Date(2024, 6, 30, 0, 0, 0, 0, time.UTC),
+ 			},
+ 			matches: true,
+ 		},
+ 		{
+-			name:    "before start time",
+-			filter:  ActivityFilter{
++			name: "before start time",
++			filter: ActivityFilter{
+ 				StartTime: time.Date(2024, 6, 20, 0, 0, 0, 0, time.UTC),
+ 			},
+ 			matches: false,
+ 		},
+ 		{
+-			name:    "after end time",
+-			filter:  ActivityFilter{
++			name: "after end time",
++			filter: ActivityFilter{
+ 				EndTime: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+ 			},
+ 			matches: false,
+ 		},
+ 		{
+-			name:    "multiple filters all match",
+-			filter:  ActivityFilter{
++			name: "multiple filters all match",
++			filter: ActivityFilter{
+ 				Types:  []string{"tool_call"},
+ 				Server: "github",
+ 				Status: "success",
+ 			},
+ 			matches: true,
+ 		},
+ 		{
+-			name:    "multiple filters one fails",
+-			filter:  ActivityFilter{
++			name: "multiple filters one fails",
++			filter: ActivityFilter{
+ 				Types:  []string{"tool_call"},
+ 				Server: "gitlab", // does not match
+ 				Status: "success",
+@@ -860,3 +860,76 @@ func TestCalculateMaxSeverity_Storage(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestAggregateToolUsage(t *testing.T) {
++	t.Run("empty bucket returns empty map", func(t *testing.T) {
++		manager, cleanup := setupTestStorageForActivity(t)
++		defer cleanup()
++
++		got, err := manager.AggregateToolUsage(time.Now().Add(-30 * 24 * time.Hour))
++		require.NoError(t, err)
++		assert.Empty(t, got)
++	})
++
++	t.Run("counts per server+tool and tracks last used", func(t *testing.T) {
++		manager, cleanup := setupTestStorageForActivity(t)
++		defer cleanup()
++
+
+[PATCH TRUNCATED: 178 total lines]
+
+--- FILE 21/23 ---
+FILE: oas/docs.go
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+[GitHub patch unavailable]
+
+--- FILE 22/23 ---
+FILE: oas/swagger.yaml
+STATUS: modified
+ADDITIONS: 53
+DELETIONS: 0
+
+PATCH:
+@@ -1061,6 +1061,34 @@ components:
+         total:
+           type: integer
+       type: object
++    contracts.GlobalToolsResponse:
++      properties:
++        failed_servers:
++          items:
++            type: string
++          type: array
++          uniqueItems: false
++        partial:
++          type: boolean
++        stats:
++          $ref: '#/components/schemas/contracts.GlobalToolsStats'
++        tools:
++          items:
++            $ref: '#/components/schemas/contracts.Tool'
++          type: array
++          uniqueItems: false
++      type: object
++    contracts.GlobalToolsStats:
++      properties:
++        disabled:
++          type: integer
++        enabled:
++          type: integer
++        pending_approval:
++          type: integer
++        total:
++          type: integer
++      type: object
+     contracts.HealthStatus:
+       description: Unified health status calculated by the backend
+       properties:
+@@ -4685,6 +4713,31 @@ paths:
+       summary: Replay a tool call
+       tags:
+       - tool-calls
++  /api/v1/tools:
++    get:
++      description: 'Consolidated, read-only listing of all tools from every configured
++        server (including disabled servers and disabled/config-denied tools), enriched
++        with approval state and 30-day usage. Backs the global Tools page and the
++        CLI global `tools list` (spec 050, issue #437).'
++      responses:
++        "200":
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/contracts.GlobalToolsResponse'
++          description: All tools across all servers
++        "500":
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/contracts.ErrorResponse'
++          description: Could not enumerate servers
++      security:
++      - ApiKeyAuth: []
++      - ApiKeyQuery: []
++      summary: List every tool across all servers
++      tags:
++      - tools
+   /api/v1/tools/call:
+     post:
+       description: Execute a tool on an upstream MCP server (wrapper around MCP tool
+
+--- FILE 23/23 ---
+FILE: scripts/test-api-e2e.sh
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -605,6 +605,10 @@ test_api "GET /api/v1/servers" "GET" "${API_BASE}/servers" "200" "" \
+ test_api "GET /api/v1/servers/everything/tools" "GET" "${API_BASE}/servers/everything/tools" "200" "" \
+     "jq -e '.success == true and (.data.tools | length) > 0' < '$TEST_RESULTS_FILE' >/dev/null"
+ 
++# Test 2b: Global tools overview (spec 050, issue #437) — consolidated listing + stats
++test_api "GET /api/v1/tools" "GET" "${API_BASE}/tools" "200" "" \
++    "jq -e '.success == true and (.data.tools | type == \"array\") and (.data.tools | length) > 0 and (.data.stats | has(\"total\") and has(\"enabled\") and has(\"disabled\") and has(\"pending_approval\")) and (.data.stats.total == (.data.tools | length))' < '$TEST_RESULTS_FILE' >/dev/null"
++
+ # Test 3: Search tools
+ test_api "GET /api/v1/index/search?q=echo" "GET" "${API_BASE}/index/search?q=echo" "200" "" \
+     "jq -e '.success == true and (.data.results | length) > 0' < '$TEST_RESULTS_FILE' >/dev/null"
+
+
+====================================================================================================
+COMMIT POSITION 6
+====================================================================================================
+SHA: 4483c012a64f47cbf7775f33ca97e52171c187ff
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix(050): consistent disabled-server handling + verification
+
+Related #437
+
+Global handler now uses the management-service GetServerTools path (same
+as the per-server endpoint) so a disabled/not-connected server yields an
+empty tool set instead of a false partial:true/failed_servers flag.
+Adjusted the unit-test controller to exercise the controller fallback
+path. Adds the Playwright sweep (5/5 green), self-contained HTML report,
+and screenshots under verification/.
+
+CHANGED FILES: 12
+
+--- FILE 1/12 ---
+FILE: internal/httpapi/server.go
+STATUS: modified
+ADDITIONS: 19
+DELETIONS: 2
+
+PATCH:
+@@ -2514,6 +2514,22 @@ func (s *Server) handleGetGlobalTools(w http.ResponseWriter, r *http.Request) {
+ 		usage = map[string]storage.ToolUsageStat{}
+ 	}
+ 
++	// Use the same management-service path as the per-server tools endpoint so
++	// behaviour is consistent: a disabled / not-connected server returns an
++	// empty tool set (NOT an error), so it contributes zero tools without
++	// being mislabelled as a failed server. Fall back to the controller path
++	// when the management service is unavailable (keeps unit tests + minimal
++	// deployments working).
++	mgmtSvc, hasMgmt := s.controller.GetManagementService().(interface {
++		GetServerTools(ctx context.Context, name string) ([]map[string]interface{}, error)
++	})
++	getTools := func(name string) ([]map[string]interface{}, error) {
++		if hasMgmt {
++			return mgmtSvc.GetServerTools(r.Context(), name)
++		}
++		return s.controller.GetServerTools(name)
++	}
++
+ 	resp := contracts.GlobalToolsResponse{
+ 		Tools: make([]contracts.Tool, 0, 256),
+ 	}
+@@ -2524,9 +2540,10 @@ func (s *Server) handleGetGlobalTools(w http.ResponseWriter, r *http.Request) {
+ 			continue
+ 		}
+ 
+-		generic, terr := s.controller.GetServerTools(name)
++		generic, terr := getTools(name)
+ 		if terr != nil {
+-			// Spec edge case: still return every tool we could gather.
++			// Spec edge case: a genuine fetch error — still return every tool
++			// we could gather, flag the rest as partial.
+ 			resp.Partial = true
+ 			resp.FailedServers = append(resp.FailedServers, name)
+ 			s.logger.Debug("Global tools: server tools fetch failed", "server", name, "error", terr)
+
+--- FILE 2/12 ---
+FILE: internal/httpapi/server_global_tools_test.go
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 0
+
+PATCH:
+@@ -27,6 +27,11 @@ type globalToolsController struct {
+ 	usageErr     error
+ }
+ 
++// GetManagementService returns nil so handleGetGlobalTools exercises the
++// controller GetServerTools path this mock controls. The management-service
++// path is verified end-to-end via the API E2E + curl verification.
++func (m *globalToolsController) GetManagementService() interface{} { return nil }
++
+ func (m *globalToolsController) GetAllServers() ([]map[string]interface{}, error) {
+ 	return m.allServers, nil
+ }
+
+--- FILE 3/12 ---
+FILE: specs/050-global-tools-page/execution_log.md
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 0
+
+PATCH:
+@@ -5,3 +5,11 @@ State file per CLAUDE.md autonomous-operation constraint. One line per completed
+ - 2026-05-18 brainstormed feature with user; design approved (aggregation endpoint, v1 columns, substring search, replace orphaned Tools.vue).
+ - 2026-05-18 speckit.specify → spec.md + checklists/requirements.md committed (3633b6e5). SynapBus SPEC announcement posted (#my-agents-algis, msg 37429).
+ - 2026-05-18 CLI gap analysis: `tools list` requires --server, name+desc only; no per-tool enable/disable CLI. Decision: fold CLI parity into spec 050 (same endpoint/feature), not a new spec.
++- 2026-05-18 backend impl (T002-T012): AggregateToolUsage + GET /api/v1/tools + helper refactor; httpapi/storage/runtime/server tests GREEN, lint clean.
++- 2026-05-18 fanned out frontend (Tools.vue rewrite, /tools route, sidebar badge, US1-3) + CLI (US4 global list + enable/disable) subagents; both reported GREEN (frontend build clean, cmd tests pass).
++- 2026-05-18 live curl: found+fixed false partial:true — global handler now uses mgmt-service GetServerTools (like per-server endpoint) so disabled/not-connected servers yield 0 tools, not a 'failed' flag. Re-verified: 13 tools, partial absent, stats consistent. CLI table OK.
++- 2026-05-18 FR-001 note: a disabled server that was NEVER connected has no tools anywhere (index empty, per-server endpoint returns 0). Showing its tools is impossible by any path; this is an inherent limitation, distinct from the 'server errored -> partial' edge case (now correctly separated). Documented as refined assumption.
++- 2026-05-18 API E2E: GET /api/v1/tools PASS. 10 unrelated pre-existing/environmental failures (upstream_servers env/args/headers CRUD hitting example.com, flaky activity/{id}) — none in tools code paths.
++- 2026-05-18 Playwright sweep 5/5 GREEN (loaded table, search, sort, batch-bar+disable, empty state); self-contained report.html + screenshots committed under verification/.
++- 2026-05-18 chrome-ext live check: page matches issue #437 mockup (sidebar Tools badge=13, 4 stat cards, filter bar, dense table). Verified batch-disable works end-to-end (Playwright run disabled all 13; curl confirms disabled:13, frontend cards reflect backend stats — consistent, no bug).
++- 2026-05-18 final: golangci-lint 0 issues, frontend build clean, go tests GREEN. Ready for PR.
+
+--- FILE 4/12 ---
+FILE: specs/050-global-tools-page/verification/01-loaded-table.png
+STATUS: added
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 5/12 ---
+FILE: specs/050-global-tools-page/verification/02-search-filter.png
+STATUS: added
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 6/12 ---
+FILE: specs/050-global-tools-page/verification/03-column-sort.png
+STATUS: added
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 7/12 ---
+FILE: specs/050-global-tools-page/verification/04-batch-bar.png
+STATUS: added
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 8/12 ---
+FILE: specs/050-global-tools-page/verification/05-batch-disable-result.png
+STATUS: added
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 9/12 ---
+FILE: specs/050-global-tools-page/verification/06-empty-state.png
+STATUS: added
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 10/12 ---
+FILE: specs/050-global-tools-page/verification/playwright.config.ts
+STATUS: added
+ADDITIONS: 11
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,11 @@
++import { defineConfig } from '@playwright/test';
++export default defineConfig({
++  testDir: '.', timeout: 40000, fullyParallel: false, workers: 1, retries: 0,
++  use: {
++    headless: true,
++    viewport: { width: 1440, height: 900 },
++    launchOptions: {
++      executablePath: '/Users/user/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
++    },
++  },
++});
+
+--- FILE 11/12 ---
+FILE: specs/050-global-tools-page/verification/report.html
+STATUS: added
+ADDITIONS: 51
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 12/12 ---
+FILE: specs/050-global-tools-page/verification/tools.spec.ts
+STATUS: added
+ADDITIONS: 79
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,79 @@
++import { test, expect, Page } from '@playwright/test';
++
++const POP = 'http://127.0.0.1:18081/ui/?apikey=uitest';
++const EMPTY = 'http://127.0.0.1:18082/ui/?apikey=uitest';
++const SHOT = '/Users/user/repos/mcpproxy-go/specs/050-global-tools-page/verification';
++
++async function gotoTools(page: Page, base: string) {
++  await page.goto(base);
++  await page.waitForLoadState('domcontentloaded');
++  // localStorage api key already via query; navigate to the route
++  await page.goto(base.replace('/ui/?', '/ui/tools?'));
++  await page.waitForLoadState('domcontentloaded');
++  await page.locator('[data-test="tools-page"]').waitFor({ state: 'visible', timeout: 20000 });
++}
++
++test('01 loaded table + stat cards + sidebar badge', async ({ page }) => {
++  await gotoTools(page, POP);
++  await page.locator('[data-test="tools-table"]').waitFor({ state: 'visible', timeout: 20000 });
++  const rows = page.locator('[data-test="tool-row"]');
++  await expect.poll(() => rows.count(), { timeout: 15000 }).toBeGreaterThan(0);
++  await expect(page.locator('[data-test="stat-total"]')).toContainText(/\d/);
++  // sidebar badge next to the Tools nav entry
++  const badge = page.locator('a[href$="/tools"] .badge');
++  await expect(badge).toHaveText(/\d+/);
++  await page.screenshot({ path: `${SHOT}/01-loaded-table.png`, fullPage: true });
++});
++
++test('02 search filter narrows the list', async ({ page }) => {
++  await gotoTools(page, POP);
++  await page.locator('[data-test="tool-row"]').first().waitFor({ state: 'visible', timeout: 20000 });
++  const before = await page.locator('[data-test="tool-row"]').count();
++  await page.locator('[data-test="tools-search"]').fill('echo');
++  await page.waitForTimeout(600); // debounce
++  const after = await page.locator('[data-test="tool-row"]').count();
++  expect(after).toBeLessThanOrEqual(before);
++  await expect(page.locator('[data-test="tool-row"]').first()).toContainText(/echo/i);
++  await page.screenshot({ path: `${SHOT}/02-search-filter.png`, fullPage: true });
++});
++
++test('03 column sort toggles order', async ({ page }) => {
++  await gotoTools(page, POP);
++  await page.locator('[data-test="tool-row"]').first().waitFor({ state: 'visible', timeout: 20000 });
++  const nameHeader = page.locator('[data-test="tools-table"] thead th', { hasText: /Tool/i }).first();
++  await nameHeader.click(); // first sort direction
++  await page.waitForTimeout(300);
++  const firstAsc = await page.locator('[data-test="tool-row"]').first().innerText();
++  await nameHeader.click(); // toggle direction
++  await page.waitForTimeout(300);
++  const firstDesc = await page.locator('[data-test="tool-row"]').first().innerText();
++  // Toggling sort direction on the same column must change which row is first.
++  expect(firstDesc).not.toEqual(firstAsc);
++  await page.screenshot({ path: `${SHOT}/03-column-sort.png`, fullPage: true });
++});
++
++test('04 batch select shows action bar + disable', async ({ page }) => {
++  await gotoTools(page, POP);
++  await page.locator('[data-test="tool-row"]').first().waitFor({ state: 'visible', timeout: 20000 });
++  await page.locator('[data-test="tools-select-all"]').click();
++  const bar = page.locator('[data-test="tools-batch-bar"]');
++  await expect(bar).toBeVisible();
++  await expect(bar).toContainText(/\d/);
++  await page.screenshot({ path: `${SHOT}/04-batch-bar.png`, fullPage: true });
++  // exercise disable; tolerate per-tool failures (quarantine-pending) — the
++  // point is the action runs and reports, not that every tool flips.
++  const disableBtn = page.locator('[data-test="batch-disable"]');
++  if (await disableBtn.count()) {
++    await disableBtn.first().click();
++    await page.waitForTimeout(1500);
++    await page.screenshot({ path: `${SHOT}/05-batch-disable-result.png`, fullPage: true });
++  }
++});
++
++test('06 empty state', async ({ page }) => {
++  await gotoTools(page, EMPTY);
++  await page.waitForTimeout(800);
++  await expect(page.locator('[data-test="tools-page"]')).toBeVisible();
++  await expect(page.locator('[data-test="stat-total"]')).toContainText('0');
++  await page.screenshot({ path: `${SHOT}/06-empty-state.png`, fullPage: true });
++});
+
+
+====================================================================================================
+COMMIT POSITION 7
+====================================================================================================
+SHA: 1534e9b290a51888ee64d9be9e232c8fb73ad338
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs(050): trim CLAUDE.md under 40k char CI limit
+
+Related #437
+
+Condense the spec 050 CLI note + auto-appended agent-context lines so
+CLAUDE.md stays under the check-size 40,000-char gate. Full CLI
+reference remains in docs/cli-management-commands.md.
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: CLAUDE.md
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 17
+
+PATCH:
+@@ -229,20 +229,7 @@ mcpproxy doctor                     # Run health checks
+ 
+ See [docs/cli-management-commands.md](docs/cli-management-commands.md) for complete reference.
+ 
+-### Global Tools CLI (Spec 050)
+-```bash
+-mcpproxy tools list                              # Global list — all tools across all servers (requires daemon)
+-mcpproxy tools list -o json                      # JSON output for scripting
+-mcpproxy tools list --status disabled            # Only disabled/config-denied tools
+-mcpproxy tools list --risk read                  # Only read-only tools
+-mcpproxy tools list --approval pending           # Only tools pending approval
+-mcpproxy tools list --server=github-server       # Server-scoped debug listing
+-mcpproxy tools enable github:create_issue        # Enable a specific tool
+-mcpproxy tools disable github:create_issue       # Disable a specific tool
+-mcpproxy tools disable everything:echo memory:foo  # Batch disable; per-target summary; non-zero exit on any failure
+-```
+-
+-See [docs/cli-management-commands.md](docs/cli-management-commands.md) for complete reference.
++Global tools (Spec 050): `mcpproxy tools list` is global when `--server` is omitted; `tools enable|disable <server:tool ...>` for batch curation.
+ 
+ ### Activity Log CLI
+ ```bash
+@@ -408,7 +395,7 @@ See [docs/configuration.md](docs/configuration.md) for complete reference.
+ | `POST /api/v1/servers/{name}/disable` | Disable server |
+ | `POST /api/v1/servers/{name}/quarantine` | Quarantine a server |
+ | `POST /api/v1/servers/{name}/unquarantine` | Unquarantine a server |
+-| `GET /api/v1/tools` | Global tools overview: every tool across all servers + stats (spec 050, issue #437) |
++| `GET /api/v1/tools` | Global tools overview: all tools + stats (spec 050) |
+ | `GET /api/v1/index/search` | Search tools across servers (`?q=query&limit=N`) |
+ | `GET /api/v1/activity` | List activity records with filtering |
+ | `GET /api/v1/activity/{id}` | Get activity record details |
+@@ -786,8 +773,7 @@ See `docs/prerelease-builds.md` for download instructions.
+ - BBolt (`~/.mcpproxy/config.db`) — read-only on the hot path; no schema change. (047-cpu-hotpath-fix)
+ - Swift 5.9 (macOS 13+); Go 1.24 only for the verification harness, no Go changes in scope. + SwiftUI/AppKit (existing), Combine (existing for the periodic timer pattern). No new deps. (048-tray-refetch-elimination)
+ - None. Pure in-memory state. (048-tray-refetch-elimination)
+-- Go 1.24 (toolchain go1.24.10); TypeScript 5.9 / Vue 3.5 (frontend) + Chi router, BBolt (`go.etcd.io/bbolt`), Zap, Cobra (CLI), `mark3labs/mcp-go`; Vue 3, Pinia, Vue Router, Tailwind/DaisyUI, Vite — all existing, no new deps (050-global-tools-page)
+-- BBolt `~/.mcpproxy/config.db` — read-only on the hot path. Reuses existing `ActivityRecordsBucket` (aggregation pass) and `ToolApprovalBucket` (enrichment). No schema change, no migration. (050-global-tools-page)
++- Go 1.24 / Vue 3.5; no new deps; read-only BBolt reuse, no schema change (050-global-tools-page)
+ 
+ ## Recent Changes
+ - 001-update-version-display: Added Go 1.24 (toolchain go1.24.10)
+
+
+====================================================================================================
+COMMIT POSITION 8
+====================================================================================================
+SHA: 2580985cf939e184e904043ae5bc941e4b7a38f8
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore(050): execution log — CI green, awaiting review
+
+Related #437
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: specs/050-global-tools-page/execution_log.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -13,3 +13,5 @@ State file per CLAUDE.md autonomous-operation constraint. One line per completed
+ - 2026-05-18 Playwright sweep 5/5 GREEN (loaded table, search, sort, batch-bar+disable, empty state); self-contained report.html + screenshots committed under verification/.
+ - 2026-05-18 chrome-ext live check: page matches issue #437 mockup (sidebar Tools badge=13, 4 stat cards, filter bar, dense table). Verified batch-disable works end-to-end (Playwright run disabled all 13; curl confirms disabled:13, frontend cards reflect backend stats — consistent, no bug).
+ - 2026-05-18 final: golangci-lint 0 issues, frontend build clean, go tests GREEN. Ready for PR.
++- 2026-05-18 PR #481 opened. First run: check-size red (CLAUDE.md >40k, pre-existing-adjacent — main was 39605, my additions pushed over). Trimmed my own footprint (condensed CLI note + auto agent-context lines) → 39928/40000.
++- 2026-05-18 CI FULLY GREEN: all builds (6 platforms), Unit Tests 9 OS/Go combos, Integration, E2E, OAuth E2E, Cross-Platform Logging, Lint, Verify OpenAPI, Build Frontend, check-size — NO failures (Stress Tests skipped, normal). PR #481 awaiting human review.
+
+
+====================================================================================================
+COMMIT POSITION 9
+====================================================================================================
+SHA: 4aae51d3b5986b507c3eaed1170f8848c10471ec
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix(050): sidebar count badges + clickable Tools stat cards + server-link affordance
+
+- Add Servers/Secrets count badges to sidebar WORKSPACE section for
+  visual parity with the existing Tools badge. Server count is reactive
+  via the status SSE; secret count fetched on mount.
+- Secret badge uses total_secrets from /secrets/config (same source as
+  the Secrets page) instead of /secrets/refs, which over-counts every
+  config reference including ${env:...} placeholders.
+- Tools summary cards (Total/Enabled/Disabled/Pending) are now clickable
+  filter toggles with ring highlight, mirroring the Servers page.
+- Tools table server name uses link-primary (always visible as a link)
+  instead of link-hover, matching the modal's affordance.
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: frontend/src/components/SidebarNav.vue
+STATUS: modified
+ADDITIONS: 31
+DELETIONS: 0
+
+PATCH:
+@@ -211,6 +211,10 @@
+               >
+                 <IconServers class="w-5 h-5 shrink-0" />
+                 <span v-show="!collapsed">Servers</span>
++                <span
++                  v-if="!collapsed && serverCount > 0"
++                  class="badge badge-sm badge-ghost ml-auto tabular-nums"
++                >{{ serverCount }}</span>
+               </router-link>
+             </li>
+             <li>
+@@ -237,6 +241,10 @@
+               >
+                 <IconSecrets class="w-5 h-5 shrink-0" />
+                 <span v-show="!collapsed">Secrets</span>
++                <span
++                  v-if="!collapsed && secretCount > 0"
++                  class="badge badge-sm badge-ghost ml-auto tabular-nums"
++                >{{ secretCount }}</span>
+               </router-link>
+             </li>
+             <!-- Sub-item: Agent Tokens nested under Secrets.
+@@ -451,6 +459,7 @@ onMounted(() => {
+   if (!authStore.isTeamsEdition) {
+     void onboardingStore.fetchState()
+     void fetchToolCount()
++    void fetchSecretCount()
+   }
+ })
+ 
+@@ -562,6 +571,28 @@ async function fetchToolCount() {
+   }
+ }
+ 
++// Sidebar badge parity with Tools: show total server + secret counts so the
++// WORKSPACE section reads consistently. Server count is already reactive via
++// the status SSE; secrets need a one-shot fetch on mount.
++const serverCount = computed(() => systemStore.upstreamStats.total_servers ?? 0)
++const secretCount = ref(0)
++
++async function fetchSecretCount() {
++  try {
++    // Use the same source as the Secrets page (total_secrets from
++    // /secrets/config) so the badge matches what the user sees there.
++    // /secrets/refs is NOT equivalent — it counts every config reference
++    // including ${env:...} placeholders (TERM_SESSION_ID etc.), not stored
++    // keyring secrets.
++    const resp = await api.getConfigSecrets()
++    if (resp.success && resp.data) {
++      secretCount.value = resp.data.total_secrets ?? 0
++    }
++  } catch {
++    // Silently ignore — badge is non-critical
++  }
++}
++
+ // Server edition menus (unchanged behavior)
+ const teamsUserMenu = [
+   { name: 'My Servers', path: '/my/servers' },
+
+--- FILE 2/2 ---
+FILE: frontend/src/views/Tools.vue
+STATUS: modified
+ADDITIONS: 57
+DELETIONS: 9
+
+PATCH:
+@@ -20,24 +20,44 @@
+ 
+     <!-- Summary Stat Cards -->
+     <div v-if="stats" class="stats shadow bg-base-100 w-full">
+-      <div class="stat" data-test="stat-total">
++      <button
++        type="button"
++        :class="['stat text-left transition-colors cursor-pointer hover:bg-base-200/60', activeStatCard === 'total' ? 'bg-base-200 ring-2 ring-inset ring-primary/40' : '']"
++        data-test="stat-total"
++        @click="selectStatCard('total')"
++      >
+         <div class="stat-title">Total</div>
+         <div class="stat-value text-2xl">{{ stats.total }}</div>
+-      </div>
+-      <div class="stat" data-test="stat-enabled">
++      </button>
++      <button
++        type="button"
++        :class="['stat text-left transition-colors cursor-pointer hover:bg-base-200/60', activeStatCard === 'enabled' ? 'bg-base-200 ring-2 ring-inset ring-primary/40' : '']"
++        data-test="stat-enabled"
++        @click="selectStatCard('enabled')"
++      >
+         <div class="stat-title">Enabled</div>
+         <div class="stat-value text-2xl text-success">{{ stats.enabled }}</div>
+-      </div>
+-      <div class="stat" data-test="stat-disabled">
++      </button>
++      <button
++        type="button"
++        :class="['stat text-left transition-colors cursor-pointer hover:bg-base-200/60', activeStatCard === 'disabled' ? 'bg-base-200 ring-2 ring-inset ring-primary/40' : '']"
++        data-test="stat-disabled"
++        @click="selectStatCard('disabled')"
++      >
+         <div class="stat-title">Disabled</div>
+         <div class="stat-value text-2xl text-warning">{{ stats.disabled }}</div>
+-      </div>
+-      <div class="stat" data-test="stat-pending">
++      </button>
++      <button
++        type="button"
++        :class="['stat text-left transition-colors cursor-pointer hover:bg-base-200/60', activeStatCard === 'pending' ? 'bg-base-200 ring-2 ring-inset ring-primary/40' : '']"
++        data-test="stat-pending"
++        @click="selectStatCard('pending')"
++      >
+         <div class="stat-title">Pending Approval</div>
+         <div class="stat-value text-2xl" :class="stats.pending_approval > 0 ? 'text-error' : ''">
+           {{ stats.pending_approval }}
+         </div>
+-      </div>
++      </button>
+     </div>
+ 
+     <!-- Partial-error banner -->
+@@ -280,7 +300,7 @@
+                 <td>
+                   <router-link
+                     :to="`/servers/${tool.server_name}`"
+-                    class="link link-hover text-sm font-medium"
++                    class="link link-primary text-sm font-medium"
+                     @click.stop
+                   >
+                     {{ tool.server_name }}
+@@ -557,6 +577,34 @@ const hasActiveFilters = computed(() =>
+   !!searchQuery.value || !!filterServer.value || !!filterStatus.value || !!filterRisk.value || !!filterApproval.value
+ )
+ 
++// Clickable stat cards (parity with Servers page): each card drives the
++// status/approval filter and toggles off when its active card is clicked again.
++type StatCard = 'total' | 'enabled' | 'disabled' | 'pending'
++
++const activeStatCard = computed<StatCard>(() => {
++  if (filterApproval.value === 'pending') return 'pending'
++  if (filterStatus.value === 'enabled') return 'enabled'
++  if (filterStatus.value === 'disabled') return 'disabled'
++  if (!filterStatus.value && !filterApproval.value) return 'total'
++  return 'total'
++})
++
++function selectStatCard(card: StatCard) {
++  // Toggle: re-clicking the active card resets to the unfiltered "total" view.
++  if (card === 'total' || activeStatCard.value === card) {
++    filterStatus.value = ''
++    filterApproval.value = ''
++    return
++  }
++  if (card === 'pending') {
++    filterStatus.value = ''
++    filterApproval.value = 'pending'
++  } else {
++    filterApproval.value = ''
++    filterStatus.value = card // 'enabled' | 'disabled'
++  }
++}
++
+ // ---- Computed: risk derivation ----
+ function getRisk(tool: GlobalTool): 'read' | 'write' | 'destructive' {
+   if (tool.annotations?.destructiveHint) return 'destructive'
+
+
+####################################################################################################
+SECTION C — HUMAN VALIDATION
+####################################################################################################
+
+Q1. Does the earlier specification commit
+INTRODUCE or substantively MODIFY a
+behavioral requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q2. Is there a LATER commit in this PR that
+implements some or all of THAT requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q3. What is the FIRST relevant implementation
+commit?
+
+Position:
+
+SHA:
+
+Commit message:
+
+Relevant file(s):
+
+
+Q4. Was the requirement present BEFORE that
+first relevant implementation change?
+
+YES / NO / UNCERTAIN
+
+
+Q5. Requirement → implementation link confidence:
+
+HIGH / MEDIUM / LOW / NONE
+
+
+Q6. Preliminary classification:
+
+TIER_A_CANDIDATE
+TIER_B
+TIER_C
+EXCLUDE
+UNCERTAIN
+
+
+Reason:
+
+
+Relevant requirement text:
+
+
+Relevant implementation evidence:
+
+
+Notes:

@@ -1,0 +1,89 @@
+STEP 12c - TWO-AXIS SPEC SIMILARITY (exhaustive lexical x semantic)
+========================================================================
+Lexical text: norm_text | 5-shingles primary, 3-shingles variant
+Semantic model: intfloat/multilingual-e5-base | embed text: norm_text | max_len 512
+Blocks: 40,071 in 2,584 episodes, 325 repos
+Blocks longer than max_len (tail truncated in embedding): 1,476 (3.7%)
+
+NULL COSINE (random pairs, different repo families)
+  p50=0.806  p90=0.840  p99=0.879  p99.9=0.920
+  sem_mid >= 0.879 (p99)   sem_high >= 0.920 (p99.9)   [provisional]
+
+WITHIN-REPO BLOCK PAIRS (every pair, different episodes): 14,175,028
+
+  NON-LINEAGE (within_repo_reuse)
+          sem_low  sem_mid  sem_high       All
+  exact         0        0        18        18
+  near          0        1       146       147
+  gray         94      107       321       522
+  low    13355092   533143    126691  14014926
+
+  LINEAGE (revisions of one requirement)
+         sem_low  sem_mid  sem_high     All
+  exact        0        0      1405    1405
+  near         0       24      1148    1172
+  gray        14       60       669     743
+  low     123554    23987      8554  156095
+
+  Compare with Step 12 (LSH): within_repo_reuse exact 18 / near 138 / gray 157;
+  lineage exact 1405 / near 930. Exhaustive counts should be >= these;
+  the excess is what LSH missed. (Shingling differs slightly from Step 12.)
+
+WITHIN-REPO EPISODE PAIRS
+  all episode pairs: 53,799; with a lineage match (excluded below): 709
+  category x shared_language
+  shared_language     False   True    All
+  category                               
+  copied                  0     37     37
+  gray                    1    113    114
+  lineage_only           19    818    837
+  related_candidate     858  21535  22393
+  reworded_candidate    108   6756   6864
+  unrelated            2193  20652  22845
+  All                  3179  49911  53090
+
+  repos contributing (shared language only)
+  category
+  copied                 16
+  gray                   34
+  lineage_only           45
+  related_candidate     153
+  reworded_candidate    127
+  unrelated             129
+
+GATE 1 - RQ3 FEASIBILITY (shared language, no lineage match)
+  copied              :    37 episode pairs from  16 repos   largest repo share 35%
+  gray                :   113 episode pairs from  34 repos   largest repo share 27%
+  reworded_candidate  :  6756 episode pairs from 127 repos   largest repo share 20%
+  Rule of thumb: if reworded_candidate < ~20 pairs or ~10 repos even BEFORE human
+  labelling removes false positives, RQ3 becomes a descriptive case analysis.
+
+CROSS-REPO BLOCK PAIRS (candidates: shared rare shingles, identical text, semantic top-k)
+
+  cross_repo
+  sem   sem_high  sem_low  sem_mid     All
+  lex                                     
+  gray         8       82       33     123
+  low      32409    24801   143109  200319
+  near         2        0        0       2
+  All      32419    24883   143142  200444
+
+  same_owner
+  sem    sem_high  sem_low  sem_mid   All
+  lex                                    
+  exact         1        0        0     1
+  gray          2        1        0     3
+  low         295      116     2236  2647
+  All         298      117     2236  2651
+
+  shared_ancestry
+  sem    sem_high  sem_mid  All
+  lex                          
+  exact         7        0    7
+  low           0       12   12
+  All           7       12   19
+
+  cross-repo episode pairs (shared ancestry excluded): related_candidate=64609, reworded_candidate=10034, unrelated=9947, gray=93, copied=3
+
+All thresholds are PROVISIONAL. Do not look at code-clone outcomes before they are frozen.
+Runtime 12078s

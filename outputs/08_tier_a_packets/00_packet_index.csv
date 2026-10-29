@@ -1,0 +1,16 @@
+packet,tool,repo_name,pr_number,language,first_spec_commit,first_code_commit,spec_to_code_gap
+01_derailed-dash__rickbot-adk_pr_18.txt,conductor,derailed-dash/rickbot-adk,18,Python,1,4,3
+02_derailed-dash__rickbot-adk_pr_41.txt,conductor,derailed-dash/rickbot-adk,41,Python,5,6,1
+03_modu-ai__moai-adk_pr_613.txt,moai,modu-ai/moai-adk,613,Go,1,4,3
+04_BlackBeltTechnology__pi-agent-dashboard_pr_76.txt,openspec,BlackBeltTechnology/pi-agent-dashboard,76,TypeScript,1,2,1
+05_Mic92__gitea-mq_pr_54.txt,openspec,Mic92/gitea-mq,54,Go,1,2,1
+06_pmcfadin__cqlite_pr_2110.txt,openspec,pmcfadin/cqlite,2110,Rust,2,3,1
+07_alfredoperez__speckit-companion_pr_165.txt,speckit,alfredoperez/speckit-companion,165,TypeScript,1,2,1
+08_b0x42__Super-Productivity-MCP_pr_1.txt,speckit,b0x42/Super-Productivity-MCP,1,TypeScript,2,6,4
+09_mazrean__kessoku_pr_46.txt,speckit,mazrean/kessoku,46,Go,1,2,1
+10_mazrean__kessoku_pr_47.txt,speckit,mazrean/kessoku,47,Go,1,2,1
+11_mazrean__kessoku_pr_65.txt,speckit,mazrean/kessoku,65,Go,1,2,1
+12_mazrean__kessoku_pr_70.txt,speckit,mazrean/kessoku,70,Go,1,2,1
+13_smart-mcp-proxy__mcpproxy-go_pr_481.txt,speckit,smart-mcp-proxy/mcpproxy-go,481,Go,1,5,4
+14_timcsy__ai-api_pr_8.txt,speckit,timcsy/ai-api,8,Python,1,2,1
+15_timcsy__ai-api_pr_26.txt,speckit,timcsy/ai-api,26,Python,1,2,1

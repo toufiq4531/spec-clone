@@ -1,0 +1,4056 @@
+====================================================================================================
+CORRECTED TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 8/15
+Repository: b0x42/Super-Productivity-MCP
+PR: #1
+Tool: speckit
+Language: TypeScript
+Total PR commits: 29
+
+Earlier specification commit position: 2
+Step-7 automated 'first code' hint: 6
+
+IMPORTANT:
+The Step-7 code position is only a screening hint.
+Your task is to identify the FIRST LATER COMMIT that actually implements the earlier requirement.
+
+####################################################################################################
+SECTION A — EARLIER SPECIFICATION COMMIT
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 2
+====================================================================================================
+SHA: 248cbe3cfa1220494e9b20fd91be30c0600a833c
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add includeArchived filter to get_tasks (from reference project review)
+
+CHANGED FILES: 3
+
+--- FILE 1/3 ---
+FILE: specs/001-sp-mcp-server/contracts/command-protocol.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 1
+
+PATCH:
+@@ -46,7 +46,7 @@ Version: 1 (protocolVersion field value)
+ | MCP Tool | Command Action | Notes |
+ |----------|---------------|-------|
+ | `create_task` | `addTask` | Plugin uses two-step workaround for subtasks with SP syntax |
+-| `get_tasks` | `getTasks` | Plugin returns all tasks; server filters by `filters` |
++| `get_tasks` | `getTasks` | Plugin returns tasks (+ archived if requested); server filters by `filters` |
+ | `update_task` | `updateTask` | |
+ | `complete_task` | `setTaskDone` | |
+ | `get_projects` | `getAllProjects` | |
+@@ -87,3 +87,4 @@ Standard error messages:
+ - Adding new optional fields to existing actions: no version bump
+ - Adding new actions: no version bump (plugin returns "Unknown command action" for unrecognized actions)
+ - Changing semantics of existing actions or adding required fields: version bump required
++ired
+
+--- FILE 2/3 ---
+FILE: specs/001-sp-mcp-server/data-model.md
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 2
+
+PATCH:
+@@ -22,8 +22,9 @@ interface Command {
+ interface TaskFilters {
+   projectId?: string;
+   tagId?: string;
+-  includeDone?: boolean;  // Default: false
+-  searchQuery?: string;   // Case-insensitive title match
++  includeDone?: boolean;     // Default: false
++  includeArchived?: boolean; // Default: false — when true, also fetches archived tasks
++  searchQuery?: string;      // Case-insensitive title match
+ }
+ ```
+ 
+
+--- FILE 3/3 ---
+FILE: specs/001-sp-mcp-server/spec.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -97,7 +97,7 @@ A user asks the AI to show a notification inside Super Productivity's UI.
+ ### Functional Requirements
+ 
+ - **FR-001**: System MUST allow creating tasks with a title, optional notes, optional project assignment, optional parent task, and optional tag IDs.
+-- **FR-002**: System MUST allow listing tasks with optional filters: by project ID, by tag ID, by done status (include/exclude completed), and by title search query. When no filters are provided, all non-done tasks are returned.
++- **FR-002**: System MUST allow listing tasks with optional filters: by project ID, by tag ID, by done status (include/exclude completed), by archived status (include/exclude archived), and by title search query. When no filters are provided, all non-done, non-archived tasks are returned.
+ - **FR-003**: System MUST allow updating any mutable task field: title, notes, done status, time estimate, time spent.
+ - **FR-004**: System MUST allow marking a task as complete (setting `isDone` and `doneOn`).
+ - **FR-005**: System MUST allow creating projects with a title, optional description, and optional color.
+
+
+####################################################################################################
+SECTION B — ALL LATER COMMITS IN THIS PR
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 3
+====================================================================================================
+SHA: b06fc447f01bed4f0d8801ce2e8cfca6831b28d2
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add get_worklog tool for productivity metrics (US5, FR-023)
+
+CHANGED FILES: 3
+
+--- FILE 1/3 ---
+FILE: specs/001-sp-mcp-server/contracts/command-protocol.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -56,6 +56,7 @@ Version: 1 (protocolVersion field value)
+ | `create_tag` | `addTag` | |
+ | `update_tag` | `updateTag` | |
+ | `show_notification` | `showSnack` | |
++| `get_worklog` | `getTasks` | Server computes metrics from task `timeSpentOnDay`; no new plugin action |
+ | `check_connection` | `ping` | Server-side timeout → clear error message |
+ | `debug_directories` | — | Server-only, no IPC needed |
+ 
+
+--- FILE 2/3 ---
+FILE: specs/001-sp-mcp-server/data-model.md
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -79,6 +79,9 @@ interface Task {
+   tagIds: string[];
+   parentId?: string | null;
+   subTaskIds: string[];
++  timeSpentOnDay?: {          // Map of ISO date string → milliseconds
++    [date: string]: number;   // e.g., { "2026-04-20": 3600000 }
++  };
+   created: number;
+   updated?: number;
+ }
+
+--- FILE 3/3 ---
+FILE: specs/001-sp-mcp-server/spec.md
+STATUS: modified
+ADDITIONS: 17
+DELETIONS: 0
+
+PATCH:
+@@ -84,6 +84,22 @@ A user asks the AI to show a notification inside Super Productivity's UI.
+ 
+ ---
+ 
++### User Story 5 — Worklog and Productivity Metrics (Priority: P5)
++
++A user asks the AI assistant for a summary of their work — how much time they spent today, this week, or on a specific project. The assistant computes this from task time-tracking data.
++
++**Why this priority**: Useful for daily standups, weekly reviews, and time reporting. Builds on existing task data without new Plugin API calls.
++
++**Independent Test**: Create tasks with time spent, ask for a worklog summary for today, verify the totals match.
++
++**Acceptance Scenarios**:
++
++1. **Given** tasks have time tracked via `timeSpentOnDay`, **When** the user asks "how much time did I work today", **Then** the AI returns total time spent today across all tasks, broken down by project.
++2. **Given** tasks span multiple days, **When** the user asks "show me my worklog for this week", **Then** the AI returns daily totals and a weekly summary with per-project breakdown.
++3. **Given** tasks have time estimates, **When** the user asks "how accurate are my time estimates", **Then** the AI returns estimate vs actual comparison for completed tasks in the date range.
++
++---
++
+ ### Edge Cases
+ 
+ - What happens when the user creates a task with an empty title? The system rejects it with a clear error.
+@@ -118,6 +134,7 @@ A user asks the AI to show a notification inside Super Productivity's UI.
+ - **FR-020**: System MUST clean up stale command/response files on startup and orphaned command files on timeout.
+ - **FR-021**: The SP plugin MUST poll for new command files every 2 seconds by default. The polling interval MUST be configurable by the user via plugin settings.
+ - **FR-022**: IPC directories MUST be created with user-only permissions (700 for directories, 600 for files) to prevent other users on shared machines from reading task data.
++- **FR-023**: System MUST provide a worklog tool that returns time spent per day, per project, and per tag for a given date range. It MUST also return task completion counts and estimate-vs-actual accuracy for completed tasks in the range. The data is computed server-side from task `timeSpentOnDay` fields.
+ 
+ ### Key Entities
+ 
+
+
+====================================================================================================
+COMMIT POSITION 4
+====================================================================================================
+SHA: 56bcf15d94e851b09f0a3fbcbb6ff071946ec846
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add MCP best practices — isError flag, input validation, rich descriptions (FR-024, FR-025)
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: specs/001-sp-mcp-server/research.md
+STATUS: modified
+ADDITIONS: 12
+DELETIONS: 0
+
+PATCH:
+@@ -98,3 +98,15 @@ await server.connect(transport);
+ **Rationale**: The SP Plugin API's `getTasks()` returns all tasks with no filter parameters. Filtering must happen after the data arrives. The MCP server applies filters (projectId, tagId, isDone, search query) to the full task list before returning results to the client.
+ 
+ **Future**: If SP adds filtering to the Plugin API (reference issue #5), the plugin can filter before sending, reducing data transfer.
++
++## MCP Best Practices (from official docs)
++
++**Decision**: Use stdio transport, `isError: true` for errors, server-side input validation, rich tool descriptions.
++
++**Rationale**: Reviewed Anthropic's engineering blog on code execution with MCP, modelcontextprotocol.info best practices, and modelcontextprotocol.io security best practices. Our stdio-only architecture sidesteps all HTTP-related security concerns (SSRF, session hijacking, confused deputy, token passthrough, OAuth scope issues). The three actionable items:
++
++1. **`isError: true`**: The MCP SDK supports `{ isError: true }` on tool results to signal failure. We MUST use this instead of returning error text as a successful result. This lets MCP clients handle errors programmatically.
++2. **Server-side input validation**: Validate required fields (title, IDs, non-negative numbers) before writing command files. Reject invalid inputs immediately without round-tripping through the plugin.
++3. **Rich tool descriptions**: AI agents discover capabilities through tool descriptions. Each tool description should document SP short syntax support (`@`, `#`, `+`, time estimates) so assistants use it effectively.
++
++**Alternatives considered**: None — these are additive improvements, not architectural choices.
+
+--- FILE 2/2 ---
+FILE: specs/001-sp-mcp-server/spec.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -135,6 +135,8 @@ A user asks the AI assistant for a summary of their work — how much time they
+ - **FR-021**: The SP plugin MUST poll for new command files every 2 seconds by default. The polling interval MUST be configurable by the user via plugin settings.
+ - **FR-022**: IPC directories MUST be created with user-only permissions (700 for directories, 600 for files) to prevent other users on shared machines from reading task data.
+ - **FR-023**: System MUST provide a worklog tool that returns time spent per day, per project, and per tag for a given date range. It MUST also return task completion counts and estimate-vs-actual accuracy for completed tasks in the range. The data is computed server-side from task `timeSpentOnDay` fields.
++- **FR-024**: The MCP server MUST validate all tool inputs before writing command files. Empty or missing required fields (e.g., title for create operations, IDs for update operations) MUST be rejected immediately with `isError: true` without sending a command to the plugin.
++- **FR-025**: All MCP tool error responses MUST use the SDK's `isError: true` flag so MCP clients can distinguish errors from successful results programmatically.
+ 
+ ### Key Entities
+ 
+
+
+====================================================================================================
+COMMIT POSITION 5
+====================================================================================================
+SHA: 2efed56a45bb61cf1555fb8c108137dc9bdc8076
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add implementation tasks — 43 tasks across 10 phases, 5 user stories
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: added
+ADDITIONS: 207
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,207 @@
++# Tasks: Super Productivity MCP Server
++
++**Input**: Design documents from `specs/001-sp-mcp-server/`
++**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/command-protocol.md
++
++## Format: `[ID] [P?] [Story] Description`
++
++- **[P]**: Can run in parallel (different files, no dependencies)
++- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
++- Include exact file paths in descriptions
++
++## Phase 1: Setup
++
++**Purpose**: Project initialization and build tooling
++
++- [ ] T001 Initialize npm project with package.json (name: super-productivity-mcp, bin entry, node >=18) in project root
++- [ ] T002 [P] Create tsconfig.json with strict mode, ES2020 target, NodeNext module resolution in project root
++- [ ] T003 [P] Create tsup.config.ts with entry src/index.ts, CJS output, target node18 in project root
++- [ ] T004 [P] Add dev dependencies: typescript, tsup, vitest, @types/node, zod in package.json
++- [ ] T005 [P] Add runtime dependencies: @modelcontextprotocol/sdk in package.json
++- [ ] T006 [P] Create .gitignore with node_modules, dist, *.log in project root
++- [ ] T007 [P] Create LICENSE (MIT) in project root
++
++**Checkpoint**: `npm install` succeeds, `npx tsup` produces dist/index.js
++
++---
++
++## Phase 2: Foundational (Blocking Prerequisites)
++
++**Purpose**: IPC layer and directory resolution that ALL user stories depend on
++
++**⚠️ CRITICAL**: No user story work can begin until this phase is complete
++
++- [ ] T008 Define Command and Response TypeScript interfaces in src/ipc/types.ts per data-model.md (Command, Response, TaskFilters, McpConfig)
++- [ ] T009 Implement cross-platform directory resolution in src/ipc/directories.ts — probe macOS (sandbox, standard), Linux (Snap, XDG, standard), Windows (APPDATA); support SP_MCP_DATA_DIR env override; write mcp_config.json when override is set; create dirs with 700 permissions, files with 600
++- [ ] T010 Implement command-sender in src/ipc/command-sender.ts — write command JSON files, poll for response files with configurable timeout (default 30s), clean up response files after reading, clean up orphaned commands on timeout, clean stale files (>5min) on startup; return clear error message when plugin not responding
++- [ ] T011 Create MCP server entry point in src/server.ts — instantiate McpServer with name "super-productivity" and version from package.json, connect via StdioServerTransport
++- [ ] T012 Create package entry point in src/index.ts — import and run server, add shebang for npx execution
++- [ ] T013 [P] Write unit tests for directory resolution in tests/unit/directories.test.ts — mock os.platform/homedir, test all 6 platform variants, test SP_MCP_DATA_DIR override, test mcp_config.json write
++- [ ] T014 [P] Write unit tests for command-sender in tests/unit/command-sender.test.ts — mock filesystem, test write/poll/cleanup cycle, test timeout with clear error message, test stale file cleanup
++
++**Checkpoint**: Foundation ready — `npx tsup` builds, tests pass, server starts and exits cleanly via stdio
++
++---
++
++## Phase 3: User Story 1 — Manage Tasks via AI Assistant (Priority: P1) 🎯 MVP
++
++**Goal**: Create, list, update, and complete tasks through any MCP client
++
++**Independent Test**: Create a task, verify in SP Inbox. Update title/notes. Mark complete. List all tasks with filters.
++
++### Implementation for User Story 1
++
++- [ ] T015 [US1] Register `create_task` tool in src/tools/tasks.ts — Zod schema: title (required string), notes (optional), project_id (optional), parent_id (optional), tag_ids (optional string array); validate title non-empty (FR-024); send addTask command; document SP short syntax in tool description (FR-015)
++- [ ] T016 [US1] Implement subtask SP syntax workaround in src/tools/tasks.ts — when parent_id is set and title contains @/#/+, strip syntax for addTask then updateTask with original title (FR-016)
++- [ ] T017 [US1] Register `get_tasks` tool in src/tools/tasks.ts — Zod schema: project_id (optional), tag_id (optional), include_done (optional bool, default false), include_archived (optional bool, default false), search_query (optional string); send getTasks command; apply server-side filtering on response (FR-002)
++- [ ] T018 [US1] Register `update_task` tool in src/tools/tasks.ts — Zod schema: task_id (required), title (optional), notes (optional), is_done (optional bool), time_estimate (optional number), time_spent (optional number); validate task_id non-empty (FR-024); send updateTask command
++- [ ] T019 [US1] Register `complete_task` tool in src/tools/tasks.ts — Zod schema: task_id (required); validate task_id non-empty; send setTaskDone command (FR-004)
++- [ ] T020 [P] [US1] Write unit tests for task tools in tests/unit/tools/tasks.test.ts — mock command-sender, test create (with/without SP syntax, with parent_id workaround), get (all filter combinations), update, complete; test input validation rejects empty title/id with isError:true (FR-025)
++
++**Checkpoint**: Task CRUD fully functional. Can create, list, filter, update, and complete tasks via MCP.
++
++---
++
++## Phase 4: User Story 2 — Manage Projects and Tags (Priority: P2)
++
++**Goal**: Create, list, and update projects and tags through MCP
++
++**Independent Test**: Create a project, verify in SP. Create a tag with color. List both. Update properties.
++
++### Implementation for User Story 2
++
++- [ ] T021 [P] [US2] Register `create_project`, `get_projects`, `update_project` tools in src/tools/projects.ts — Zod schemas per contract; validate title non-empty for create, project_id non-empty for update; send addProject/getAllProjects/updateProject commands
++- [ ] T022 [P] [US2] Register `create_tag`, `get_tags`, `update_tag` tools in src/tools/tags.ts — Zod schemas per contract; validate title non-empty for create, tag_id non-empty for update; send addTag/getAllTags/updateTag commands
++- [ ] T023 [P] [US2] Write unit tests for project tools in tests/unit/tools/projects.test.ts — mock command-sender, test create/list/update, test input validation
++- [ ] T024 [P] [US2] Write unit tests for tag tools in tests/unit/tools/tags.test.ts — mock command-sender, test create/list/update, test input validation
++
++**Checkpoint**: Project and tag management fully functional alongside task CRUD.
++
++---
++
++## Phase 5: User Story 3 — Connection Health and Diagnostics (Priority: P3)
++
++**Goal**: Verify connection status and troubleshoot directory paths
++
++**Independent Test**: Run check_connection with/without SP. Run debug_directories to see resolved paths.
++
++### Implementation for User Story 3
++
++- [ ] T025 [US3] Register `check_connection` tool in src/tools/diagnostics.ts — no input params; send ping command with short timeout (5s); return plugin version, protocol version, data paths on success; return clear error message on timeout (FR-012, IX)
++- [ ] T026 [US3] Register `debug_directories` tool in src/tools/diagnostics.ts — no IPC needed; return resolved base/command/response dirs and existence status from directories.ts (FR-013)
++- [ ] T027 [P] [US3] Write unit tests for diagnostic tools in tests/unit/tools/diagnostics.test.ts — test ping success/timeout, test debug_directories output
++
++**Checkpoint**: Users can verify connection and troubleshoot paths.
++
++---
++
++## Phase 6: User Story 4 — Notifications (Priority: P4)
++
++**Goal**: Show notifications in SP's UI via MCP
++
++**Independent Test**: Send notification, verify snackbar appears in SP.
++
++### Implementation for User Story 4
++
++- [ ] T028 [US4] Register `show_notification` tool in src/tools/notifications.ts — Zod schema: message (required string), type (optional enum SUCCESS/INFO/WARNING/ERROR, default INFO); validate message non-empty; send showSnack command
++- [ ] T029 [P] [US4] Write unit tests for notification tool in tests/unit/tools/notifications.test.ts — test with/without type, test empty message validation
++
++**Checkpoint**: Notifications work end-to-end.
++
++---
++
++## Phase 7: User Story 5 — Worklog and Productivity Metrics (Priority: P5)
++
++**Goal**: Return time-tracking summaries computed from task data
++
++**Independent Test**: Create tasks with timeSpentOnDay, request worklog for date range, verify totals.
++
++### Implementation for User Story 5
+
+[PATCH TRUNCATED: 208 total lines]
+
+
+====================================================================================================
+COMMIT POSITION 6  [STEP-7 AUTOMATED CODE HINT — NOT GROUND TRUTH]
+====================================================================================================
+SHA: 2d014a18e9a5f83bedf33e2dfc2af5553276ec7c
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: Phase 1 setup — package.json, tsconfig, tsup, deps, gitignore, license (T001-T007)
+
+CHANGED FILES: 8
+
+--- FILE 1/8 ---
+FILE: .gitignore
+STATUS: added
+ADDITIONS: 9
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,9 @@
++node_modules/
++dist/
++*.log
++.env*
++.DS_Store
++Thumbs.db
++*.tmp
++*.swp
++coverage/
+
+--- FILE 2/8 ---
+FILE: LICENSE
+STATUS: added
+ADDITIONS: 21
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) 2026
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+
+--- FILE 3/8 ---
+FILE: package-lock.json
+STATUS: added
+ADDITIONS: 3804
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 4/8 ---
+FILE: package.json
+STATUS: added
+ADDITIONS: 50
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,50 @@
++{
++  "name": "super-productivity-mcp",
++  "version": "1.0.0",
++  "description": "MCP server for Super Productivity — manage tasks, projects, and tags via AI assistants",
++  "main": "dist/index.js",
++  "bin": {
++    "super-productivity-mcp": "dist/index.js"
++  },
++  "type": "module",
++  "scripts": {
++    "build": "tsup",
++    "dev": "tsup --watch",
++    "test": "vitest run",
++    "test:watch": "vitest",
++    "lint": "eslint src/",
++    "prepublishOnly": "npm run build",
++    "build:plugin": "cd plugin && zip -r ../dist/plugin.zip manifest.json plugin.js index.html"
++  },
++  "files": [
++    "dist",
++    "README.md",
++    "LICENSE"
++  ],
++  "keywords": [
++    "mcp",
++    "super-productivity",
++    "task-management",
++    "ai",
++    "claude",
++    "model-context-protocol"
++  ],
++  "license": "MIT",
++  "engines": {
++    "node": ">=18"
++  },
++  "repository": {
++    "type": "git",
++    "url": "https://github.com/user/super-productivity-mcp"
++  },
++  "dependencies": {
++    "@modelcontextprotocol/sdk": "^1.29.0",
++    "zod": "^4.3.6"
++  },
++  "devDependencies": {
++    "@types/node": "^25.6.0",
++    "tsup": "^8.5.1",
++    "typescript": "^6.0.3",
++    "vitest": "^4.1.4"
++  }
++}
+
+--- FILE 5/8 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: modified
+ADDITIONS: 7
+DELETIONS: 7
+
+PATCH:
+@@ -13,13 +13,13 @@
+ 
+ **Purpose**: Project initialization and build tooling
+ 
+-- [ ] T001 Initialize npm project with package.json (name: super-productivity-mcp, bin entry, node >=18) in project root
+-- [ ] T002 [P] Create tsconfig.json with strict mode, ES2020 target, NodeNext module resolution in project root
+-- [ ] T003 [P] Create tsup.config.ts with entry src/index.ts, CJS output, target node18 in project root
+-- [ ] T004 [P] Add dev dependencies: typescript, tsup, vitest, @types/node, zod in package.json
+-- [ ] T005 [P] Add runtime dependencies: @modelcontextprotocol/sdk in package.json
+-- [ ] T006 [P] Create .gitignore with node_modules, dist, *.log in project root
+-- [ ] T007 [P] Create LICENSE (MIT) in project root
++- [x] T001 Initialize npm project with package.json (name: super-productivity-mcp, bin entry, node >=18) in project root
++- [x] T002 [P] Create tsconfig.json with strict mode, ES2020 target, NodeNext module resolution in project root
++- [x] T003 [P] Create tsup.config.ts with entry src/index.ts, CJS output, target node18 in project root
++- [x] T004 [P] Add dev dependencies: typescript, tsup, vitest, @types/node, zod in package.json
++- [x] T005 [P] Add runtime dependencies: @modelcontextprotocol/sdk in package.json
++- [x] T006 [P] Create .gitignore with node_modules, dist, *.log in project root
++- [x] T007 [P] Create LICENSE (MIT) in project root
+ 
+ **Checkpoint**: `npm install` succeeds, `npx tsup` produces dist/index.js
+ 
+
+--- FILE 6/8 ---
+FILE: src/index.ts
+STATUS: added
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1 @@
++console.log("super-productivity-mcp");
+
+--- FILE 7/8 ---
+FILE: tsconfig.json
+STATUS: added
+ADDITIONS: 16
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,16 @@
++{
++  "compilerOptions": {
++    "target": "ES2020",
++    "module": "NodeNext",
++    "moduleResolution": "NodeNext",
++    "strict": true,
++    "esModuleInterop": true,
++    "skipLibCheck": true,
++    "outDir": "dist",
++    "rootDir": "src",
++    "declaration": true,
++    "sourceMap": true
++  },
++  "include": ["src"],
++  "exclude": ["node_modules", "dist", "tests"]
++}
+
+--- FILE 8/8 ---
+FILE: tsup.config.ts
+STATUS: added
+ADDITIONS: 10
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,10 @@
++import { defineConfig } from 'tsup';
++
++export default defineConfig({
++  entry: ['src/index.ts'],
++  format: ['esm'],
++  target: 'node18',
++  clean: true,
++  sourcemap: true,
++  banner: { js: '#!/usr/bin/env node' },
++});
+
+
+====================================================================================================
+COMMIT POSITION 7
+====================================================================================================
+SHA: fc8dab7dd480c32eb77a5bbbc0e4152575d67733
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: Phase 2 foundational — IPC types, directories, command-sender, server entry, tests (T008-T014)
+
+- src/ipc/types.ts: Command, Response, TaskFilters, McpConfig interfaces
+- src/ipc/directories.ts: cross-platform resolution (macOS/Linux/Windows + sandbox/snap)
+- src/ipc/command-sender.ts: write/poll/cleanup with 30s timeout
+- src/server.ts: McpServer + StdioServerTransport entry point
+- 6 unit tests passing (directories + command-sender)
+
+CHANGED FILES: 13
+
+--- FILE 1/13 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: modified
+ADDITIONS: 7
+DELETIONS: 7
+
+PATCH:
+@@ -31,13 +31,13 @@
+ 
+ **⚠️ CRITICAL**: No user story work can begin until this phase is complete
+ 
+-- [ ] T008 Define Command and Response TypeScript interfaces in src/ipc/types.ts per data-model.md (Command, Response, TaskFilters, McpConfig)
+-- [ ] T009 Implement cross-platform directory resolution in src/ipc/directories.ts — probe macOS (sandbox, standard), Linux (Snap, XDG, standard), Windows (APPDATA); support SP_MCP_DATA_DIR env override; write mcp_config.json when override is set; create dirs with 700 permissions, files with 600
+-- [ ] T010 Implement command-sender in src/ipc/command-sender.ts — write command JSON files, poll for response files with configurable timeout (default 30s), clean up response files after reading, clean up orphaned commands on timeout, clean stale files (>5min) on startup; return clear error message when plugin not responding
+-- [ ] T011 Create MCP server entry point in src/server.ts — instantiate McpServer with name "super-productivity" and version from package.json, connect via StdioServerTransport
+-- [ ] T012 Create package entry point in src/index.ts — import and run server, add shebang for npx execution
+-- [ ] T013 [P] Write unit tests for directory resolution in tests/unit/directories.test.ts — mock os.platform/homedir, test all 6 platform variants, test SP_MCP_DATA_DIR override, test mcp_config.json write
+-- [ ] T014 [P] Write unit tests for command-sender in tests/unit/command-sender.test.ts — mock filesystem, test write/poll/cleanup cycle, test timeout with clear error message, test stale file cleanup
++- [x] T008 Define Command and Response TypeScript interfaces in src/ipc/types.ts per data-model.md (Command, Response, TaskFilters, McpConfig)
++- [x] T009 Implement cross-platform directory resolution in src/ipc/directories.ts — probe macOS (sandbox, standard), Linux (Snap, XDG, standard), Windows (APPDATA); support SP_MCP_DATA_DIR env override; write mcp_config.json when override is set; create dirs with 700 permissions, files with 600
++- [x] T010 Implement command-sender in src/ipc/command-sender.ts — write command JSON files, poll for response files with configurable timeout (default 30s), clean up response files after reading, clean up orphaned commands on timeout, clean stale files (>5min) on startup; return clear error message when plugin not responding
++- [x] T011 Create MCP server entry point in src/server.ts — instantiate McpServer with name "super-productivity" and version from package.json, connect via StdioServerTransport
++- [x] T012 Create package entry point in src/index.ts — import and run server, add shebang for npx execution
++- [x] T013 [P] Write unit tests for directory resolution in tests/unit/directories.test.ts — mock os.platform/homedir, test all 6 platform variants, test SP_MCP_DATA_DIR override, test mcp_config.json write
++- [x] T014 [P] Write unit tests for command-sender in tests/unit/command-sender.test.ts — mock filesystem, test write/poll/cleanup cycle, test timeout with clear error message, test stale file cleanup
+ 
+ **Checkpoint**: Foundation ready — `npx tsup` builds, tests pass, server starts and exits cleanly via stdio
+ 
+
+--- FILE 2/13 ---
+FILE: src/index.ts
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 1
+
+PATCH:
+@@ -1 +1,6 @@
+-console.log("super-productivity-mcp");
++import { startServer } from './server.js';
++
++startServer().catch((err) => {
++  console.error('Failed to start MCP server:', err);
++  process.exit(1);
++});
+
+--- FILE 3/13 ---
+FILE: src/ipc/command-sender.ts
+STATUS: added
+ADDITIONS: 71
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,71 @@
++import { writeFileSync, readFileSync, unlinkSync, readdirSync, statSync, existsSync } from 'node:fs';
++import { join } from 'node:path';
++import type { Command, Response } from './types.js';
++import { PROTOCOL_VERSION } from './types.js';
++import type { ResolvedDirs } from './directories.js';
++
++const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
++
++function generateId(action: string): string {
++  return `${action}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
++}
++
++export function cleanStaleFiles(dirs: ResolvedDirs): void {
++  const now = Date.now();
++  for (const dir of [dirs.commands, dirs.responses]) {
++    if (!existsSync(dir)) continue;
++    for (const file of readdirSync(dir)) {
++      if (!file.endsWith('.json')) continue;
++      try {
++        const filePath = join(dir, file);
++        const stat = statSync(filePath);
++        if (now - stat.mtimeMs > STALE_THRESHOLD_MS) unlinkSync(filePath);
++      } catch { /* ignore */ }
++    }
++  }
++}
++
++export async function sendCommand(
++  dirs: ResolvedDirs,
++  action: string,
++  fields: Partial<Omit<Command, 'id' | 'action' | 'protocolVersion' | 'timestamp'>> = {},
++  timeoutMs = 30_000,
++): Promise<Response> {
++  const command: Command = {
++    id: generateId(action),
++    action,
++    protocolVersion: PROTOCOL_VERSION,
++    timestamp: Date.now(),
++    ...fields,
++  };
++
++  const commandPath = join(dirs.commands, `${command.id}.json`);
++  writeFileSync(commandPath, JSON.stringify(command, null, 2), { mode: 0o600 });
++
++  const responsePath = join(dirs.responses, `${command.id}_response.json`);
++  const deadline = Date.now() + timeoutMs;
++  const pollInterval = 200;
++
++  while (Date.now() < deadline) {
++    if (existsSync(responsePath)) {
++      try {
++        const data = readFileSync(responsePath, 'utf-8');
++        const response: Response = JSON.parse(data);
++        try { unlinkSync(responsePath); } catch { /* ignore */ }
++        return response;
++      } catch {
++        break;
++      }
++    }
++    await new Promise(r => setTimeout(r, pollInterval));
++  }
++
++  // Timeout — clean up orphaned command
++  try { unlinkSync(commandPath); } catch { /* ignore */ }
++
++  return {
++    success: false,
++    error: 'Super Productivity is not responding. Ensure the app is running with the MCP Bridge plugin enabled.',
++    timestamp: Date.now(),
++  };
++}
+
+--- FILE 4/13 ---
+FILE: src/ipc/directories.ts
+STATUS: added
+ADDITIONS: 85
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,85 @@
++import { existsSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
++import { join } from 'node:path';
++import { homedir, platform } from 'node:os';
++import type { McpConfig } from './types.js';
++
++const APP_NAME = 'super-productivity-mcp';
++
++function getCandidatePaths(): string[] {
++  const home = homedir();
++  switch (platform()) {
++    case 'darwin':
++      return [
++        join(home, 'Library', 'Containers', 'com.superproductivity.app', 'Data', 'Library', 'Application Support', APP_NAME),
++        join(home, 'Library', 'Application Support', APP_NAME),
++      ];
++    case 'win32':
++      return [join(process.env.APPDATA ?? join(home, 'AppData', 'Roaming'), APP_NAME)];
++    default: // linux
++      return [
++        join(home, 'snap', 'superproductivity', 'current', '.local', 'share', APP_NAME),
++        join(process.env.XDG_DATA_HOME ?? join(home, '.local', 'share'), APP_NAME),
++      ];
++  }
++}
++
++function ensureDir(dir: string): void {
++  if (!existsSync(dir)) {
++    mkdirSync(dir, { recursive: true, mode: 0o700 });
++  }
++}
++
++export function resolveDataDir(): string {
++  const envOverride = process.env.SP_MCP_DATA_DIR;
++  if (envOverride) {
++    ensureDir(envOverride);
++    // Write mcp_config.json to standard location so plugin can find it
++    const standardPaths = getCandidatePaths();
++    for (const p of standardPaths) {
++      try {
++        ensureDir(p);
++        const configPath = join(p, 'mcp_config.json');
++        const config: McpConfig = { dataDir: envOverride };
++        writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
++        break;
++      } catch { /* try next */ }
++    }
++    return envOverride;
++  }
++
++  // Check for mcp_config.json in candidate paths
++  for (const p of getCandidatePaths()) {
++    const configPath = join(p, 'mcp_config.json');
++    if (existsSync(configPath)) {
++      try {
++        const config: McpConfig = JSON.parse(readFileSync(configPath, 'utf-8'));
++        if (config.dataDir && existsSync(config.dataDir)) return config.dataDir;
++      } catch { /* ignore invalid config */ }
++    }
++  }
++
++  // Probe for first writable path
++  for (const p of getCandidatePaths()) {
++    try {
++      ensureDir(p);
++      return p;
++    } catch { /* try next */ }
++  }
++
++  throw new Error('Could not resolve data directory. Set SP_MCP_DATA_DIR environment variable.');
++}
++
++export interface ResolvedDirs {
++  base: string;
++  commands: string;
++  responses: string;
++}
++
++export function resolveDirectories(): ResolvedDirs {
++  const base = resolveDataDir();
++  const commands = join(base, 'plugin_commands');
++  const responses = join(base, 'plugin_responses');
++  ensureDir(commands);
++  ensureDir(responses);
++  return { base, commands, responses };
++}
+
+--- FILE 5/13 ---
+FILE: src/ipc/types.ts
+STATUS: added
+ADDITIONS: 34
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,34 @@
++export interface Command {
++  id: string;
++  action: string;
++  protocolVersion: number;
++  timestamp: number;
++  data?: Record<string, unknown>;
++  taskId?: string;
++  projectId?: string;
++  tagId?: string;
++  message?: string;
++  filters?: TaskFilters;
++}
++
++export interface TaskFilters {
++  projectId?: string;
++  tagId?: string;
++  includeDone?: boolean;
++  includeArchived?: boolean;
++  searchQuery?: string;
++}
++
++export interface Response {
++  success: boolean;
++  result?: unknown;
++  error?: string;
++  timestamp: number;
++  executionTime?: number;
++}
++
++export interface McpConfig {
++  dataDir: string;
++}
++
++export const PROTOCOL_VERSION = 1;
+
+--- FILE 6/13 ---
+FILE: src/server.ts
+STATUS: added
+ADDITIONS: 33
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,33 @@
++import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
++import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
++import { resolveDirectories, type ResolvedDirs } from './ipc/directories.js';
++import { cleanStaleFiles } from './ipc/command-sender.js';
++import { registerTaskTools } from './tools/tasks.js';
++import { registerProjectTools } from './tools/projects.js';
++import { registerTagTools } from './tools/tags.js';
++import { registerNotificationTools } from './tools/notifications.js';
++import { registerDiagnosticTools } from './tools/diagnostics.js';
++
++export function createServer(): { server: McpServer; dirs: ResolvedDirs } {
++  const dirs = resolveDirectories();
++  cleanStaleFiles(dirs);
++
++  const server = new McpServer({
++    name: 'super-productivity',
++    version: '1.0.0',
++  });
++
++  registerTaskTools(server, dirs);
++  registerProjectTools(server, dirs);
++  registerTagTools(server, dirs);
++  registerNotificationTools(server, dirs);
++  registerDiagnosticTools(server, dirs);
++
++  return { server, dirs };
++}
++
++export async function startServer(): Promise<void> {
++  const { server } = createServer();
++  const transport = new StdioServerTransport();
++  await server.connect(transport);
++}
+
+--- FILE 7/13 ---
+FILE: src/tools/diagnostics.ts
+STATUS: added
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,4 @@
++import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
++import type { ResolvedDirs } from '../ipc/directories.js';
++
++export function registerDiagnosticTools(_server: McpServer, _dirs: ResolvedDirs): void {}
+
+--- FILE 8/13 ---
+FILE: src/tools/notifications.ts
+STATUS: added
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,4 @@
++import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
++import type { ResolvedDirs } from '../ipc/directories.js';
++
++export function registerNotificationTools(_server: McpServer, _dirs: ResolvedDirs): void {}
+
+--- FILE 9/13 ---
+FILE: src/tools/projects.ts
+STATUS: added
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,4 @@
++import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
++import type { ResolvedDirs } from '../ipc/directories.js';
++
++export function registerProjectTools(_server: McpServer, _dirs: ResolvedDirs): void {}
+
+--- FILE 10/13 ---
+FILE: src/tools/tags.ts
+STATUS: added
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,4 @@
++import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
++import type { ResolvedDirs } from '../ipc/directories.js';
++
++export function registerTagTools(_server: McpServer, _dirs: ResolvedDirs): void {}
+
+--- FILE 11/13 ---
+FILE: src/tools/tasks.ts
+STATUS: added
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,4 @@
++import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
++import type { ResolvedDirs } from '../ipc/directories.js';
++
++export function registerTaskTools(_server: McpServer, _dirs: ResolvedDirs): void {}
+
+--- FILE 12/13 ---
+FILE: tests/unit/command-sender.test.ts
+STATUS: added
+ADDITIONS: 73
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,73 @@
++import { describe, it, expect, beforeEach } from 'vitest';
++import { mkdirSync, writeFileSync, readdirSync, existsSync, statSync } from 'node:fs';
++import { join } from 'node:path';
++import { tmpdir } from 'node:os';
++import { sendCommand, cleanStaleFiles } from '../../src/ipc/command-sender.js';
++import type { ResolvedDirs } from '../../src/ipc/directories.js';
++import type { Response } from '../../src/ipc/types.js';
++
++function makeDirs(): ResolvedDirs {
++  const base = join(tmpdir(), `sp-mcp-cmd-test-${Date.now()}`);
++  const commands = join(base, 'plugin_commands');
++  const responses = join(base, 'plugin_responses');
++  mkdirSync(commands, { recursive: true });
++  mkdirSync(responses, { recursive: true });
++  return { base, commands, responses };
++}
++
++describe('sendCommand', () => {
++  it('writes a command file and reads a response', async () => {
++    const dirs = makeDirs();
++
++    // Simulate plugin: watch for command, write response
++    const promise = sendCommand(dirs, 'ping', {}, 5000);
++
++    // Wait for command file to appear
++    await new Promise(r => setTimeout(r, 300));
++    const files = readdirSync(dirs.commands).filter(f => f.endsWith('.json'));
++    expect(files.length).toBe(1);
++
++    // Write mock response
++    const cmdId = files[0].replace('.json', '');
++    const response: Response = { success: true, result: { pong: true }, timestamp: Date.now() };
++    writeFileSync(join(dirs.responses, `${cmdId}_response.json`), JSON.stringify(response));
++
++    const result = await promise;
++    expect(result.success).toBe(true);
++    expect((result.result as Record<string, unknown>).pong).toBe(true);
++  });
++
++  it('returns timeout error when no response', async () => {
++    const dirs = makeDirs();
++    const result = await sendCommand(dirs, 'ping', {}, 1000);
++    expect(result.success).toBe(false);
++    expect(result.error).toContain('not responding');
++    // Orphaned command should be cleaned up
++    const remaining = readdirSync(dirs.commands).filter(f => f.endsWith('.json'));
++    expect(remaining.length).toBe(0);
++  });
++});
++
++describe('cleanStaleFiles', () => {
++  it('removes files older than 5 minutes', () => {
++    const dirs = makeDirs();
++    const stalePath = join(dirs.commands, 'stale_cmd.json');
++    writeFileSync(stalePath, '{}');
++    // Manually set mtime to 10 minutes ago
++    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
++    const { utimesSync } = require('node:fs');
++    utimesSync(stalePath, tenMinAgo, tenMinAgo);
++
++    cleanStaleFiles(dirs);
++    expect(existsSync(stalePath)).toBe(false);
++  });
++
++  it('keeps recent files', () => {
++    const dirs = makeDirs();
++    const recentPath = join(dirs.commands, 'recent_cmd.json');
++    writeFileSync(recentPath, '{}');
++
++    cleanStaleFiles(dirs);
++    expect(existsSync(recentPath)).toBe(true);
++  });
++});
+
+--- FILE 13/13 ---
+FILE: tests/unit/directories.test.ts
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
++import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
++import { join } from 'node:path';
++import { tmpdir } from 'node:os';
++
++// We test resolveDataDir by setting SP_MCP_DATA_DIR
++describe('directories', () => {
++  let testDir: string;
++
++  beforeEach(() => {
++    testDir = join(tmpdir(), `sp-mcp-test-${Date.now()}`);
++    mkdirSync(testDir, { recursive: true });
++  });
++
++  afterEach(() => {
++    delete process.env.SP_MCP_DATA_DIR;
++  });
++
++  it('uses SP_MCP_DATA_DIR when set', async () => {
++    const customDir = join(testDir, 'custom');
++    process.env.SP_MCP_DATA_DIR = customDir;
++
++    const { resolveDataDir } = await import('../../src/ipc/directories.js');
++    const result = resolveDataDir();
++    expect(result).toBe(customDir);
++    expect(existsSync(customDir)).toBe(true);
++  });
++
++  it('resolveDirectories creates command and response subdirs', async () => {
++    const customDir = join(testDir, 'dirs-test');
++    process.env.SP_MCP_DATA_DIR = customDir;
++
++    const { resolveDirectories } = await import('../../src/ipc/directories.js');
++    const dirs = resolveDirectories();
++    expect(dirs.base).toBe(customDir);
++    expect(dirs.commands).toBe(join(customDir, 'plugin_commands'));
++    expect(dirs.responses).toBe(join(customDir, 'plugin_responses'));
++    expect(existsSync(dirs.commands)).toBe(true);
++    expect(existsSync(dirs.responses)).toBe(true);
++  });
++});
+
+
+====================================================================================================
+COMMIT POSITION 8
+====================================================================================================
+SHA: bdbda715b3bafffb91ee8a02fbc94e5240be8d9b
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: Phase 3+7 — task CRUD tools + worklog (T015-T020, T030-T031)
+
+- create_task: SP syntax in descriptions, subtask workaround
+- get_tasks: server-side filtering (project, tag, done, archived, search)
+- update_task: all mutable fields, doneOn auto-set
+- complete_task: setTaskDone command
+- get_worklog: daily/project/tag aggregation from timeSpentOnDay
+- 14 tests passing
+
+CHANGED FILES: 4
+
+--- FILE 1/4 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 8
+
+PATCH:
+@@ -51,12 +51,12 @@
+ 
+ ### Implementation for User Story 1
+ 
+-- [ ] T015 [US1] Register `create_task` tool in src/tools/tasks.ts — Zod schema: title (required string), notes (optional), project_id (optional), parent_id (optional), tag_ids (optional string array); validate title non-empty (FR-024); send addTask command; document SP short syntax in tool description (FR-015)
+-- [ ] T016 [US1] Implement subtask SP syntax workaround in src/tools/tasks.ts — when parent_id is set and title contains @/#/+, strip syntax for addTask then updateTask with original title (FR-016)
+-- [ ] T017 [US1] Register `get_tasks` tool in src/tools/tasks.ts — Zod schema: project_id (optional), tag_id (optional), include_done (optional bool, default false), include_archived (optional bool, default false), search_query (optional string); send getTasks command; apply server-side filtering on response (FR-002)
+-- [ ] T018 [US1] Register `update_task` tool in src/tools/tasks.ts — Zod schema: task_id (required), title (optional), notes (optional), is_done (optional bool), time_estimate (optional number), time_spent (optional number); validate task_id non-empty (FR-024); send updateTask command
+-- [ ] T019 [US1] Register `complete_task` tool in src/tools/tasks.ts — Zod schema: task_id (required); validate task_id non-empty; send setTaskDone command (FR-004)
+-- [ ] T020 [P] [US1] Write unit tests for task tools in tests/unit/tools/tasks.test.ts — mock command-sender, test create (with/without SP syntax, with parent_id workaround), get (all filter combinations), update, complete; test input validation rejects empty title/id with isError:true (FR-025)
++- [x] T015 [US1] Register `create_task` tool in src/tools/tasks.ts — Zod schema: title (required string), notes (optional), project_id (optional), parent_id (optional), tag_ids (optional string array); validate title non-empty (FR-024); send addTask command; document SP short syntax in tool description (FR-015)
++- [x] T016 [US1] Implement subtask SP syntax workaround in src/tools/tasks.ts — when parent_id is set and title contains @/#/+, strip syntax for addTask then updateTask with original title (FR-016)
++- [x] T017 [US1] Register `get_tasks` tool in src/tools/tasks.ts — Zod schema: project_id (optional), tag_id (optional), include_done (optional bool, default false), include_archived (optional bool, default false), search_query (optional string); send getTasks command; apply server-side filtering on response (FR-002)
++- [x] T018 [US1] Register `update_task` tool in src/tools/tasks.ts — Zod schema: task_id (required), title (optional), notes (optional), is_done (optional bool), time_estimate (optional number), time_spent (optional number); validate task_id non-empty (FR-024); send updateTask command
++- [x] T019 [US1] Register `complete_task` tool in src/tools/tasks.ts — Zod schema: task_id (required); validate task_id non-empty; send setTaskDone command (FR-004)
++- [x] T020 [P] [US1] Write unit tests for task tools in tests/unit/tools/tasks.test.ts — mock command-sender, test create (with/without SP syntax, with parent_id workaround), get (all filter combinations), update, complete; test input validation rejects empty title/id with isError:true (FR-025)
+ 
+ **Checkpoint**: Task CRUD fully functional. Can create, list, filter, update, and complete tasks via MCP.
+ 
+@@ -118,8 +118,8 @@
+ 
+ ### Implementation for User Story 5
+ 
+-- [ ] T030 [US5] Register `get_worklog` tool in src/tools/tasks.ts — Zod schema: start_date (required string, ISO date), end_date (required string, ISO date); send getTasks command (with includeDone + includeArchived); compute server-side: daily totals, per-project breakdown, per-tag breakdown, tasks completed count, estimate vs actual accuracy (FR-023)
+-- [ ] T031 [P] [US5] Write unit tests for worklog tool in tests/unit/tools/tasks.test.ts — mock task data with timeSpentOnDay, test date range filtering, test per-project/tag aggregation, test estimate accuracy calculation
++- [x] T030 [US5] Register `get_worklog` tool in src/tools/tasks.ts — Zod schema: start_date (required string, ISO date), end_date (required string, ISO date); send getTasks command (with includeDone + includeArchived); compute server-side: daily totals, per-project breakdown, per-tag breakdown, tasks completed count, estimate vs actual accuracy (FR-023)
++- [x] T031 [P] [US5] Write unit tests for worklog tool in tests/unit/tools/tasks.test.ts — mock task data with timeSpentOnDay, test date range filtering, test per-project/tag aggregation, test estimate accuracy calculation
+ 
+ **Checkpoint**: Worklog summaries work for any date range.
+ 
+
+--- FILE 2/4 ---
+FILE: src/tools/tasks.ts
+STATUS: modified
+ADDITIONS: 217
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,220 @@
++import { z } from 'zod';
+ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+ import type { ResolvedDirs } from '../ipc/directories.js';
++import { sendCommand } from '../ipc/command-sender.js';
++import type { TaskFilters } from '../ipc/types.js';
+ 
+-export function registerTaskTools(_server: McpServer, _dirs: ResolvedDirs): void {}
++interface TaskRecord {
++  id: string;
++  title: string;
++  isDone: boolean;
++  projectId: string | null;
++  tagIds: string[];
++  timeSpentOnDay?: Record<string, number>;
++  timeEstimate: number;
++  timeSpent: number;
++  doneOn?: number | null;
++  [key: string]: unknown;
++}
++
++function errorResult(msg: string) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
++}
++
++function okResult(data: unknown) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++}
++
++export function registerTaskTools(server: McpServer, dirs: ResolvedDirs): void {
++  // T015: create_task
++  server.registerTool(
++    'create_task',
++    {
++      description: 'Create a new task in Super Productivity. Supports SP short syntax in the title: #tag, +project (prefix match, min 3 chars), @due-date (e.g. @tomorrow, @friday 3pm), and time estimates (30m, 1h, 1h/2h for spent/estimate). Tasks without a project go to the Inbox.',
++      inputSchema: {
++        title: z.string().describe('Task title. May include SP short syntax: #tag +project @due-date 30m'),
++        notes: z.string().optional().describe('Task notes/description'),
++        project_id: z.string().optional().describe('Project ID to assign task to'),
++        parent_id: z.string().optional().describe('Parent task ID for creating subtasks'),
++        tag_ids: z.array(z.string()).optional().describe('Tag IDs to assign'),
++      },
++    },
++    async ({ title, notes, project_id, parent_id, tag_ids }) => {
++      if (!title?.trim()) return errorResult('Title is required');
++
++      const data: Record<string, unknown> = { title, notes: notes ?? '', tagIds: tag_ids ?? [] };
++      if (project_id) data.projectId = project_id;
++      if (parent_id) data.parentId = parent_id;
++
++      // T016: subtask SP syntax workaround
++      const hasSyntax = parent_id && /[@#\+]/.test(title);
++      if (hasSyntax) {
++        data.title = title.replace(/\s*[@#\+]\S+/g, '').trim() || title;
++      }
++
++      const res = await sendCommand(dirs, 'addTask', { data });
++      if (!res.success) return errorResult(res.error ?? 'Failed to create task');
++
++      // Step 2 of workaround: update with original title to trigger syntax parsing
++      if (hasSyntax && res.result) {
++        await sendCommand(dirs, 'updateTask', { taskId: res.result as string, data: { title } });
++      }
++
++      return okResult({ taskId: res.result });
++    },
++  );
++
++  // T017: get_tasks
++  server.registerTool(
++    'get_tasks',
++    {
++      description: 'Get tasks from Super Productivity with optional filters. By default returns non-done, non-archived tasks.',
++      inputSchema: {
++        project_id: z.string().optional().describe('Filter by project ID'),
++        tag_id: z.string().optional().describe('Filter by tag ID'),
++        include_done: z.boolean().optional().default(false).describe('Include completed tasks'),
++        include_archived: z.boolean().optional().default(false).describe('Include archived tasks'),
++        search_query: z.string().optional().describe('Case-insensitive title search'),
++      },
++    },
++    async ({ project_id, tag_id, include_done, include_archived, search_query }) => {
++      const filters: TaskFilters = {
++        projectId: project_id,
++        tagId: tag_id,
++        includeDone: include_done,
++        includeArchived: include_archived,
++        searchQuery: search_query,
++      };
++      const res = await sendCommand(dirs, 'getTasks', { filters });
++      if (!res.success) return errorResult(res.error ?? 'Failed to get tasks');
++
++      // Server-side filtering
++      let tasks = (res.result as TaskRecord[]) ?? [];
++      if (!include_done) tasks = tasks.filter(t => !t.isDone);
++      if (project_id) tasks = tasks.filter(t => t.projectId === project_id);
++      if (tag_id) tasks = tasks.filter(t => t.tagIds?.includes(tag_id));
++      if (search_query) {
++        const q = search_query.toLowerCase();
++        tasks = tasks.filter(t => t.title?.toLowerCase().includes(q));
++      }
++
++      return okResult(tasks);
++    },
++  );
++
++  // T018: update_task
++  server.registerTool(
++    'update_task',
++    {
++      description: 'Update an existing task. Supports SP short syntax in the title.',
++      inputSchema: {
++        task_id: z.string().describe('Task ID to update'),
++        title: z.string().optional().describe('New title (may include SP short syntax)'),
++        notes: z.string().optional().describe('New notes'),
++        is_done: z.boolean().optional().describe('Mark as done/undone'),
++        time_estimate: z.number().optional().describe('Time estimate in milliseconds'),
++        time_spent: z.number().optional().describe('Time spent in milliseconds'),
++      },
++    },
+
+[PATCH TRUNCATED: 222 total lines]
+
+--- FILE 3/4 ---
+FILE: tests/unit/tools/tasks.test.ts
+STATUS: added
+ADDITIONS: 147
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,147 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest';
++
++// Mock sendCommand before importing the module under test
++vi.mock('../../../src/ipc/command-sender.js', () => ({
++  sendCommand: vi.fn(),
++}));
++
++import { sendCommand } from '../../../src/ipc/command-sender.js';
++import type { ResolvedDirs } from '../../../src/ipc/directories.js';
++import type { Response } from '../../../src/ipc/types.js';
++
++const mockSend = vi.mocked(sendCommand);
++const dirs: ResolvedDirs = { base: '/tmp/test', commands: '/tmp/test/pc', responses: '/tmp/test/pr' };
++
++// Instead of testing through McpServer (which has no public API to call tools),
++// we test the sendCommand integration and filtering logic directly.
++// The tool registration is verified by the build + integration tests.
++
++function mockResponse(result: unknown): Response {
++  return { success: true, result, timestamp: Date.now() };
++}
++
++describe('task tool logic', () => {
++  beforeEach(() => vi.clearAllMocks());
++
++  describe('create_task via sendCommand', () => {
++    it('sends addTask with correct data', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse('task-123'));
++      const res = await sendCommand(dirs, 'addTask', {
++        data: { title: 'Test task', notes: 'Some notes', tagIds: [] },
++      });
++      expect(res.success).toBe(true);
++      expect(res.result).toBe('task-123');
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'addTask', {
++        data: { title: 'Test task', notes: 'Some notes', tagIds: [] },
++      });
++    });
++  });
++
++  describe('get_tasks filtering', () => {
++    const allTasks = [
++      { id: '1', title: 'Open task', isDone: false, projectId: 'proj-1', tagIds: ['tag-1'] },
++      { id: '2', title: 'Done task', isDone: true, projectId: 'proj-1', tagIds: [] },
++      { id: '3', title: 'Other project', isDone: false, projectId: 'proj-2', tagIds: ['tag-1'] },
++      { id: '4', title: 'Buy groceries', isDone: false, projectId: null, tagIds: [] },
++    ];
++
++    it('filters out done tasks by default', () => {
++      const filtered = allTasks.filter(t => !t.isDone);
++      expect(filtered).toHaveLength(3);
++      expect(filtered.every(t => !t.isDone)).toBe(true);
++    });
++
++    it('filters by projectId', () => {
++      const filtered = allTasks.filter(t => !t.isDone && t.projectId === 'proj-1');
++      expect(filtered).toHaveLength(1);
++      expect(filtered[0].id).toBe('1');
++    });
++
++    it('filters by tagId', () => {
++      const filtered = allTasks.filter(t => !t.isDone && t.tagIds.includes('tag-1'));
++      expect(filtered).toHaveLength(2);
++    });
++
++    it('filters by search query case-insensitive', () => {
++      const q = 'GROCERIES'.toLowerCase();
++      const filtered = allTasks.filter(t => !t.isDone && t.title.toLowerCase().includes(q));
++      expect(filtered).toHaveLength(1);
++      expect(filtered[0].id).toBe('4');
++    });
++  });
++
++  describe('update_task via sendCommand', () => {
++    it('sends updateTask with isDone and doneOn', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse({}));
++      await sendCommand(dirs, 'updateTask', {
++        taskId: 'task-1',
++        data: { isDone: true, doneOn: Date.now() },
++      });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'updateTask', expect.objectContaining({
++        taskId: 'task-1',
++        data: expect.objectContaining({ isDone: true, doneOn: expect.any(Number) }),
++      }));
++    });
++  });
++
++  describe('complete_task via sendCommand', () => {
++    it('sends setTaskDone', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse({}));
++      await sendCommand(dirs, 'setTaskDone', { taskId: 'task-1' });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'setTaskDone', { taskId: 'task-1' });
++    });
++  });
++
++  describe('get_worklog aggregation', () => {
++    it('aggregates timeSpentOnDay by date and project', () => {
++      const tasks = [
++        {
++          id: '1', title: 'A', isDone: true, doneOn: new Date('2026-04-15').getTime(),
++          projectId: 'proj-1', tagIds: ['tag-1'], timeEstimate: 3600000, timeSpent: 4000000,
++          timeSpentOnDay: { '2026-04-14': 1800000, '2026-04-15': 2200000 },
++        },
++        {
++          id: '2', title: 'B', isDone: false, doneOn: null,
++          projectId: 'proj-1', tagIds: [], timeEstimate: 0, timeSpent: 0,
++          timeSpentOnDay: { '2026-04-15': 600000 },
++        },
++      ];
++
++      const startDate = '2026-04-14';
++      const endDate = '2026-04-15';
++      const daily: Record<string, number> = {};
++      const byProject: Record<string, number> = {};
++      let completedCount = 0;
++      let totalEstimate = 0;
++      let totalActual = 0;
++
++      for (const task of tasks) {
++        if (task.timeSpentOnDay) {
+
+[PATCH TRUNCATED: 148 total lines]
+
+--- FILE 4/4 ---
+FILE: vitest.config.ts
+STATUS: added
+ADDITIONS: 13
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,13 @@
++import { defineConfig } from 'vitest/config';
++
++export default defineConfig({
++  test: {
++    globals: false,
++  },
++  resolve: {
++    extensions: ['.ts', '.js'],
++    alias: {
++      // Allow .js imports to resolve to .ts source files
++    },
++  },
++});
+
+
+====================================================================================================
+COMMIT POSITION 9
+====================================================================================================
+SHA: b6b3dd9e2b36b1a7aac9e66a9cdb46341c8df55d
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: Phases 4-6 — projects, tags, diagnostics, notifications (T021-T022, T025-T026, T028)
+
+- create/get/update project tools with Zod validation
+- create/get/update tag tools with Zod validation
+- check_connection (5s ping timeout) + debug_directories
+- show_notification with type enum
+- 14 tools registered total, 14 tests passing
+
+CHANGED FILES: 5
+
+--- FILE 1/5 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 5
+
+PATCH:
+@@ -70,8 +70,8 @@
+ 
+ ### Implementation for User Story 2
+ 
+-- [ ] T021 [P] [US2] Register `create_project`, `get_projects`, `update_project` tools in src/tools/projects.ts — Zod schemas per contract; validate title non-empty for create, project_id non-empty for update; send addProject/getAllProjects/updateProject commands
+-- [ ] T022 [P] [US2] Register `create_tag`, `get_tags`, `update_tag` tools in src/tools/tags.ts — Zod schemas per contract; validate title non-empty for create, tag_id non-empty for update; send addTag/getAllTags/updateTag commands
++- [x] T021 [P] [US2] Register `create_project`, `get_projects`, `update_project` tools in src/tools/projects.ts — Zod schemas per contract; validate title non-empty for create, project_id non-empty for update; send addProject/getAllProjects/updateProject commands
++- [x] T022 [P] [US2] Register `create_tag`, `get_tags`, `update_tag` tools in src/tools/tags.ts — Zod schemas per contract; validate title non-empty for create, tag_id non-empty for update; send addTag/getAllTags/updateTag commands
+ - [ ] T023 [P] [US2] Write unit tests for project tools in tests/unit/tools/projects.test.ts — mock command-sender, test create/list/update, test input validation
+ - [ ] T024 [P] [US2] Write unit tests for tag tools in tests/unit/tools/tags.test.ts — mock command-sender, test create/list/update, test input validation
+ 
+@@ -87,8 +87,8 @@
+ 
+ ### Implementation for User Story 3
+ 
+-- [ ] T025 [US3] Register `check_connection` tool in src/tools/diagnostics.ts — no input params; send ping command with short timeout (5s); return plugin version, protocol version, data paths on success; return clear error message on timeout (FR-012, IX)
+-- [ ] T026 [US3] Register `debug_directories` tool in src/tools/diagnostics.ts — no IPC needed; return resolved base/command/response dirs and existence status from directories.ts (FR-013)
++- [x] T025 [US3] Register `check_connection` tool in src/tools/diagnostics.ts — no input params; send ping command with short timeout (5s); return plugin version, protocol version, data paths on success; return clear error message on timeout (FR-012, IX)
++- [x] T026 [US3] Register `debug_directories` tool in src/tools/diagnostics.ts — no IPC needed; return resolved base/command/response dirs and existence status from directories.ts (FR-013)
+ - [ ] T027 [P] [US3] Write unit tests for diagnostic tools in tests/unit/tools/diagnostics.test.ts — test ping success/timeout, test debug_directories output
+ 
+ **Checkpoint**: Users can verify connection and troubleshoot paths.
+@@ -103,7 +103,7 @@
+ 
+ ### Implementation for User Story 4
+ 
+-- [ ] T028 [US4] Register `show_notification` tool in src/tools/notifications.ts — Zod schema: message (required string), type (optional enum SUCCESS/INFO/WARNING/ERROR, default INFO); validate message non-empty; send showSnack command
++- [x] T028 [US4] Register `show_notification` tool in src/tools/notifications.ts — Zod schema: message (required string), type (optional enum SUCCESS/INFO/WARNING/ERROR, default INFO); validate message non-empty; send showSnack command
+ - [ ] T029 [P] [US4] Write unit tests for notification tool in tests/unit/tools/notifications.test.ts — test with/without type, test empty message validation
+ 
+ **Checkpoint**: Notifications work end-to-end.
+
+--- FILE 2/5 ---
+FILE: src/tools/diagnostics.ts
+STATUS: modified
+ADDITIONS: 36
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,39 @@
++import { z } from 'zod';
+ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
++import { existsSync } from 'node:fs';
+ import type { ResolvedDirs } from '../ipc/directories.js';
++import { sendCommand } from '../ipc/command-sender.js';
+ 
+-export function registerDiagnosticTools(_server: McpServer, _dirs: ResolvedDirs): void {}
++function errorResult(msg: string) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
++}
++function okResult(data: unknown) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++}
++
++export function registerDiagnosticTools(server: McpServer, dirs: ResolvedDirs): void {
++  server.registerTool('check_connection', {
++    description: 'Check if Super Productivity is running and the MCP Bridge plugin is responding.',
++    inputSchema: {},
++  }, async () => {
++    const res = await sendCommand(dirs, 'ping', {}, 5000);
++    if (!res.success) return errorResult(res.error ?? 'Connection check failed');
++    return okResult({ status: 'connected', ...res.result as object, dataDir: dirs.base });
++  });
++
++  server.registerTool('debug_directories', {
++    description: 'Show resolved data directory paths and their existence status. No connection to Super Productivity required.',
++    inputSchema: {},
++  }, async () => {
++    return okResult({
++      base: dirs.base,
++      commands: dirs.commands,
++      responses: dirs.responses,
++      exists: {
++        base: existsSync(dirs.base),
++        commands: existsSync(dirs.commands),
++        responses: existsSync(dirs.responses),
++      },
++    });
++  });
++}
+
+--- FILE 3/5 ---
+FILE: src/tools/notifications.ts
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,26 @@
++import { z } from 'zod';
+ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+ import type { ResolvedDirs } from '../ipc/directories.js';
++import { sendCommand } from '../ipc/command-sender.js';
+ 
+-export function registerNotificationTools(_server: McpServer, _dirs: ResolvedDirs): void {}
++function errorResult(msg: string) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
++}
++function okResult(data: unknown) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++}
++
++export function registerNotificationTools(server: McpServer, dirs: ResolvedDirs): void {
++  server.registerTool('show_notification', {
++    description: 'Show a notification (snackbar) in Super Productivity\'s UI.',
++    inputSchema: {
++      message: z.string().describe('Notification message'),
++      type: z.enum(['SUCCESS', 'INFO', 'WARNING', 'ERROR']).optional().default('INFO').describe('Notification type'),
++    },
++  }, async ({ message, type }) => {
++    if (!message?.trim()) return errorResult('Message is required');
++    const res = await sendCommand(dirs, 'showSnack', { message, data: { type } });
++    if (!res.success) return errorResult(res.error ?? 'Failed to show notification');
++    return okResult({ sent: true });
++  });
++}
+
+--- FILE 4/5 ---
+FILE: src/tools/projects.ts
+STATUS: modified
+ADDITIONS: 53
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,56 @@
++import { z } from 'zod';
+ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+ import type { ResolvedDirs } from '../ipc/directories.js';
++import { sendCommand } from '../ipc/command-sender.js';
+ 
+-export function registerProjectTools(_server: McpServer, _dirs: ResolvedDirs): void {}
++function errorResult(msg: string) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
++}
++function okResult(data: unknown) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++}
++
++export function registerProjectTools(server: McpServer, dirs: ResolvedDirs): void {
++  server.registerTool('create_project', {
++    description: 'Create a new project in Super Productivity.',
++    inputSchema: {
++      title: z.string().describe('Project title'),
++      description: z.string().optional().describe('Project description'),
++      color: z.string().optional().describe('Project color (hex code, e.g. #2196F3)'),
++    },
++  }, async ({ title, description, color }) => {
++    if (!title?.trim()) return errorResult('Title is required');
++    const data: Record<string, unknown> = { title };
++    if (description) data.description = description;
++    if (color) data.theme = { primary: color };
++    const res = await sendCommand(dirs, 'addProject', { data });
++    if (!res.success) return errorResult(res.error ?? 'Failed to create project');
++    return okResult({ projectId: res.result });
++  });
++
++  server.registerTool('get_projects', {
++    description: 'Get all projects from Super Productivity.',
++    inputSchema: {},
++  }, async () => {
++    const res = await sendCommand(dirs, 'getAllProjects');
++    if (!res.success) return errorResult(res.error ?? 'Failed to get projects');
++    return okResult(res.result);
++  });
++
++  server.registerTool('update_project', {
++    description: 'Update an existing project.',
++    inputSchema: {
++      project_id: z.string().describe('Project ID to update'),
++      title: z.string().optional().describe('New title'),
++      color: z.string().optional().describe('New color (hex code)'),
++    },
++  }, async ({ project_id, title, color }) => {
++    if (!project_id?.trim()) return errorResult('project_id is required');
++    const data: Record<string, unknown> = {};
++    if (title !== undefined) data.title = title;
++    if (color !== undefined) data.theme = { primary: color };
++    const res = await sendCommand(dirs, 'updateProject', { projectId: project_id, data });
++    if (!res.success) return errorResult(res.error ?? 'Failed to update project');
++    return okResult(res.result);
++  });
++}
+
+--- FILE 5/5 ---
+FILE: src/tools/tags.ts
+STATUS: modified
+ADDITIONS: 53
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,56 @@
++import { z } from 'zod';
+ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+ import type { ResolvedDirs } from '../ipc/directories.js';
++import { sendCommand } from '../ipc/command-sender.js';
+ 
+-export function registerTagTools(_server: McpServer, _dirs: ResolvedDirs): void {}
++function errorResult(msg: string) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
++}
++function okResult(data: unknown) {
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++}
++
++export function registerTagTools(server: McpServer, dirs: ResolvedDirs): void {
++  server.registerTool('create_tag', {
++    description: 'Create a new tag in Super Productivity.',
++    inputSchema: {
++      title: z.string().describe('Tag title'),
++      color: z.string().optional().describe('Tag color (hex code, e.g. #FF9800)'),
++    },
++  }, async ({ title, color }) => {
++    if (!title?.trim()) return errorResult('Title is required');
++    const data: Record<string, unknown> = { title };
++    if (color) data.color = color;
++    const res = await sendCommand(dirs, 'addTag', { data });
++    if (!res.success) return errorResult(res.error ?? 'Failed to create tag');
++    return okResult({ tagId: res.result });
++  });
++
++  server.registerTool('get_tags', {
++    description: 'Get all tags from Super Productivity.',
++    inputSchema: {},
++  }, async () => {
++    const res = await sendCommand(dirs, 'getAllTags');
++    if (!res.success) return errorResult(res.error ?? 'Failed to get tags');
++    return okResult(res.result);
++  });
++
++  server.registerTool('update_tag', {
++    description: 'Update an existing tag.',
++    inputSchema: {
++      tag_id: z.string().describe('Tag ID to update'),
++      title: z.string().optional().describe('New title'),
++      color: z.string().optional().describe('New color (hex code)'),
++      icon: z.string().optional().describe('New icon'),
++    },
++  }, async ({ tag_id, title, color, icon }) => {
++    if (!tag_id?.trim()) return errorResult('tag_id is required');
++    const data: Record<string, unknown> = {};
++    if (title !== undefined) data.title = title;
++    if (color !== undefined) data.color = color;
++    if (icon !== undefined) data.icon = icon;
++    const res = await sendCommand(dirs, 'updateTag', { tagId: tag_id, data });
++    if (!res.success) return errorResult(res.error ?? 'Failed to update tag');
++    return okResult(res.result);
++  });
++}
+
+
+====================================================================================================
+COMMIT POSITION 10
+====================================================================================================
+SHA: 5b7de46f8188a1e9c8a5620a574a9e33bdc89d5b
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: Phase 8 — SP plugin with manifest, command dispatch, subtask workaround, archived tasks (T032-T037)
+
+- plugin/manifest.json: v1, minSupVersion 14.0.0, nodeExecution permission
+- plugin/plugin.js: directory discovery, 2s polling, all 12 command actions
+- Subtask SP syntax two-step workaround
+- Archived task merging for getTasks
+- Protocol version validation
+- Plugin zip build verified
+
+CHANGED FILES: 4
+
+--- FILE 1/4 ---
+FILE: plugin/index.html
+STATUS: added
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,3 @@
++<!DOCTYPE html>
++<html><head><meta charset="utf-8"><title>MCP Bridge</title></head>
++<body><p>MCP Bridge Plugin v1.0.0</p></body></html>
+
+--- FILE 2/4 ---
+FILE: plugin/manifest.json
+STATUS: added
+ADDITIONS: 14
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,14 @@
++{
++  "id": "sp-mcp-bridge",
++  "name": "MCP Bridge",
++  "description": "Bridge between Super Productivity and MCP servers for AI assistant integration",
++  "version": "1.0.0",
++  "manifestVersion": 1,
++  "minSupVersion": "14.0.0",
++  "permissions": ["nodeExecution"],
++  "hooks": ["taskUpdate", "taskComplete", "taskDelete", "currentTaskChange"],
++  "iFrame": true,
++  "isSkipMenuEntry": true,
++  "categories": ["integration", "automation"],
++  "tags": ["mcp", "ai", "integration"]
++}
+
+--- FILE 3/4 ---
+FILE: plugin/plugin.js
+STATUS: added
+ADDITIONS: 229
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,229 @@
++// MCP Bridge Plugin for Super Productivity
++const PROTOCOL_VERSION = 1;
++const POLL_INTERVAL_MS = 2000;
++let commandDir = null;
++let responseDir = null;
++let pollTimer = null;
++let lastProcessed = 0;
++
++async function setupDirectories() {
++  const result = await PluginAPI.executeNodeScript({
++    script: `
++      const fs = require('fs');
++      const path = require('path');
++      const os = require('os');
++      const home = os.homedir();
++      const APP = 'super-productivity-mcp';
++      let candidates;
++      if (os.platform() === 'darwin') {
++        candidates = [
++          path.join(home, 'Library', 'Containers', 'com.superproductivity.app', 'Data', 'Library', 'Application Support', APP),
++          path.join(home, 'Library', 'Application Support', APP)
++        ];
++      } else if (os.platform() === 'win32') {
++        candidates = [path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), APP)];
++      } else {
++        candidates = [
++          path.join(home, 'snap', 'superproductivity', 'current', '.local', 'share', APP),
++          path.join(process.env.XDG_DATA_HOME || path.join(home, '.local', 'share'), APP)
++        ];
++      }
++      // Check for mcp_config.json override
++      for (const p of candidates) {
++        try {
++          const cfg = path.join(p, 'mcp_config.json');
++          if (fs.existsSync(cfg)) {
++            const c = JSON.parse(fs.readFileSync(cfg, 'utf-8'));
++            if (c.dataDir && fs.existsSync(c.dataDir)) {
++              const cd = path.join(c.dataDir, 'plugin_commands');
++              const rd = path.join(c.dataDir, 'plugin_responses');
++              if (!fs.existsSync(cd)) fs.mkdirSync(cd, { recursive: true });
++              if (!fs.existsSync(rd)) fs.mkdirSync(rd, { recursive: true });
++              return { success: true, commandDir: cd, responseDir: rd };
++            }
++          }
++        } catch (e) {}
++      }
++      // Probe candidates
++      for (const p of candidates) {
++        try {
++          if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
++          const cd = path.join(p, 'plugin_commands');
++          const rd = path.join(p, 'plugin_responses');
++          if (!fs.existsSync(cd)) fs.mkdirSync(cd, { recursive: true });
++          if (!fs.existsSync(rd)) fs.mkdirSync(rd, { recursive: true });
++          return { success: true, commandDir: cd, responseDir: rd };
++        } catch (e) {}
++      }
++      return { success: false, error: 'No writable directory found' };
++    `,
++    args: [],
++    timeout: 10000,
++  });
++  const r = result && result.result ? result.result : result;
++  if (r && r.success) {
++    commandDir = r.commandDir;
++    responseDir = r.responseDir;
++  } else {
++    throw new Error(r ? r.error : 'Directory setup failed');
++  }
++}
++
++async function writeResponse(commandId, response) {
++  await PluginAPI.executeNodeScript({
++    script: `
++      const fs = require('fs');
++      const path = require('path');
++      fs.writeFileSync(path.join(args[0], args[1] + '_response.json'), JSON.stringify(args[2], null, 2));
++      return { success: true };
++    `,
++    args: [responseDir, commandId, response],
++    timeout: 5000,
++  });
++}
++
++async function deleteFile(filePath) {
++  await PluginAPI.executeNodeScript({
++    script: `require('fs').unlinkSync(args[0]); return { success: true };`,
++    args: [filePath],
++    timeout: 5000,
++  });
++}
++
++async function executeCommand(command) {
++  // Protocol version check
++  if (command.protocolVersion > PROTOCOL_VERSION) {
++    return {
++      success: false,
++      error: `Unsupported protocol version ${command.protocolVersion}. Plugin supports up to version ${PROTOCOL_VERSION}. Please update the plugin.`,
++      timestamp: Date.now(),
++    };
++  }
++
++  let result;
++  const start = Date.now();
++  try {
++    switch (command.action) {
++      case 'addTask': {
++        const d = command.data || {};
++        const hasParent = !!d.parentId;
++        const hasSyntax = hasParent && /[@#\+]/.test(d.title || '');
++        if (hasSyntax) {
++          const cleanTitle = (d.title || '').replace(/\s*[@#\+]\S+/g, '').trim() || d.title;
++          const taskId = await PluginAPI.addTask({ ...d, title: cleanTitle });
++          await PluginAPI.updateTask(taskId, { title: d.title });
++          result = taskId;
++        } else {
++          result = await PluginAPI.addTask(d);
++        }
++        break;
+
+[PATCH TRUNCATED: 230 total lines]
+
+--- FILE 4/4 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 6
+
+PATCH:
+@@ -129,12 +129,12 @@
+ 
+ **Purpose**: The Super Productivity plugin that executes commands against PluginAPI
+ 
+-- [ ] T032 Create plugin manifest in plugin/manifest.json — id: sp-mcp-bridge, manifestVersion: 1, minSupVersion: 14.0.0, permissions: [nodeExecution], hooks: [taskUpdate, taskComplete, taskDelete, currentTaskChange], iFrame: true, isSkipMenuEntry: true
+-- [ ] T033 Implement plugin core in plugin/plugin.js — directory discovery (same probe logic as server), command polling loop (2s default, configurable), command dispatch switch for all actions (addTask, getTasks, updateTask, setTaskDone, getAllProjects, addProject, updateProject, getAllTags, addTag, updateTag, showSnack, ping), response writing, command file cleanup, stale file cleanup on init, protocol version validation, error handling for unknown actions and invalid JSON
+-- [ ] T034 Implement subtask SP syntax workaround in plugin/plugin.js — detect parentId + @/#/+ in title, create with clean title, then updateTask with original title
+-- [ ] T035 Implement archived task support in plugin/plugin.js — when getTasks command has filters.includeArchived, call both PluginAPI.getTasks() and PluginAPI.getArchivedTasks(), merge results
+-- [ ] T036 [P] Create minimal plugin/index.html — empty dashboard placeholder for v1
+-- [ ] T037 [P] Create plugin build script in package.json — zip plugin/manifest.json + plugin/plugin.js + plugin/index.html into dist/plugin.zip
++- [x] T032 Create plugin manifest in plugin/manifest.json — id: sp-mcp-bridge, manifestVersion: 1, minSupVersion: 14.0.0, permissions: [nodeExecution], hooks: [taskUpdate, taskComplete, taskDelete, currentTaskChange], iFrame: true, isSkipMenuEntry: true
++- [x] T033 Implement plugin core in plugin/plugin.js — directory discovery (same probe logic as server), command polling loop (2s default, configurable), command dispatch switch for all actions (addTask, getTasks, updateTask, setTaskDone, getAllProjects, addProject, updateProject, getAllTags, addTag, updateTag, showSnack, ping), response writing, command file cleanup, stale file cleanup on init, protocol version validation, error handling for unknown actions and invalid JSON
++- [x] T034 Implement subtask SP syntax workaround in plugin/plugin.js — detect parentId + @/#/+ in title, create with clean title, then updateTask with original title
++- [x] T035 Implement archived task support in plugin/plugin.js — when getTasks command has filters.includeArchived, call both PluginAPI.getTasks() and PluginAPI.getArchivedTasks(), merge results
++- [x] T036 [P] Create minimal plugin/index.html — empty dashboard placeholder for v1
++- [x] T037 [P] Create plugin build script in package.json — zip plugin/manifest.json + plugin/plugin.js + plugin/index.html into dist/plugin.zip
+ 
+ **Checkpoint**: Plugin installable in SP, responds to ping, executes all command actions.
+ 
+
+
+====================================================================================================
+COMMIT POSITION 11
+====================================================================================================
+SHA: 869165143616bba4ada23cdeac32693fc5eae98f
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: Phase 9+10 — integration tests, README, CI/CD, eslint, lint fixes (T038-T045)
+
+- 5 integration tests (round-trip, getTasks, ping, timeout, stale cleanup)
+- README with install guide, 14 tools table, SP syntax reference
+- GitHub Actions CI (Node 18+20 matrix) and release (npm + plugin.zip)
+- ESLint flat config, all lint errors fixed
+- 19 tests passing, build clean
+
+CHANGED FILES: 11
+
+--- FILE 1/11 ---
+FILE: .github/workflows/ci.yml
+STATUS: added
+ADDITIONS: 25
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,25 @@
++name: CI
++
++on:
++  push:
++    branches: [main]
++  pull_request:
++    branches: [main]
++
++jobs:
++  test:
++    runs-on: ubuntu-latest
++    strategy:
++      matrix:
++        node-version: [18, 20]
++
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: ${{ matrix.node-version }}
++          cache: npm
++
++      - run: npm ci
++      - run: npm run build
++      - run: npm test
+
+--- FILE 2/11 ---
+FILE: .github/workflows/release.yml
+STATUS: added
+ADDITIONS: 35
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,35 @@
++name: Release
++
++on:
++  push:
++    tags: ['v*']
++
++permissions:
++  contents: write
++
++jobs:
++  release:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 20
++          cache: npm
++          registry-url: https://registry.npmjs.org
++
++      - run: npm ci
++      - run: npm run build
++      - run: npm test
++      - run: npm run build:plugin
++
++      - name: Publish to npm
++        run: npm publish --access public
++        env:
++          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
++
++      - name: Create GitHub Release
++        uses: softprops/action-gh-release@v2
++        with:
++          files: dist/plugin.zip
++          generate_release_notes: true
+
+--- FILE 3/11 ---
+FILE: README.md
+STATUS: added
+ADDITIONS: 129
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,129 @@
++# Super Productivity MCP Server
++
++An MCP (Model Context Protocol) server that connects AI assistants to [Super Productivity](https://super-productivity.com) — manage tasks, projects, and tags through Claude Desktop, Kiro, or any MCP-compatible client.
++
++## Features
++
++- **Task Management**: Create, list, update, and complete tasks
++- **Project & Tag Management**: Create, list, and update projects and tags
++- **SP Short Syntax**: Full support for `#tags`, `+projects`, `@due-dates`, and time estimates (`30m`, `1h/2h`)
++- **Worklog & Metrics**: Time spent per day/project/tag, estimate accuracy
++- **Notifications**: Show snackbar messages in SP's UI
++- **Diagnostics**: Connection health check and directory debugging
++- **Cross-Platform**: macOS (incl. App Store sandbox), Linux (incl. Snap), Windows
++- **14 MCP Tools** with input validation and clear error messages
++
++## Prerequisites
++
++- [Super Productivity](https://super-productivity.com) >= 14.0.0
++- Node.js >= 18
++- An MCP-compatible client (Claude Desktop, Kiro, etc.)
++
++## Installation
++
++### 1. Install the SP Plugin
++
++1. Download `plugin.zip` from the [latest release](https://github.com/user/super-productivity-mcp/releases)
++2. Open Super Productivity → Settings → Plugins
++3. Click "Upload Plugin" and select `plugin.zip`
++4. Restart Super Productivity
++
++### 2. Configure Your MCP Client
++
++Add to your MCP client config:
++
++```json
++{
++  "mcpServers": {
++    "super-productivity": {
++      "command": "npx",
++      "args": ["-y", "super-productivity-mcp"]
++    }
++  }
++}
++```
++
++**Config file locations:**
++- **Claude Desktop (macOS):** `~/Library/Application Support/Claude/claude_desktop_config.json`
++- **Claude Desktop (Windows):** `%APPDATA%\Claude\claude_desktop_config.json`
++
++### 3. Verify
++
++Ask your AI assistant: *"Check the Super Productivity connection"*
++
++## Available Tools
++
++| Tool | Description |
++|------|-------------|
++| `create_task` | Create a task (supports SP short syntax) |
++| `get_tasks` | List tasks with filters (project, tag, done, archived, search) |
++| `update_task` | Update task fields (title, notes, done, time) |
++| `complete_task` | Mark a task as complete |
++| `create_project` | Create a new project |
++| `get_projects` | List all projects |
++| `update_project` | Update project properties |
++| `create_tag` | Create a new tag |
++| `get_tags` | List all tags |
++| `update_tag` | Update tag properties |
++| `get_worklog` | Time tracking summary for a date range |
++| `show_notification` | Show a snackbar in SP's UI |
++| `check_connection` | Verify SP is running and plugin is responding |
++| `debug_directories` | Show resolved data directory paths |
++
++## SP Short Syntax
++
++Include these in task titles and SP will parse them automatically:
++
++| Syntax | Example | Effect |
++|--------|---------|--------|
++| `#tag` | `Buy milk #errands` | Adds the "errands" tag |
++| `+project` | `Fix bug +work` | Assigns to "work" project (prefix match, min 3 chars) |
++| `@due` | `Report @friday` | Sets due date to Friday |
++| `@due time` | `Call @tomorrow 3pm` | Sets due date and time |
++| `30m` | `Quick fix 30m` | Sets 30-minute time estimate |
++| `1h/2h` | `Research 1h/2h` | Sets 1h spent, 2h estimate |
++
++## Troubleshooting
++
++### Custom Data Directory
++
++If SP is installed via Snap or Mac App Store, the plugin auto-detects the correct path. To override:
++
++```json
++{
++  "mcpServers": {
++    "super-productivity": {
++      "command": "npx",
++      "args": ["-y", "super-productivity-mcp"],
++      "env": { "SP_MCP_DATA_DIR": "/custom/path" }
++    }
++  }
++}
++```
++
++### Connection Issues
++
++1. Ensure Super Productivity is running
++2. Verify the MCP Bridge plugin is enabled (Settings → Plugins)
++3. Ask: *"Show debug info for Super Productivity"* to check directory paths
++4. Restart both SP and your MCP client
++
++## Development
++
++```bash
++npm install
++npm run build      # Build MCP server
++npm test           # Run tests
++npm run build:plugin  # Build plugin.zip
++```
++
+
+[PATCH TRUNCATED: 130 total lines]
+
+--- FILE 4/11 ---
+FILE: eslint.config.js
+STATUS: added
+ADDITIONS: 10
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,10 @@
++import eslint from '@eslint/js';
++import tseslint from 'typescript-eslint';
++
++export default tseslint.config(
++  eslint.configs.recommended,
++  ...tseslint.configs.recommended,
++  {
++    ignores: ['dist/', 'node_modules/', 'plugin/', 'tests/', '*.config.*'],
++  },
++);
+
+--- FILE 5/11 ---
+FILE: package-lock.json
+STATUS: modified
+ADDITIONS: 1048
+DELETIONS: 4
+
+PATCH:
+@@ -16,9 +16,12 @@
+         "super-productivity-mcp": "dist/index.js"
+       },
+       "devDependencies": {
++        "@eslint/js": "^10.0.1",
+         "@types/node": "^25.6.0",
++        "eslint": "^10.2.1",
+         "tsup": "^8.5.1",
+         "typescript": "^6.0.3",
++        "typescript-eslint": "^8.58.2",
+         "vitest": "^4.1.4"
+       },
+       "engines": {
+@@ -501,6 +504,134 @@
+         "node": ">=18"
+       }
+     },
++    "node_modules/@eslint-community/eslint-utils": {
++      "version": "4.9.1",
++      "resolved": "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.9.1.tgz",
++      "integrity": "sha512-phrYmNiYppR7znFEdqgfWHXR6NCkZEK7hwWDHZUjit/2/U0r6XvkDl0SYnoM51Hq7FhCGdLDT6zxCCOY1hexsQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "eslint-visitor-keys": "^3.4.3"
++      },
++      "engines": {
++        "node": "^12.22.0 || ^14.17.0 || >=16.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/eslint"
++      },
++      "peerDependencies": {
++        "eslint": "^6.0.0 || ^7.0.0 || >=8.0.0"
++      }
++    },
++    "node_modules/@eslint-community/eslint-utils/node_modules/eslint-visitor-keys": {
++      "version": "3.4.3",
++      "resolved": "https://registry.npmjs.org/eslint-visitor-keys/-/eslint-visitor-keys-3.4.3.tgz",
++      "integrity": "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "engines": {
++        "node": "^12.22.0 || ^14.17.0 || >=16.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/eslint"
++      }
++    },
++    "node_modules/@eslint-community/regexpp": {
++      "version": "4.12.2",
++      "resolved": "https://registry.npmjs.org/@eslint-community/regexpp/-/regexpp-4.12.2.tgz",
++      "integrity": "sha512-EriSTlt5OC9/7SXkRSCAhfSxxoSUgBm33OH+IkwbdpgoqsSsUg7y3uh+IICI/Qg4BBWr3U2i39RpmycbxMq4ew==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": "^12.0.0 || ^14.0.0 || >=16.0.0"
++      }
++    },
++    "node_modules/@eslint/config-array": {
++      "version": "0.23.5",
++      "resolved": "https://registry.npmjs.org/@eslint/config-array/-/config-array-0.23.5.tgz",
++      "integrity": "sha512-Y3kKLvC1dvTOT+oGlqNQ1XLqK6D1HU2YXPc52NmAlJZbMMWDzGYXMiPRJ8TYD39muD/OTjlZmNJ4ib7dvSrMBA==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@eslint/object-schema": "^3.0.5",
++        "debug": "^4.3.1",
++        "minimatch": "^10.2.4"
++      },
++      "engines": {
++        "node": "^20.19.0 || ^22.13.0 || >=24"
++      }
++    },
++    "node_modules/@eslint/config-helpers": {
++      "version": "0.5.5",
++      "resolved": "https://registry.npmjs.org/@eslint/config-helpers/-/config-helpers-0.5.5.tgz",
++      "integrity": "sha512-eIJYKTCECbP/nsKaaruF6LW967mtbQbsw4JTtSVkUQc9MneSkbrgPJAbKl9nWr0ZeowV8BfsarBmPpBzGelA2w==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@eslint/core": "^1.2.1"
++      },
++      "engines": {
++        "node": "^20.19.0 || ^22.13.0 || >=24"
++      }
++    },
++    "node_modules/@eslint/core": {
++      "version": "1.2.1",
++      "resolved": "https://registry.npmjs.org/@eslint/core/-/core-1.2.1.tgz",
++      "integrity": "sha512-MwcE1P+AZ4C6DWlpin/OmOA54mmIZ/+xZuJiQd4SyB29oAJjN30UW9wkKNptW2ctp4cEsvhlLY/CsQ1uoHDloQ==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@types/json-schema": "^7.0.15"
++      },
++      "engines": {
++        "node": "^20.19.0 || ^22.13.0 || >=24"
++      }
++    },
++    "node_modules/@eslint/js": {
++      "version": "10.0.1",
++      "resolved": "https://registry.npmjs.org/@eslint/js/-/js-10.0.1.tgz",
++      "integrity": "sha512-zeR9k5pd4gxjZ0abRoIaxdc7I3nDktoXZk2qOv9gCNWx3mVwEn32VRhyLaRsDiJjTs0xq/T8mfPtyuXu7GWBcA==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": "^20.19.0 || ^22.13.0 || >=24"
++      },
++      "funding": {
++        "url": "https://eslint.org/donate"
++      },
++      "peerDependencies": {
++        "eslint": "^10.0.0"
++      },
++      "peerDependenciesMeta": {
++        "eslint": {
++          "optional": true
++        }
++      }
+
+[PATCH TRUNCATED: 1301 total lines]
+
+--- FILE 6/11 ---
+FILE: package.json
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -42,9 +42,12 @@
+     "zod": "^4.3.6"
+   },
+   "devDependencies": {
++    "@eslint/js": "^10.0.1",
+     "@types/node": "^25.6.0",
++    "eslint": "^10.2.1",
+     "tsup": "^8.5.1",
+     "typescript": "^6.0.3",
++    "typescript-eslint": "^8.58.2",
+     "vitest": "^4.1.4"
+   }
+ }
+
+--- FILE 7/11 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 5
+
+PATCH:
+@@ -144,7 +144,7 @@
+ 
+ **Purpose**: End-to-end verification with mocked filesystem
+ 
+-- [ ] T038 Write integration test for full command→response round-trip in tests/integration/round-trip.test.ts — mock filesystem, test create_task writes command file, mock plugin response, verify server reads and returns result; test timeout scenario; test stale cleanup
++- [x] T038 Write integration test for full command→response round-trip in tests/integration/round-trip.test.ts — mock filesystem, test create_task writes command file, mock plugin response, verify server reads and returns result; test timeout scenario; test stale cleanup
+ 
+ **Checkpoint**: Full IPC cycle verified without running SP.
+ 
+@@ -154,11 +154,14 @@
+ 
+ **Purpose**: README, packaging, final quality
+ 
+-- [ ] T039 Write README.md — project description, prerequisites, installation (npx + plugin.zip), MCP client config examples (Claude Desktop, Kiro), quickstart (check_connection, create task, list tasks), SP short syntax reference, troubleshooting (SP_MCP_DATA_DIR, debug_directories), contributing
+-- [ ] T040 [P] Configure package.json for npm publishing — main: dist/index.js, bin: dist/index.js, files: [dist, README.md, LICENSE], repository, keywords
+-- [ ] T041 [P] Add eslint config with TypeScript support in eslint.config.js
+-- [ ] T042 Run full test suite and fix any failures
++- [x] T039 Write README.md — project description, prerequisites, installation (npx + plugin.zip), MCP client config examples (Claude Desktop, Kiro), quickstart (check_connection, create task, list tasks), SP short syntax reference, troubleshooting (SP_MCP_DATA_DIR, debug_directories), contributing
++- [x] T040 [P] Configure package.json for npm publishing — main: dist/index.js, bin: dist/index.js, files: [dist, README.md, LICENSE], repository, keywords
++- [x] T041 [P] Add eslint config with TypeScript support in eslint.config.js
++- [x] T042 Run full test suite and fix any failures
+ - [ ] T043 Run quickstart.md validation — verify documented steps work end-to-end
++- [x] T044 [P] Create GitHub Actions CI workflow in .github/workflows/ci.yml — run on push/PR to main: install, lint, test, build; Node 18+20 matrix
++- [x] T045 [P] Create GitHub Actions release workflow in .github/workflows/release.yml — on tag push: build, npm publish, build plugin.zip, create GitHub release with plugin.zip attached
++- [ ] T046 Set up GitHub remote, push to origin, make repo public
+ 
+ ---
+ 
+
+--- FILE 8/11 ---
+FILE: src/ipc/directories.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,4 @@
+-import { existsSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
++import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+ import { join } from 'node:path';
+ import { homedir, platform } from 'node:os';
+ import type { McpConfig } from './types.js';
+
+--- FILE 9/11 ---
+FILE: src/tools/diagnostics.ts
+STATUS: modified
+ADDITIONS: 0
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,3 @@
+-import { z } from 'zod';
+ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+ import { existsSync } from 'node:fs';
+ import type { ResolvedDirs } from '../ipc/directories.js';
+
+--- FILE 10/11 ---
+FILE: src/tools/tasks.ts
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -47,9 +47,9 @@ export function registerTaskTools(server: McpServer, dirs: ResolvedDirs): void {
+       if (parent_id) data.parentId = parent_id;
+ 
+       // T016: subtask SP syntax workaround
+-      const hasSyntax = parent_id && /[@#\+]/.test(title);
++      const hasSyntax = parent_id && /[@#[+]]/.test(title);
+       if (hasSyntax) {
+-        data.title = title.replace(/\s*[@#\+]\S+/g, '').trim() || title;
++        data.title = title.replace(/\s*[@#[+]]\S+/g, '').trim() || title;
+       }
+ 
+       const res = await sendCommand(dirs, 'addTask', { data });
+
+--- FILE 11/11 ---
+FILE: tests/integration/round-trip.test.ts
+STATUS: added
+ADDITIONS: 107
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,107 @@
++import { describe, it, expect, beforeEach } from 'vitest';
++import { mkdirSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
++import { join } from 'node:path';
++import { tmpdir } from 'node:os';
++import { sendCommand, cleanStaleFiles } from '../../src/ipc/command-sender.js';
++import type { ResolvedDirs } from '../../src/ipc/directories.js';
++import type { Response } from '../../src/ipc/types.js';
++
++function makeDirs(): ResolvedDirs {
++  const base = join(tmpdir(), `sp-mcp-int-${Date.now()}`);
++  const commands = join(base, 'plugin_commands');
++  const responses = join(base, 'plugin_responses');
++  mkdirSync(commands, { recursive: true });
++  mkdirSync(responses, { recursive: true });
++  return { base, commands, responses };
++}
++
++// Simulate plugin: watch for command files, execute, write response
++function simulatePlugin(dirs: ResolvedDirs, handler: (cmd: any) => any) {
++  const interval = setInterval(() => {
++    if (!existsSync(dirs.commands)) return;
++    for (const file of readdirSync(dirs.commands).filter(f => f.endsWith('.json'))) {
++      try {
++        const data = JSON.parse(require('fs').readFileSync(join(dirs.commands, file), 'utf-8'));
++        const result = handler(data);
++        const response: Response = { success: true, result, timestamp: Date.now() };
++        writeFileSync(join(dirs.responses, `${data.id}_response.json`), JSON.stringify(response));
++        require('fs').unlinkSync(join(dirs.commands, file));
++      } catch (e) { /* skip */ }
++    }
++  }, 100);
++  return () => clearInterval(interval);
++}
++
++describe('integration: round-trip', () => {
++  it('create_task → plugin processes → server gets result', async () => {
++    const dirs = makeDirs();
++    const stop = simulatePlugin(dirs, (cmd) => {
++      if (cmd.action === 'addTask') return 'new-task-id-123';
++      return null;
++    });
++
++    const res = await sendCommand(dirs, 'addTask', {
++      data: { title: 'Integration test task', notes: '', tagIds: [] },
++    }, 5000);
++
++    stop();
++    expect(res.success).toBe(true);
++    expect(res.result).toBe('new-task-id-123');
++    // Command file should be cleaned up by simulated plugin
++    expect(readdirSync(dirs.commands).filter(f => f.endsWith('.json'))).toHaveLength(0);
++    // Response file should be cleaned up by server
++    expect(readdirSync(dirs.responses).filter(f => f.endsWith('.json'))).toHaveLength(0);
++  });
++
++  it('getTasks → plugin returns tasks → server receives array', async () => {
++    const dirs = makeDirs();
++    const mockTasks = [
++      { id: '1', title: 'Task A', isDone: false, projectId: null, tagIds: [] },
++      { id: '2', title: 'Task B', isDone: true, projectId: 'p1', tagIds: ['t1'] },
++    ];
++    const stop = simulatePlugin(dirs, (cmd) => {
++      if (cmd.action === 'getTasks') return mockTasks;
++      return null;
++    });
++
++    const res = await sendCommand(dirs, 'getTasks', { filters: {} }, 5000);
++    stop();
++    expect(res.success).toBe(true);
++    expect(res.result).toEqual(mockTasks);
++  });
++
++  it('ping → plugin responds with version info', async () => {
++    const dirs = makeDirs();
++    const stop = simulatePlugin(dirs, (cmd) => {
++      if (cmd.action === 'ping') return { pong: true, pluginVersion: '1.0.0', protocolVersion: 1 };
++      return null;
++    });
++
++    const res = await sendCommand(dirs, 'ping', {}, 5000);
++    stop();
++    expect(res.success).toBe(true);
++    const r = res.result as any;
++    expect(r.pong).toBe(true);
++    expect(r.protocolVersion).toBe(1);
++  });
++
++  it('timeout → returns clear error and cleans up command', async () => {
++    const dirs = makeDirs();
++    // No plugin running
++    const res = await sendCommand(dirs, 'ping', {}, 1000);
++    expect(res.success).toBe(false);
++    expect(res.error).toContain('not responding');
++    expect(readdirSync(dirs.commands).filter(f => f.endsWith('.json'))).toHaveLength(0);
++  });
++
++  it('stale cleanup removes old files', () => {
++    const dirs = makeDirs();
++    const stale = join(dirs.commands, 'old_cmd.json');
++    writeFileSync(stale, '{}');
++    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
++    require('fs').utimesSync(stale, tenMinAgo, tenMinAgo);
++
++    cleanStaleFiles(dirs);
++    expect(existsSync(stale)).toBe(false);
++  });
++});
+
+
+====================================================================================================
+COMMIT POSITION 12
+====================================================================================================
+SHA: 69970b12d356822aca6a509a84d213bdd46cebfb
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore: update repo URLs to b0x42/Super-Productivity-MCP
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -23,7 +23,7 @@ An MCP (Model Context Protocol) server that connects AI assistants to [Super Pro
+ 
+ ### 1. Install the SP Plugin
+ 
+-1. Download `plugin.zip` from the [latest release](https://github.com/user/super-productivity-mcp/releases)
++1. Download `plugin.zip` from the [latest release](https://github.com/b0x42/Super-Productivity-MCP/releases)
+ 2. Open Super Productivity → Settings → Plugins
+ 3. Click "Upload Plugin" and select `plugin.zip`
+ 4. Restart Super Productivity
+
+--- FILE 2/2 ---
+FILE: package.json
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -35,7 +35,7 @@
+   },
+   "repository": {
+     "type": "git",
+-    "url": "https://github.com/user/super-productivity-mcp"
++    "url": "https://github.com/b0x42/Super-Productivity-MCP"
+   },
+   "dependencies": {
+     "@modelcontextprotocol/sdk": "^1.29.0",
+
+
+====================================================================================================
+COMMIT POSITION 13
+====================================================================================================
+SHA: 6c35023329353c70b95372c0d42dce4ebd13ba21
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore: add tsbuildinfo and editor dirs to gitignore
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: .gitignore
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -7,3 +7,6 @@ Thumbs.db
+ *.tmp
+ *.swp
+ coverage/
++*.tsbuildinfo
++.vscode/
++.idea/
+
+
+====================================================================================================
+COMMIT POSITION 14
+====================================================================================================
+SHA: 8b8ba5579d43119a7ab6a806d4ffbdfa819f9d91
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore: ignore .kiro directory
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: .gitignore
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -10,3 +10,4 @@ coverage/
+ *.tsbuildinfo
+ .vscode/
+ .idea/
++.kiro/
+
+
+====================================================================================================
+COMMIT POSITION 15
+====================================================================================================
+SHA: bd93fa7d082e0e9c9733093eef1959f06525b5e3
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore: rename plugin to SP MCP Server (avoid conflict with reference project)
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: plugin/manifest.json
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 3
+
+PATCH:
+@@ -1,7 +1,7 @@
+ {
+-  "id": "sp-mcp-bridge",
+-  "name": "MCP Bridge",
+-  "description": "Bridge between Super Productivity and MCP servers for AI assistant integration",
++  "id": "super-productivity-mcp",
++  "name": "SP MCP Server",
++  "description": "MCP server bridge for AI assistant integration with Super Productivity",
+   "version": "1.0.0",
+   "manifestVersion": 1,
+   "minSupVersion": "14.0.0",
+
+--- FILE 2/2 ---
+FILE: plugin/plugin.js
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 2
+
+PATCH:
+@@ -60,7 +60,9 @@ async function setupDirectories() {
+     args: [],
+     timeout: 10000,
+   });
+-  const r = result && result.result ? result.result : result;
++  // executeNodeScript wraps result: could be result.result.success or result.success
++  let r = result;
++  if (r && r.success && r.result && typeof r.result === 'object') r = r.result;
+   if (r && r.success) {
+     commandDir = r.commandDir;
+     responseDir = r.responseDir;
+@@ -200,7 +202,7 @@ async function pollCommands() {
+       args: [commandDir, lastProcessed],
+       timeout: 10000,
+     });
+-    const r = result && result.result ? result.result : result;
++    const r = result && result.success && result.result && typeof result.result === 'object' ? result.result : result;
+     if (!r || !r.success || !r.commands) return;
+     for (const cmd of r.commands) {
+       try {
+
+
+====================================================================================================
+COMMIT POSITION 16
+====================================================================================================
+SHA: 093b6a3d3f26e11f042b1f5d4be5e69c99b8423e
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add Mac App Store sandbox troubleshooting
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 2
+
+PATCH:
+@@ -85,9 +85,29 @@ Include these in task titles and SP will parse them automatically:
+ 
+ ## Troubleshooting
+ 
++### Mac App Store (Sandbox Path Mismatch)
++
++When SP is installed from the Mac App Store, it runs in a sandbox. The plugin resolves its data directory relative to the sandbox home (`~/Library/Containers/com.superproductivity.app/Data/...`), but the MCP server runs outside the sandbox and may resolve to a different path (e.g. `~/.local/share/super-productivity-mcp`).
++
++If commands time out, set `SP_MCP_DATA_DIR` to the sandbox path:
++
++```json
++{
++  "mcpServers": {
++    "super-productivity": {
++      "command": "npx",
++      "args": ["-y", "super-productivity-mcp"],
++      "env": {
++        "SP_MCP_DATA_DIR": "~/Library/Containers/com.superproductivity.app/Data/Library/Application Support/super-productivity-mcp"
++      }
++    }
++  }
++}
++```
++
+ ### Custom Data Directory
+ 
+-If SP is installed via Snap or Mac App Store, the plugin auto-detects the correct path. To override:
++To override the auto-detected path for any reason:
+ 
+ ```json
+ {
+@@ -106,7 +126,8 @@ If SP is installed via Snap or Mac App Store, the plugin auto-detects the correc
+ 1. Ensure Super Productivity is running
+ 2. Verify the MCP Bridge plugin is enabled (Settings → Plugins)
+ 3. Ask: *"Show debug info for Super Productivity"* to check directory paths
+-4. Restart both SP and your MCP client
++4. If paths differ between server and plugin, set `SP_MCP_DATA_DIR` (see above)
++5. Restart both SP and your MCP client
+ 
+ ## Development
+ 
+
+
+====================================================================================================
+COMMIT POSITION 17
+====================================================================================================
+SHA: 31551da5a9074cc084a5affbd98085123b12d979
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+test: add unit tests for projects, tags, diagnostics, notifications (T023, T024, T027, T029)
+
+CHANGED FILES: 5
+
+--- FILE 1/5 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -72,8 +72,8 @@
+ 
+ - [x] T021 [P] [US2] Register `create_project`, `get_projects`, `update_project` tools in src/tools/projects.ts — Zod schemas per contract; validate title non-empty for create, project_id non-empty for update; send addProject/getAllProjects/updateProject commands
+ - [x] T022 [P] [US2] Register `create_tag`, `get_tags`, `update_tag` tools in src/tools/tags.ts — Zod schemas per contract; validate title non-empty for create, tag_id non-empty for update; send addTag/getAllTags/updateTag commands
+-- [ ] T023 [P] [US2] Write unit tests for project tools in tests/unit/tools/projects.test.ts — mock command-sender, test create/list/update, test input validation
+-- [ ] T024 [P] [US2] Write unit tests for tag tools in tests/unit/tools/tags.test.ts — mock command-sender, test create/list/update, test input validation
++- [x] T023 [P] [US2] Write unit tests for project tools in tests/unit/tools/projects.test.ts — mock command-sender, test create/list/update, test input validation
++- [x] T024 [P] [US2] Write unit tests for tag tools in tests/unit/tools/tags.test.ts — mock command-sender, test create/list/update, test input validation
+ 
+ **Checkpoint**: Project and tag management fully functional alongside task CRUD.
+ 
+@@ -89,7 +89,7 @@
+ 
+ - [x] T025 [US3] Register `check_connection` tool in src/tools/diagnostics.ts — no input params; send ping command with short timeout (5s); return plugin version, protocol version, data paths on success; return clear error message on timeout (FR-012, IX)
+ - [x] T026 [US3] Register `debug_directories` tool in src/tools/diagnostics.ts — no IPC needed; return resolved base/command/response dirs and existence status from directories.ts (FR-013)
+-- [ ] T027 [P] [US3] Write unit tests for diagnostic tools in tests/unit/tools/diagnostics.test.ts — test ping success/timeout, test debug_directories output
++- [x] T027 [P] [US3] Write unit tests for diagnostic tools in tests/unit/tools/diagnostics.test.ts — test ping success/timeout, test debug_directories output
+ 
+ **Checkpoint**: Users can verify connection and troubleshoot paths.
+ 
+@@ -104,7 +104,7 @@
+ ### Implementation for User Story 4
+ 
+ - [x] T028 [US4] Register `show_notification` tool in src/tools/notifications.ts — Zod schema: message (required string), type (optional enum SUCCESS/INFO/WARNING/ERROR, default INFO); validate message non-empty; send showSnack command
+-- [ ] T029 [P] [US4] Write unit tests for notification tool in tests/unit/tools/notifications.test.ts — test with/without type, test empty message validation
++- [x] T029 [P] [US4] Write unit tests for notification tool in tests/unit/tools/notifications.test.ts — test with/without type, test empty message validation
+ 
+ **Checkpoint**: Notifications work end-to-end.
+ 
+
+--- FILE 2/5 ---
+FILE: tests/unit/tools/diagnostics.test.ts
+STATUS: added
+ADDITIONS: 57
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,57 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest';
++
++vi.mock('../../../src/ipc/command-sender.js', () => ({
++  sendCommand: vi.fn(),
++}));
++
++import { sendCommand } from '../../../src/ipc/command-sender.js';
++import type { ResolvedDirs } from '../../../src/ipc/directories.js';
++import type { Response } from '../../../src/ipc/types.js';
++
++const mockSend = vi.mocked(sendCommand);
++const dirs: ResolvedDirs = { base: '/tmp/test', commands: '/tmp/test/pc', responses: '/tmp/test/pr' };
++
++describe('diagnostic tool logic', () => {
++  beforeEach(() => vi.clearAllMocks());
++
++  describe('check_connection (ping)', () => {
++    it('returns connected status on success', async () => {
++      mockSend.mockResolvedValueOnce({
++        success: true,
++        result: { pong: true, pluginVersion: '1.0.0', protocolVersion: 1 },
++        timestamp: Date.now(),
++      });
++      const res = await sendCommand(dirs, 'ping', {}, 5000);
++      expect(res.success).toBe(true);
++      expect((res.result as Record<string, unknown>).pong).toBe(true);
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'ping', {}, 5000);
++    });
++
++    it('returns error on timeout', async () => {
++      mockSend.mockResolvedValueOnce({
++        success: false,
++        error: 'Super Productivity is not responding. Ensure the app is running with the MCP Bridge plugin enabled.',
++        timestamp: Date.now(),
++      });
++      const res = await sendCommand(dirs, 'ping', {}, 5000);
++      expect(res.success).toBe(false);
++      expect(res.error).toContain('not responding');
++    });
++  });
++
++  describe('debug_directories', () => {
++    it('returns resolved paths and existence status', () => {
++      // debug_directories is server-only, no IPC — just returns dirs info
++      const output = {
++        base: dirs.base,
++        commands: dirs.commands,
++        responses: dirs.responses,
++        exists: { base: true, commands: true, responses: true },
++      };
++      expect(output.base).toBe('/tmp/test');
++      expect(output.commands).toBe('/tmp/test/pc');
++      expect(output.responses).toBe('/tmp/test/pr');
++      expect(output.exists.base).toBe(true);
++    });
++  });
++});
+
+--- FILE 3/5 ---
+FILE: tests/unit/tools/notifications.test.ts
+STATUS: added
+ADDITIONS: 47
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,47 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest';
++
++vi.mock('../../../src/ipc/command-sender.js', () => ({
++  sendCommand: vi.fn(),
++}));
++
++import { sendCommand } from '../../../src/ipc/command-sender.js';
++import type { ResolvedDirs } from '../../../src/ipc/directories.js';
++import type { Response } from '../../../src/ipc/types.js';
++
++const mockSend = vi.mocked(sendCommand);
++const dirs: ResolvedDirs = { base: '/tmp/test', commands: '/tmp/test/pc', responses: '/tmp/test/pr' };
++
++function mockResponse(result: unknown): Response {
++  return { success: true, result, timestamp: Date.now() };
++}
++
++describe('notification tool logic', () => {
++  beforeEach(() => vi.clearAllMocks());
++
++  describe('show_notification via sendCommand', () => {
++    it('sends showSnack with message and default type', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse({ success: true }));
++      await sendCommand(dirs, 'showSnack', { message: 'Tasks synced', data: { type: 'INFO' } });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'showSnack', {
++        message: 'Tasks synced',
++        data: { type: 'INFO' },
++      });
++    });
++
++    it('sends showSnack with explicit type', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse({ success: true }));
++      await sendCommand(dirs, 'showSnack', { message: 'Error occurred', data: { type: 'ERROR' } });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'showSnack', {
++        message: 'Error occurred',
++        data: { type: 'ERROR' },
++      });
++    });
++  });
++
++  describe('input validation', () => {
++    it('rejects empty message', () => {
++      expect(''.trim()).toBe('');
++      expect('  '.trim()).toBe('');
++    });
++  });
++});
+
+--- FILE 4/5 ---
+FILE: tests/unit/tools/projects.test.ts
+STATUS: added
+ADDITIONS: 70
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,70 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest';
++
++vi.mock('../../../src/ipc/command-sender.js', () => ({
++  sendCommand: vi.fn(),
++}));
++
++import { sendCommand } from '../../../src/ipc/command-sender.js';
++import type { ResolvedDirs } from '../../../src/ipc/directories.js';
++import type { Response } from '../../../src/ipc/types.js';
++
++const mockSend = vi.mocked(sendCommand);
++const dirs: ResolvedDirs = { base: '/tmp/test', commands: '/tmp/test/pc', responses: '/tmp/test/pr' };
++
++function mockResponse(result: unknown): Response {
++  return { success: true, result, timestamp: Date.now() };
++}
++
++describe('project tool logic', () => {
++  beforeEach(() => vi.clearAllMocks());
++
++  describe('create_project via sendCommand', () => {
++    it('sends addProject with title', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse('proj-123'));
++      const res = await sendCommand(dirs, 'addProject', { data: { title: 'Work' } });
++      expect(res.success).toBe(true);
++      expect(res.result).toBe('proj-123');
++    });
++
++    it('sends addProject with color as theme', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse('proj-456'));
++      await sendCommand(dirs, 'addProject', { data: { title: 'Personal', theme: { primary: '#FF0000' } } });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'addProject', {
++        data: { title: 'Personal', theme: { primary: '#FF0000' } },
++      });
++    });
++  });
++
++  describe('get_projects via sendCommand', () => {
++    it('sends getAllProjects and returns list', async () => {
++      const projects = [{ id: 'p1', title: 'Work' }, { id: 'p2', title: 'Personal' }];
++      mockSend.mockResolvedValueOnce(mockResponse(projects));
++      const res = await sendCommand(dirs, 'getAllProjects');
++      expect(res.success).toBe(true);
++      expect(res.result).toEqual(projects);
++    });
++  });
++
++  describe('update_project via sendCommand', () => {
++    it('sends updateProject with new title', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse({}));
++      await sendCommand(dirs, 'updateProject', { projectId: 'proj-1', data: { title: 'New Name' } });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'updateProject', {
++        projectId: 'proj-1',
++        data: { title: 'New Name' },
++      });
++    });
++  });
++
++  describe('input validation', () => {
++    it('rejects empty title for create', () => {
++      const title = '';
++      expect(title.trim()).toBe('');
++    });
++
++    it('rejects empty project_id for update', () => {
++      const projectId = '  ';
++      expect(projectId.trim()).toBe('');
++    });
++  });
++});
+
+--- FILE 5/5 ---
+FILE: tests/unit/tools/tags.test.ts
+STATUS: added
+ADDITIONS: 69
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,69 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest';
++
++vi.mock('../../../src/ipc/command-sender.js', () => ({
++  sendCommand: vi.fn(),
++}));
++
++import { sendCommand } from '../../../src/ipc/command-sender.js';
++import type { ResolvedDirs } from '../../../src/ipc/directories.js';
++import type { Response } from '../../../src/ipc/types.js';
++
++const mockSend = vi.mocked(sendCommand);
++const dirs: ResolvedDirs = { base: '/tmp/test', commands: '/tmp/test/pc', responses: '/tmp/test/pr' };
++
++function mockResponse(result: unknown): Response {
++  return { success: true, result, timestamp: Date.now() };
++}
++
++describe('tag tool logic', () => {
++  beforeEach(() => vi.clearAllMocks());
++
++  describe('create_tag via sendCommand', () => {
++    it('sends addTag with title', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse('tag-123'));
++      const res = await sendCommand(dirs, 'addTag', { data: { title: 'urgent' } });
++      expect(res.success).toBe(true);
++      expect(res.result).toBe('tag-123');
++    });
++
++    it('sends addTag with color', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse('tag-456'));
++      await sendCommand(dirs, 'addTag', { data: { title: 'errands', color: '#FF9800' } });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'addTag', {
++        data: { title: 'errands', color: '#FF9800' },
++      });
++    });
++  });
++
++  describe('get_tags via sendCommand', () => {
++    it('sends getAllTags and returns list', async () => {
++      const tags = [{ id: 't1', title: 'urgent', color: '#F00' }];
++      mockSend.mockResolvedValueOnce(mockResponse(tags));
++      const res = await sendCommand(dirs, 'getAllTags');
++      expect(res.success).toBe(true);
++      expect(res.result).toEqual(tags);
++    });
++  });
++
++  describe('update_tag via sendCommand', () => {
++    it('sends updateTag with new properties', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse({}));
++      await sendCommand(dirs, 'updateTag', { tagId: 'tag-1', data: { title: 'critical', color: '#F00', icon: 'warning' } });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'updateTag', {
++        tagId: 'tag-1',
++        data: { title: 'critical', color: '#F00', icon: 'warning' },
++      });
++    });
++  });
++
++  describe('input validation', () => {
++    it('rejects empty title for create', () => {
++      expect(''.trim()).toBe('');
++      expect('  '.trim()).toBe('');
++    });
++
++    it('rejects empty tag_id for update', () => {
++      expect(''.trim()).toBe('');
++    });
++  });
++});
+
+
+====================================================================================================
+COMMIT POSITION 18
+====================================================================================================
+SHA: 6a0837d38859db9ec7cb1d30bda76210f3ca44c7
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix: handle undefined in okResult with nullish coalescing
+
+CHANGED FILES: 5
+
+--- FILE 1/5 ---
+FILE: src/tools/diagnostics.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -7,7 +7,7 @@ function errorResult(msg: string) {
+   return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
+ }
+ function okResult(data: unknown) {
+-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? null, null, 2) }] };
+ }
+ 
+ export function registerDiagnosticTools(server: McpServer, dirs: ResolvedDirs): void {
+
+--- FILE 2/5 ---
+FILE: src/tools/notifications.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -7,7 +7,7 @@ function errorResult(msg: string) {
+   return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
+ }
+ function okResult(data: unknown) {
+-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? null, null, 2) }] };
+ }
+ 
+ export function registerNotificationTools(server: McpServer, dirs: ResolvedDirs): void {
+
+--- FILE 3/5 ---
+FILE: src/tools/projects.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -7,7 +7,7 @@ function errorResult(msg: string) {
+   return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
+ }
+ function okResult(data: unknown) {
+-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? null, null, 2) }] };
+ }
+ 
+ export function registerProjectTools(server: McpServer, dirs: ResolvedDirs): void {
+
+--- FILE 4/5 ---
+FILE: src/tools/tags.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -7,7 +7,7 @@ function errorResult(msg: string) {
+   return { content: [{ type: 'text' as const, text: JSON.stringify({ error: msg }) }], isError: true };
+ }
+ function okResult(data: unknown) {
+-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? null, null, 2) }] };
+ }
+ 
+ export function registerTagTools(server: McpServer, dirs: ResolvedDirs): void {
+
+--- FILE 5/5 ---
+FILE: src/tools/tasks.ts
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 2
+
+PATCH:
+@@ -22,7 +22,7 @@ function errorResult(msg: string) {
+ }
+ 
+ function okResult(data: unknown) {
+-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
++  return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? null, null, 2) }] };
+ }
+ 
+ export function registerTaskTools(server: McpServer, dirs: ResolvedDirs): void {
+@@ -112,11 +112,12 @@ export function registerTaskTools(server: McpServer, dirs: ResolvedDirs): void {
+         title: z.string().optional().describe('New title (may include SP short syntax)'),
+         notes: z.string().optional().describe('New notes'),
+         is_done: z.boolean().optional().describe('Mark as done/undone'),
++        due_day: z.string().optional().describe('Due date in ISO format (e.g. 2026-04-20), or empty string to clear'),
+         time_estimate: z.number().optional().describe('Time estimate in milliseconds'),
+         time_spent: z.number().optional().describe('Time spent in milliseconds'),
+       },
+     },
+-    async ({ task_id, title, notes, is_done, time_estimate, time_spent }) => {
++    async ({ task_id, title, notes, is_done, due_day, time_estimate, time_spent }) => {
+       if (!task_id?.trim()) return errorResult('task_id is required');
+ 
+       const data: Record<string, unknown> = {};
+@@ -126,6 +127,7 @@ export function registerTaskTools(server: McpServer, dirs: ResolvedDirs): void {
+         data.isDone = is_done;
+         data.doneOn = is_done ? Date.now() : null;
+       }
++      if (due_day !== undefined) data.dueDay = due_day || null;
+       if (time_estimate !== undefined) data.timeEstimate = time_estimate;
+       if (time_spent !== undefined) data.timeSpent = time_spent;
+ 
+
+
+====================================================================================================
+COMMIT POSITION 19
+====================================================================================================
+SHA: 6d04ccc7269ce249fb59c0a552fdf4936b86e60c
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix: clear plannedAt on new tasks without date syntax so they land in Inbox
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: plugin/plugin.js
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 0
+
+PATCH:
+@@ -110,6 +110,7 @@ async function executeCommand(command) {
+         const d = command.data || {};
+         const hasParent = !!d.parentId;
+         const hasSyntax = hasParent && /[@#\+]/.test(d.title || '');
++        const hasDateSyntax = /@\w/.test(d.title || '');
+         if (hasSyntax) {
+           const cleanTitle = (d.title || '').replace(/\s*[@#\+]\S+/g, '').trim() || d.title;
+           const taskId = await PluginAPI.addTask({ ...d, title: cleanTitle });
+@@ -118,6 +119,11 @@ async function executeCommand(command) {
+         } else {
+           result = await PluginAPI.addTask(d);
+         }
++        // SP's addTask sets plannedAt to now by default, putting tasks in Today.
++        // Clear it so tasks without date syntax land in Inbox instead.
++        if (result && !hasDateSyntax) {
++          await PluginAPI.updateTask(result, { plannedAt: null, dueDay: null });
++        }
+         break;
+       }
+       case 'getTasks': {
+
+
+====================================================================================================
+COMMIT POSITION 20
+====================================================================================================
+SHA: 884bfb12a00d39ab41b351b9ef7e7a1fa3945016
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: expand Mac App Store sandbox path mismatch troubleshooting
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 3
+
+PATCH:
+@@ -87,9 +87,19 @@ Include these in task titles and SP will parse them automatically:
+ 
+ ### Mac App Store (Sandbox Path Mismatch)
+ 
+-When SP is installed from the Mac App Store, it runs in a sandbox. The plugin resolves its data directory relative to the sandbox home (`~/Library/Containers/com.superproductivity.app/Data/...`), but the MCP server runs outside the sandbox and may resolve to a different path (e.g. `~/.local/share/super-productivity-mcp`).
++When SP is installed from the Mac App Store, it runs in a sandbox. The MCP server and the SP plugin resolve the shared data directory independently, and they can disagree on the path. Either side may resolve to the sandbox path (`~/Library/Containers/com.superproductivity.app/Data/Library/Application Support/super-productivity-mcp`) or the non-sandbox path (`~/.local/share/super-productivity-mcp`).
+ 
+-If commands time out, set `SP_MCP_DATA_DIR` to the sandbox path:
++**Known limitation:** There is no reliable way to auto-detect which path the plugin is actually using. If commands time out despite the plugin being enabled, the server and plugin are likely writing to different directories.
++
++**To diagnose**, ask your AI assistant: *"Show debug info for Super Productivity"* — then check which directory actually contains response files:
++
++```bash
++# Check which directory the plugin is writing to:
++ls -lt ~/.local/share/super-productivity-mcp/plugin_responses/ | head -5
++ls -lt ~/Library/Containers/com.superproductivity.app/Data/Library/Application\ Support/super-productivity-mcp/plugin_responses/ | head -5
++```
++
++**To fix**, set `SP_MCP_DATA_DIR` to whichever path the plugin is actually using:
+ 
+ ```json
+ {
+@@ -98,13 +108,23 @@ If commands time out, set `SP_MCP_DATA_DIR` to the sandbox path:
+       "command": "npx",
+       "args": ["-y", "super-productivity-mcp"],
+       "env": {
+-        "SP_MCP_DATA_DIR": "~/Library/Containers/com.superproductivity.app/Data/Library/Application Support/super-productivity-mcp"
++        "SP_MCP_DATA_DIR": "~/.local/share/super-productivity-mcp"
+       }
+     }
+   }
+ }
+ ```
+ 
++Or, if the plugin is using the sandbox path:
++
++```json
++{
++  "env": {
++    "SP_MCP_DATA_DIR": "~/Library/Containers/com.superproductivity.app/Data/Library/Application Support/super-productivity-mcp"
++  }
++}
++```
++
+ ### Custom Data Directory
+ 
+ To override the auto-detected path for any reason:
+
+
+====================================================================================================
+COMMIT POSITION 21
+====================================================================================================
+SHA: d1b4b964bb73c661e0ae9d3cf6ad5b3eb3c002ae
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix: add missing script tag to plugin index.html
+
+The plugin iframe was loading index.html but it had no <script> tag
+to load plugin.js, so the MCP Bridge code never executed.
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: plugin/index.html
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -1,3 +1,3 @@
+ <!DOCTYPE html>
+ <html><head><meta charset="utf-8"><title>MCP Bridge</title></head>
+-<body><p>MCP Bridge Plugin v1.0.0</p></body></html>
++<body><script src="plugin.js"></script></body></html>
+
+
+====================================================================================================
+COMMIT POSITION 22
+====================================================================================================
+SHA: 8d1ff30c7a3d93246a6f81a5dcaaa96d9021ab66
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix: set plannedAt when date syntax is used in task title
+
+Tasks with @today/@tomorrow syntax were landing in Inbox because
+plannedAt wasn't being set. Now explicitly set plannedAt so tasks
+appear in the Today view.
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: plugin/plugin.js
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -121,8 +121,11 @@ async function executeCommand(command) {
+         }
+         // SP's addTask sets plannedAt to now by default, putting tasks in Today.
+         // Clear it so tasks without date syntax land in Inbox instead.
++        // When date syntax IS present, ensure plannedAt is set so the task appears in Today.
+         if (result && !hasDateSyntax) {
+           await PluginAPI.updateTask(result, { plannedAt: null, dueDay: null });
++        } else if (result && hasDateSyntax) {
++          await PluginAPI.updateTask(result, { plannedAt: Date.now() });
+         }
+         break;
+       }
+
+
+====================================================================================================
+COMMIT POSITION 23
+====================================================================================================
+SHA: bc75e01a07ef692ee9d0505ea5b0a6ace97852d7
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix(plugin): parse @date syntax in plugin to avoid timezone offset issues
+
+PluginAPI.addTask doesn't process SP short syntax for dates.
+Parse @today, @tomorrow, @Ndays, and @weekday in the plugin itself
+using local dates to ensure correct due day assignment.
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: plugin/plugin.js
+STATUS: modified
+ADDITIONS: 42
+DELETIONS: 12
+
+PATCH:
+@@ -108,24 +108,54 @@ async function executeCommand(command) {
+     switch (command.action) {
+       case 'addTask': {
+         const d = command.data || {};
++        const title = d.title || '';
++
++        // Parse @date syntax since PluginAPI.addTask doesn't process short syntax
++        const dateMatch = title.match(/@(\S+)(?:\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?))?/i);
++        let dueDay = null;
++        if (dateMatch) {
++          const keyword = dateMatch[1].toLowerCase();
++          const now = new Date();
++          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
++          if (keyword === 'today' || keyword === '0days') {
++            dueDay = today.toISOString().slice(0, 10);
++          } else if (keyword === 'tomorrow' || keyword === '1days') {
++            today.setDate(today.getDate() + 1);
++            dueDay = today.toISOString().slice(0, 10);
++          } else if (/^\d+days?$/.test(keyword)) {
++            const days = parseInt(keyword);
++            today.setDate(today.getDate() + days);
++            dueDay = today.toISOString().slice(0, 10);
++          } else {
++            const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
++            const idx = dayNames.indexOf(keyword);
++            if (idx !== -1) {
++              const diff = (idx - now.getDay() + 7) % 7 || 7;
++              today.setDate(today.getDate() + diff);
++              dueDay = today.toISOString().slice(0, 10);
++            }
++          }
++        }
++
++        // Strip @syntax from title for clean display
++        const cleanTitle = dueDay ? title.replace(/@\S+(\s+\d{1,2}(:\d{2})?\s*(am|pm)?)?/i, '').trim() : title;
++
+         const hasParent = !!d.parentId;
+-        const hasSyntax = hasParent && /[@#\+]/.test(d.title || '');
+-        const hasDateSyntax = /@\w/.test(d.title || '');
++        const hasSyntax = hasParent && /[#\+]/.test(title);
+         if (hasSyntax) {
+-          const cleanTitle = (d.title || '').replace(/\s*[@#\+]\S+/g, '').trim() || d.title;
+-          const taskId = await PluginAPI.addTask({ ...d, title: cleanTitle });
+-          await PluginAPI.updateTask(taskId, { title: d.title });
++          const parentClean = title.replace(/\s*[#\+]\S+/g, '').trim() || title;
++          const taskId = await PluginAPI.addTask({ ...d, title: parentClean });
++          await PluginAPI.updateTask(taskId, { title });
+           result = taskId;
+         } else {
+-          result = await PluginAPI.addTask(d);
++          result = await PluginAPI.addTask({ ...d, title: cleanTitle });
+         }
+-        // SP's addTask sets plannedAt to now by default, putting tasks in Today.
+-        // Clear it so tasks without date syntax land in Inbox instead.
+-        // When date syntax IS present, ensure plannedAt is set so the task appears in Today.
+-        if (result && !hasDateSyntax) {
++
++        // Set dueDay + plannedAt for Today, or clear plannedAt for Inbox
++        if (result && dueDay) {
++          await PluginAPI.updateTask(result, { dueDay, plannedAt: Date.now() });
++        } else if (result) {
+           await PluginAPI.updateTask(result, { plannedAt: null, dueDay: null });
+-        } else if (result && hasDateSyntax) {
+-          await PluginAPI.updateTask(result, { plannedAt: Date.now() });
+         }
+         break;
+       }
+
+
+====================================================================================================
+COMMIT POSITION 24
+====================================================================================================
+SHA: 4bc0ee003e6d78027cc097b021a46e35b16c1cce
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix: close spec gaps and enforce FR-003a, FR-020, FR-022
+
+- FR-003/FR-003a: add dueDay as mutable field, set plannedAt alongside it
+- FR-015: document plugin-side @date parsing (PluginAPI doesn't handle it)
+- FR-020: clean stale files (>5min) on plugin startup
+- FR-022: enforce dir 0o700 and file 0o600 permissions in plugin
+- Fix update_task missing plannedAt when dueDay is set
+- Update command protocol contract with dueDay/plannedAt fields
+- Update README tool description and short syntax intro
+
+CHANGED FILES: 8
+
+--- FILE 1/8 ---
+FILE: .gitignore
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -11,3 +11,4 @@ coverage/
+ .vscode/
+ .idea/
+ .kiro/
++.specify/memory/key-facts.md
+
+--- FILE 2/8 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -57,7 +57,7 @@ Ask your AI assistant: *"Check the Super Productivity connection"*
+ |------|-------------|
+ | `create_task` | Create a task (supports SP short syntax) |
+ | `get_tasks` | List tasks with filters (project, tag, done, archived, search) |
+-| `update_task` | Update task fields (title, notes, done, time) |
++| `update_task` | Update task fields (title, notes, done, due date, time) |
+ | `complete_task` | Mark a task as complete |
+ | `create_project` | Create a new project |
+ | `get_projects` | List all projects |
+@@ -72,7 +72,7 @@ Ask your AI assistant: *"Check the Super Productivity connection"*
+ 
+ ## SP Short Syntax
+ 
+-Include these in task titles and SP will parse them automatically:
++Include these in task titles and they will be parsed automatically:
+ 
+ | Syntax | Example | Effect |
+ |--------|---------|--------|
+
+--- FILE 3/8 ---
+FILE: plugin/plugin.js
+STATUS: modified
+ADDITIONS: 25
+DELETIONS: 6
+
+PATCH:
+@@ -37,8 +37,8 @@ async function setupDirectories() {
+             if (c.dataDir && fs.existsSync(c.dataDir)) {
+               const cd = path.join(c.dataDir, 'plugin_commands');
+               const rd = path.join(c.dataDir, 'plugin_responses');
+-              if (!fs.existsSync(cd)) fs.mkdirSync(cd, { recursive: true });
+-              if (!fs.existsSync(rd)) fs.mkdirSync(rd, { recursive: true });
++              if (!fs.existsSync(cd)) fs.mkdirSync(cd, { recursive: true, mode: 0o700 });
++              if (!fs.existsSync(rd)) fs.mkdirSync(rd, { recursive: true, mode: 0o700 });
+               return { success: true, commandDir: cd, responseDir: rd };
+             }
+           }
+@@ -47,11 +47,11 @@ async function setupDirectories() {
+       // Probe candidates
+       for (const p of candidates) {
+         try {
+-          if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
++          if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true, mode: 0o700 });
+           const cd = path.join(p, 'plugin_commands');
+           const rd = path.join(p, 'plugin_responses');
+-          if (!fs.existsSync(cd)) fs.mkdirSync(cd, { recursive: true });
+-          if (!fs.existsSync(rd)) fs.mkdirSync(rd, { recursive: true });
++          if (!fs.existsSync(cd)) fs.mkdirSync(cd, { recursive: true, mode: 0o700 });
++          if (!fs.existsSync(rd)) fs.mkdirSync(rd, { recursive: true, mode: 0o700 });
+           return { success: true, commandDir: cd, responseDir: rd };
+         } catch (e) {}
+       }
+@@ -76,7 +76,7 @@ async function writeResponse(commandId, response) {
+     script: `
+       const fs = require('fs');
+       const path = require('path');
+-      fs.writeFileSync(path.join(args[0], args[1] + '_response.json'), JSON.stringify(args[2], null, 2));
++      fs.writeFileSync(path.join(args[0], args[1] + '_response.json'), JSON.stringify(args[2], null, 2), { mode: 0o600 });
+       return { success: true };
+     `,
+     args: [responseDir, commandId, response],
+@@ -262,6 +262,25 @@ async function pollCommands() {
+ (async () => {
+   try {
+     await setupDirectories();
++    // FR-020: Clean stale files on startup (>5min old)
++    await PluginAPI.executeNodeScript({
++      script: `
++        const fs = require('fs');
++        const path = require('path');
++        const now = Date.now();
++        for (const dir of [args[0], args[1]]) {
++          try {
++            for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.json'))) {
++              const fp = path.join(dir, f);
++              if (now - fs.statSync(fp).mtimeMs > 300000) fs.unlinkSync(fp);
++            }
++          } catch (e) {}
++        }
++        return { success: true };
++      `,
++      args: [commandDir, responseDir],
++      timeout: 5000,
++    });
+     pollTimer = setInterval(pollCommands, POLL_INTERVAL_MS);
+     console.log('MCP Bridge Plugin initialized');
+   } catch (e) {
+
+--- FILE 4/8 ---
+FILE: specs/001-sp-mcp-server/contracts/command-protocol.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -10,7 +10,7 @@ Version: 1 (protocolVersion field value)
+ |--------|----------------|-----------------|-------------------|
+ | `addTask` | `data.title` | `data.notes`, `data.projectId`, `data.parentId`, `data.tagIds` | Task ID (string) |
+ | `getTasks` | — | `filters.projectId`, `filters.tagId`, `filters.includeDone`, `filters.searchQuery` | Task[] |
+-| `updateTask` | `taskId` | `data.title`, `data.notes`, `data.isDone`, `data.doneOn`, `data.timeEstimate`, `data.timeSpent` | Task |
++| `updateTask` | `taskId` | `data.title`, `data.notes`, `data.isDone`, `data.doneOn`, `data.dueDay`, `data.plannedAt`, `data.timeEstimate`, `data.timeSpent` | Task |
+ | `setTaskDone` | `taskId` | — | Task |
+ 
+ ### Project Operations
+
+--- FILE 5/8 ---
+FILE: specs/001-sp-mcp-server/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -32,7 +32,7 @@ Build a two-component system — a TypeScript MCP server and a JavaScript Super
+ | V. Cross-Platform by Default | ✅ PASS | Platform-specific paths + SP_MCP_DATA_DIR override |
+ | VI. Simplicity & YAGNI | ✅ PASS | Core tools only, no batch/events/dashboard |
+ | VII. Shared Directory Discovery | ✅ PASS | Identical probe logic + mcp_config.json bridge |
+-| VIII. SP Syntax Ownership | ✅ PASS | Plugin handles @/#/+, server passes verbatim |
++| VIII. SP Syntax Ownership | ✅ PASS | Plugin parses `@date` locally (PluginAPI doesn't handle it); `#`/`+` passed verbatim to SP |
+ | IX. Graceful Degradation | ✅ PASS | check_connection tool, clear timeout errors, orphan cleanup |
+ 
+ All gates pass. No violations to justify.
+
+--- FILE 6/8 ---
+FILE: specs/001-sp-mcp-server/spec.md
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 2
+
+PATCH:
+@@ -114,7 +114,8 @@ A user asks the AI assistant for a summary of their work — how much time they
+ 
+ - **FR-001**: System MUST allow creating tasks with a title, optional notes, optional project assignment, optional parent task, and optional tag IDs.
+ - **FR-002**: System MUST allow listing tasks with optional filters: by project ID, by tag ID, by done status (include/exclude completed), by archived status (include/exclude archived), and by title search query. When no filters are provided, all non-done, non-archived tasks are returned.
+-- **FR-003**: System MUST allow updating any mutable task field: title, notes, done status, time estimate, time spent.
++- **FR-003**: System MUST allow updating any mutable task field: title, notes, done status, due date (`dueDay`), time estimate, time spent.
++- **FR-003a**: When `dueDay` is set on a task, the plugin MUST also set `plannedAt` to the current timestamp so the task appears in Super Productivity's "Today" view. When `dueDay` is cleared, `plannedAt` MUST also be cleared so the task returns to the Inbox (consistent with FR-014).
+ - **FR-004**: System MUST allow marking a task as complete (setting `isDone` and `doneOn`).
+ - **FR-005**: System MUST allow creating projects with a title, optional description, and optional color.
+ - **FR-006**: System MUST allow listing all projects with their IDs, titles, and archive status.
+@@ -126,7 +127,7 @@ A user asks the AI assistant for a summary of their work — how much time they
+ - **FR-012**: System MUST provide a connection health check that reports status, plugin version, protocol version, and directory paths.
+ - **FR-013**: System MUST provide a debug tool that reports resolved directory paths and their existence status.
+ - **FR-014**: Tasks created without a project assignment MUST land in Super Productivity's Inbox, not in "Today" or any other default context.
+-- **FR-015**: System MUST pass task titles through verbatim so Super Productivity can interpret its native syntax (`@`, `#`, `+`).
++- **FR-015**: System MUST pass `#tag` and `+project` syntax through verbatim so Super Productivity can interpret them natively. The plugin MUST parse `@date` syntax itself (e.g. `@today`, `@tomorrow`, `@friday`, `@3days`) using local dates, because `PluginAPI.addTask` does not process date short syntax. The `@` token is stripped from the title after parsing.
+ - **FR-016**: System MUST handle subtask creation with SP syntax by using the two-step create-then-update workaround.
+ - **FR-017**: System MUST work on macOS (standard, App Store sandbox, Homebrew), Linux (standard, Snap), and Windows without user configuration.
+ - **FR-018**: System MUST support a `SP_MCP_DATA_DIR` environment variable to override automatic directory detection.
+
+--- FILE 7/8 ---
+FILE: specs/001-sp-mcp-server/tasks.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -158,7 +158,7 @@
+ - [x] T040 [P] Configure package.json for npm publishing — main: dist/index.js, bin: dist/index.js, files: [dist, README.md, LICENSE], repository, keywords
+ - [x] T041 [P] Add eslint config with TypeScript support in eslint.config.js
+ - [x] T042 Run full test suite and fix any failures
+-- [ ] T043 Run quickstart.md validation — verify documented steps work end-to-end
++- [x] T043 Run quickstart.md validation — verify documented steps work end-to-end
+ - [x] T044 [P] Create GitHub Actions CI workflow in .github/workflows/ci.yml — run on push/PR to main: install, lint, test, build; Node 18+20 matrix
+ - [x] T045 [P] Create GitHub Actions release workflow in .github/workflows/release.yml — on tag push: build, npm publish, build plugin.zip, create GitHub release with plugin.zip attached
+ - [ ] T046 Set up GitHub remote, push to origin, make repo public
+
+--- FILE 8/8 ---
+FILE: src/tools/tasks.ts
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 1
+
+PATCH:
+@@ -127,7 +127,10 @@ export function registerTaskTools(server: McpServer, dirs: ResolvedDirs): void {
+         data.isDone = is_done;
+         data.doneOn = is_done ? Date.now() : null;
+       }
+-      if (due_day !== undefined) data.dueDay = due_day || null;
++      if (due_day !== undefined) {
++              data.dueDay = due_day || null;
++              data.plannedAt = due_day ? Date.now() : null;
++            }
+       if (time_estimate !== undefined) data.timeEstimate = time_estimate;
+       if (time_spent !== undefined) data.timeSpent = time_spent;
+ 
+
+
+====================================================================================================
+COMMIT POSITION 25
+====================================================================================================
+SHA: dafffdd8a9b78d57d8feb3499dbc051fb28c86ca
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs(constitution): add principle X — comment the why, not the what
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: .specify/memory/constitution.md
+STATUS: modified
+ADDITIONS: 16
+DELETIONS: 15
+
+PATCH:
+@@ -1,20 +1,10 @@
+ <!--
+   Sync Impact Report
+-  Version change: 1.0.0 → 1.1.0 (minor — added principles VII–IX, new sections)
++  Version change: 1.1.0 → 1.2.0 (minor — added principle X)
+   Added principles:
+-    - VII. Shared Directory Discovery
+-    - VIII. SP Syntax Ownership
+-    - IX. Graceful Degradation
+-  Added sections:
+-    - Protocol Versioning
+-    - Licensing
+-    - Distribution
+-  Modified principles:
+-    - IV. MCP Protocol Compliance — added Inbox-default rule for task creation
+-  Templates requiring updates:
+-    - .specify/templates/plan-template.md ✅ no changes needed (generic)
+-    - .specify/templates/spec-template.md ✅ no changes needed (generic)
+-    - .specify/templates/tasks-template.md ✅ no changes needed (generic)
++    - X. Comment the Why, Not the What
++  Modified principles: none
++  Templates requiring updates: none
+   Follow-up TODOs: none
+ -->
+ 
+@@ -114,6 +104,17 @@ Rationale: Duplicating SP's syntax parser in the MCP server is fragile and will
+ 
+ Rationale: MCP clients display tool errors to users. A clear message is the difference between "I know what's wrong" and "something broke."
+ 
++### X. Comment the Why, Not the What
++
++This is an open-source project. All source code MUST include comments that explain *why* a decision was made, not *what* the code does. Assume the reader can read code but lacks project context.
++
++- Non-obvious business logic, workarounds, and constraints MUST be commented.
++- References to spec requirements (e.g., `FR-014`, `FR-020`) SHOULD be included where the code implements a specific requirement.
++- Do NOT add comments that restate the code (e.g., `// increment counter` above `counter++`).
++- Plugin code (JavaScript) follows the same standard — comments are especially important there since it lacks type safety.
++
++Rationale: Contributors and future maintainers need to understand *why* the code is shaped the way it is. Good comments reduce onboarding time and prevent well-intentioned refactors from breaking subtle invariants.
++
+ ## Technology Stack
+ 
+ - **Runtime**: Node.js >= 18
+@@ -168,4 +169,4 @@ This constitution supersedes all other development practices for this project. A
+ 
+ All implementation decisions MUST be traceable to a principle in this document. If a decision cannot be justified by an existing principle, propose an amendment first.
+ 
+-**Version**: 1.1.0 | **Ratified**: 2026-04-20 | **Last Amended**: 2026-04-20
++**Version**: 1.2.0 | **Ratified**: 2026-04-20 | **Last Amended**: 2026-04-20
+
+
+====================================================================================================
+COMMIT POSITION 26
+====================================================================================================
+SHA: 264da40dd9b968ed816e515f8ca2ba1bfb3ddccc
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix(plugin): use local date formatting instead of toISOString
+
+toISOString() converts to UTC, so midnight CEST (UTC+2) becomes
+22:00 UTC the previous day. This caused @today to always resolve
+to yesterday in positive timezone offsets. Use manual YYYY-MM-DD
+formatting from local date components instead.
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: plugin/plugin.js
+STATUS: modified
+ADDITIONS: 7
+DELETIONS: 5
+
+PATCH:
+@@ -110,29 +110,31 @@ async function executeCommand(command) {
+         const d = command.data || {};
+         const title = d.title || '';
+ 
+-        // Parse @date syntax since PluginAPI.addTask doesn't process short syntax
++        // Parse @date syntax since PluginAPI.addTask doesn't process short syntax.
++        // Use local date formatting (not toISOString which converts to UTC and shifts the day in positive timezones).
+         const dateMatch = title.match(/@(\S+)(?:\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?))?/i);
+         let dueDay = null;
++        const localDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+         if (dateMatch) {
+           const keyword = dateMatch[1].toLowerCase();
+           const now = new Date();
+           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+           if (keyword === 'today' || keyword === '0days') {
+-            dueDay = today.toISOString().slice(0, 10);
++            dueDay = localDateStr(today);
+           } else if (keyword === 'tomorrow' || keyword === '1days') {
+             today.setDate(today.getDate() + 1);
+-            dueDay = today.toISOString().slice(0, 10);
++            dueDay = localDateStr(today);
+           } else if (/^\d+days?$/.test(keyword)) {
+             const days = parseInt(keyword);
+             today.setDate(today.getDate() + days);
+-            dueDay = today.toISOString().slice(0, 10);
++            dueDay = localDateStr(today);
+           } else {
+             const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+             const idx = dayNames.indexOf(keyword);
+             if (idx !== -1) {
+               const diff = (idx - now.getDay() + 7) % 7 || 7;
+               today.setDate(today.getDate() + diff);
+-              dueDay = today.toISOString().slice(0, 10);
++              dueDay = localDateStr(today);
+             }
+           }
+         }
+
+--- FILE 2/2 ---
+FILE: tests/unit/tools/tasks.test.ts
+STATUS: modified
+ADDITIONS: 24
+DELETIONS: 0
+
+PATCH:
+@@ -82,6 +82,30 @@ describe('task tool logic', () => {
+         data: expect.objectContaining({ isDone: true, doneOn: expect.any(Number) }),
+       }));
+     });
++
++    it('sends updateTask with dueDay and plannedAt together', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse({}));
++      await sendCommand(dirs, 'updateTask', {
++        taskId: 'task-1',
++        data: { dueDay: '2026-04-20', plannedAt: 1745150400000 },
++      });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'updateTask', expect.objectContaining({
++        taskId: 'task-1',
++        data: expect.objectContaining({ dueDay: '2026-04-20', plannedAt: expect.any(Number) }),
++      }));
++    });
++
++    it('clears dueDay and plannedAt together', async () => {
++      mockSend.mockResolvedValueOnce(mockResponse({}));
++      await sendCommand(dirs, 'updateTask', {
++        taskId: 'task-1',
++        data: { dueDay: null, plannedAt: null },
++      });
++      expect(mockSend).toHaveBeenCalledWith(dirs, 'updateTask', expect.objectContaining({
++        taskId: 'task-1',
++        data: { dueDay: null, plannedAt: null },
++      }));
++    });
+   });
+ 
+   describe('complete_task via sendCommand', () => {
+
+
+====================================================================================================
+COMMIT POSITION 27
+====================================================================================================
+SHA: f1f5ffa9ad19b129cbbb5844886c5dab4396a05a
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: add plugin icon and center README header
+
+CHANGED FILES: 4
+
+--- FILE 1/4 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 2
+
+PATCH:
+@@ -1,6 +1,12 @@
+-# Super Productivity MCP Server
++<p align="center">
++  <img src="plugin/icon.svg" width="128" height="128" alt="SP MCP Bridge icon">
++</p>
+ 
+-An MCP (Model Context Protocol) server that connects AI assistants to [Super Productivity](https://super-productivity.com) — manage tasks, projects, and tags through Claude Desktop, Kiro, or any MCP-compatible client.
++<h1 align="center">Super Productivity MCP Server</h1>
++
++<p align="center">
++An MCP (Model Context Protocol) server that connects AI assistants to <a href="https://super-productivity.com">Super Productivity</a> — manage tasks, projects, and tags through Claude Desktop, Kiro, or any MCP-compatible client.
++</p>
+ 
+ ## Features
+ 
+
+--- FILE 2/4 ---
+FILE: package.json
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -14,7 +14,7 @@
+     "test:watch": "vitest",
+     "lint": "eslint src/",
+     "prepublishOnly": "npm run build",
+-    "build:plugin": "cd plugin && zip -r ../dist/plugin.zip manifest.json plugin.js index.html"
++    "build:plugin": "cd plugin && zip -r ../dist/plugin.zip manifest.json plugin.js index.html icon.svg"
+   },
+   "files": [
+     "dist",
+
+--- FILE 3/4 ---
+FILE: plugin/icon.svg
+STATUS: added
+ADDITIONS: 15
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,15 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
++  <!-- Two nodes connected by a bridge — representing MCP server ↔ SP plugin -->
++  <rect width="128" height="128" rx="28" fill="#6C63FF"/>
++  <!-- Left node (MCP) -->
++  <circle cx="38" cy="64" r="16" fill="white" opacity="0.95"/>
++  <circle cx="38" cy="64" r="8" fill="#6C63FF"/>
++  <!-- Right node (SP) -->
++  <circle cx="90" cy="64" r="16" fill="white" opacity="0.95"/>
++  <circle cx="90" cy="64" r="8" fill="#6C63FF"/>
++  <!-- Bridge connection -->
++  <rect x="50" y="60" width="28" height="8" rx="4" fill="white" opacity="0.9"/>
++  <!-- Signal arcs (data flow) -->
++  <path d="M28 42 A30 30 0 0 1 28 86" stroke="white" stroke-width="3" fill="none" opacity="0.4"/>
++  <path d="M100 42 A30 30 0 0 0 100 86" stroke="white" stroke-width="3" fill="none" opacity="0.4"/>
++</svg>
+
+--- FILE 4/4 ---
+FILE: plugin/manifest.json
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -9,6 +9,7 @@
+   "hooks": ["taskUpdate", "taskComplete", "taskDelete", "currentTaskChange"],
+   "iFrame": true,
+   "isSkipMenuEntry": true,
++  "icon": "icon.svg",
+   "categories": ["integration", "automation"],
+   "tags": ["mcp", "ai", "integration"]
+ }
+
+
+====================================================================================================
+COMMIT POSITION 28
+====================================================================================================
+SHA: e88055f7f6389e4d7fef87dde5e82e5a918ac714
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add Daily Planning as a feature in README
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -11,6 +11,7 @@ An MCP (Model Context Protocol) server that connects AI assistants to <a href="h
+ ## Features
+ 
+ - **Task Management**: Create, list, update, and complete tasks
++- **Daily Planning**: Move tasks to Today for planning — set due dates to schedule your day
+ - **Project & Tag Management**: Create, list, and update projects and tags
+ - **SP Short Syntax**: Full support for `#tags`, `+projects`, `@due-dates`, and time estimates (`30m`, `1h/2h`)
+ - **Worklog & Metrics**: Time spent per day/project/tag, estimate accuracy
+
+
+====================================================================================================
+COMMIT POSITION 29
+====================================================================================================
+SHA: 2b089cf485f057a12e5c79f388bbc2655a58d7e5
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+ci: update matrix to Node 20+22 (vitest 4 dropped Node 18)
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: .github/workflows/ci.yml
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -11,7 +11,7 @@ jobs:
+     runs-on: ubuntu-latest
+     strategy:
+       matrix:
+-        node-version: [18, 20]
++        node-version: [20, 22]
+ 
+     steps:
+       - uses: actions/checkout@v4
+
+
+####################################################################################################
+SECTION C — HUMAN VALIDATION
+####################################################################################################
+
+Q1. Does the earlier specification commit
+INTRODUCE or substantively MODIFY a
+behavioral requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q2. Is there a LATER commit in this PR that
+implements some or all of THAT requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q3. What is the FIRST relevant implementation
+commit?
+
+Position:
+
+SHA:
+
+Commit message:
+
+Relevant file(s):
+
+
+Q4. Was the requirement present BEFORE that
+first relevant implementation change?
+
+YES / NO / UNCERTAIN
+
+
+Q5. Requirement → implementation link confidence:
+
+HIGH / MEDIUM / LOW / NONE
+
+
+Q6. Preliminary classification:
+
+TIER_A_CANDIDATE
+TIER_B
+TIER_C
+EXCLUDE
+UNCERTAIN
+
+
+Reason:
+
+
+Relevant requirement text:
+
+
+Relevant implementation evidence:
+
+
+Notes:

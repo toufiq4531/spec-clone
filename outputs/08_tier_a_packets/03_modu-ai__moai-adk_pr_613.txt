@@ -1,0 +1,645 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 3/15
+Repository: modu-ai/moai-adk
+PR: #613
+Tool: moai
+Language: Go
+
+First specification commit position: 1
+First implementation commit position: 4
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: 67f6a0e6f7611078c702d669e7f007b7855b4040
+
+COMMIT MESSAGE:
+feat(spec): Add SPEC-AGENT-002 - Agent Definition Optimization
+
+Token efficiency improvement for 16 MoAI agent definitions while
+preserving 100% workflow capability. Targets 88% body size reduction.
+
+🗿 MoAI <email@mo.ai.kr>
+
+FILE: .moai/specs/SPEC-AGENT-002/acceptance.md
+STATUS: added
+ADDITIONS: 135
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,135 @@
++# Acceptance Criteria: SPEC-AGENT-002
++
++## AC-001: Common Rule 생성 및 로드
++
++### Scenario 1: Rule 파일이 존재하고 공통 프로토콜을 포함
++
++```gherkin
++Given agent-common-protocol.md rule 파일이 templates/.claude/rules/moai/core/에 존재할 때
++When 에이전트가 호출되면
++Then Language Handling, Output Format, MCP Fallback 프로토콜이 컨텍스트에 로드되어야 한다
++```
++
++### Scenario 2: 기존 에이전트 본문에서 공통 섹션이 제거됨
++
++```gherkin
++Given 16개 MoAI 에이전트 정의가 수정되었을 때
++When 각 에이전트 본문을 검사하면
++Then "Language Handling" 섹션이 본문에 존재하지 않아야 한다
++And "Output Format Rules" 섹션이 본문에 존재하지 않아야 한다
++And "Essential Reference" 섹션이 본문에 존재하지 않아야 한다
++```
++
++## AC-002: Workflow Step 100% 보존
++
++### Scenario 1: Workflow Step 수 보존
++
++```gherkin
++Given 축소 전 expert-backend 에이전트의 Workflow Steps가 6단계일 때
++When 축소 후 본문을 검사하면
++Then Workflow Steps가 정확히 6단계여야 한다
++And 각 단계의 핵심 동작이 동일해야 한다
++```
++
++### Scenario 2: 모든 에이전트 워크플로우 보존
++
++```gherkin
++Given 16개 MoAI 에이전트 각각의 축소 전 Workflow Step 수가 기록되었을 때
++When 축소 후 모든 에이전트를 검사하면
++Then 각 에이전트의 Workflow Step 수가 축소 전과 동일해야 한다
++```
++
++## AC-003: Permission Mode 정렬
++
++### Scenario 1: 분석 전용 에이전트 권한
++
++```gherkin
++Given manager-strategy 에이전트의 역할이 "Read-Only Analysis"일 때
++When 에이전트 frontmatter를 검사하면
++Then permissionMode가 "plan"이어야 한다
++And tools에 Write, Edit가 포함되지 않아야 한다
++```
++
++### Scenario 2: 평가 전용 에이전트 권한
++
++```gherkin
++Given manager-quality 에이전트의 역할이 "Read-only evaluator"일 때
++When 에이전트 frontmatter를 검사하면
++Then permissionMode가 "plan"이어야 한다
++And tools에 Write, Edit가 포함되지 않아야 한다
++```
++
++## AC-004: maxTurns 제거
++
++```gherkin
++Given 22개 에이전트 정의가 수정되었을 때
++When 모든 에이전트의 YAML frontmatter를 검사하면
++Then maxTurns 필드가 존재하지 않아야 한다
++```
++
++## AC-005: Agent Body 크기 감소
++
++```gherkin
++Given 16개 MoAI 에이전트 본문이 축소되었을 때
++When 각 에이전트의 본문 라인 수를 측정하면
++Then 평균 본문 크기가 120줄 이하여야 한다
++And 최대 본문 크기가 200줄을 초과하지 않아야 한다
++```
++
++## AC-006: Hook Matcher MultiEdit 포함
++
++```gherkin
++Given manager-ddd와 manager-tdd의 tools에 MultiEdit가 포함될 때
++When hooks의 PreToolUse/PostToolUse matcher를 검사하면
++Then matcher 패턴이 "Write|Edit|MultiEdit"를 포함해야 한다
++```
++
++## AC-007: Stale Reference 제거
++
++```gherkin
++Given 모든 에이전트 정의가 수정되었을 때
++When Grep으로 "Rule 1:", "Rule 3:", "Rule 5:", "Rule 6:" 패턴을 검색하면
++Then 매칭 결과가 0건이어야 한다
++
++When Grep으로 "support-claude", "workflow-docs", "expert-database", "design-uiux" 패턴을 검색하면
++Then 매칭 결과가 0건이어야 한다
++
++When Grep으로 "moai-core-trust-validation", "moai-essentials-review", "moai-ai-nano-banana" 패턴을 검색하면
++Then 매칭 결과가 0건이어야 한다
++```
++
++## AC-008: Build 및 Test 통과
++
++```gherkin
++Given 모든 template 변경이 완료되었을 때
++When make build를 실행하면
++Then embedded.go가 정상 생성되어야 한다
++
++When go test ./...를 실행하면
++Then 모든 테스트가 통과해야 한다
++```
++
++## AC-009: Delegation Protocol 보존
++
++```gherkin
++Given 각 에이전트의 축소 전 Delegation Protocol이 기록되었을 때
++When 축소 후 Delegation Protocol을 검사하면
++Then 위임 대상 에이전트 목록이 축소 전과 동일해야 한다
++And "When to delegate" 조건이 보존되어야 한다
++```
++
++## AC-010: Scope Boundaries 보존
++
++```gherkin
++Given 각 에이전트의 축소 전 IN SCOPE/OUT OF SCOPE 목록이 기록되었을 때
++When 축소 후 Scope Boundaries를 검사하면
++Then IN SCOPE 항목이 축소 전과 동일해야 한다
++And OUT OF SCOPE 항목이 축소 전과 동일해야 한다
++```
++
++## Quality Gate
++
++- [x] 모든 AC 시나리오 통과
++- [x] make build 성공
++- [x] go test ./... 통과
++- [x] 로컬 .claude/agents/ 동기화 완료
+
+----------------------------------------------------------------------------------------------------
+FILE: .moai/specs/SPEC-AGENT-002/plan.md
+STATUS: added
+ADDITIONS: 131
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,131 @@
++# Implementation Plan: SPEC-AGENT-002
++
++Created: 2026-04-09
++SPEC Version: 1.0.0
++Agent: manager-strategy
++
++## 1. Overview
++
++16개 MoAI 에이전트 정의의 본문 크기를 88% 축소(평균 700줄 → 80-120줄)하면서 기존 워크플로우를 100% 보존한다. 핵심 전략은 "이동, 삭제 아님" — 공통 콘텐츠는 rule로, 비기능적 콘텐츠만 삭제.
++
++## 2. Architecture Decision
++
++### 콘텐츠 이동 전략
++
++| 콘텐츠 유형 | 현재 위치 | 이동 대상 | 근거 |
++|-------------|----------|----------|------|
++| Language Handling | 16개 에이전트 본문 | agent-common-protocol.md rule | 동일 내용 반복 |
++| Output Format Rules | 16개 에이전트 본문 | agent-common-protocol.md rule | 동일 내용 반복 |
++| MCP Fallback Strategy | 3개 에이전트 본문 | agent-common-protocol.md rule | 동일 내용 반복 |
++| Essential Reference | 16개 에이전트 본문 | agent-common-protocol.md rule | CLAUDE.md 자동 로드 중복 |
++| Research Integration | 4개 에이전트 본문 | 삭제 | 비기능적 가상 프로세스 |
++| Orchestration Metadata | 16개 에이전트 본문 | 삭제 | Claude Code 미인식 |
++| Team Collaboration 예시 | 8개 에이전트 본문 | 삭제 (요약은 유지) | 코드 블록 예시 불필요 |
++| Works Well With | 8개 에이전트 본문 | 삭제 | Agent Catalog에서 관리 |
++| Workflow Steps | 에이전트 본문 | 본문에 간결하게 유지 | 핵심 행동 지침 |
++
++### Rule 파일 설계
++
++```
++internal/template/templates/.claude/rules/moai/core/agent-common-protocol.md
++```
++
++paths frontmatter 없음 (모든 에이전트에 적용). 내용:
++- Language Handling Protocol (conversation_language 기반 응답)
++- Output Format Protocol (Markdown for users, XML for agent coordination)
++- MCP Fallback Strategy (Context7 unavailable 시 대응)
++- CLAUDE.md 참조 원칙 (자동 로드되므로 본문에서 반복 불필요)
++
++## 3. Implementation Phases
++
++### Phase 1: Rule 파일 생성 (REQ-001)
++
++1. `agent-common-protocol.md` rule 파일 생성
++2. 기존 에이전트에서 공통 섹션 추출하여 통합
++3. 검증: rule 내용이 기존 에이전트 본문의 공통 섹션을 완전히 포함하는지 확인
++
++### Phase 2: Agent Body 축소 (REQ-002) — 16개 에이전트 순차 처리
++
++처리 순서 (의존성 없음, 복잡도순):
++
++**Group A - 가장 큰 에이전트 (5개)**
++1. manager-git (~1,330줄)
++2. manager-spec (~1,040줄)
++3. manager-project (~980줄)
++4. expert-backend (~970줄)
++5. expert-frontend (~874줄)
++
++**Group B - 중간 크기 에이전트 (6개)**
++6. manager-strategy (~820줄)
++7. expert-devops (~810줄)
++8. manager-ddd (~800줄)
++9. expert-testing (~770줄)
++10. manager-tdd (~747줄)
++11. manager-docs (~675줄)
++
++**Group C - 작은 에이전트 (5개)**
++12. manager-quality (~680줄)
++13. expert-performance (~665줄)
++14. expert-security (~653줄)
++15. expert-debug (~431줄)
++16. expert-refactoring (~226줄)
++
++각 에이전트 처리 절차:
++1. 현재 본문에서 Workflow Steps 추출 → 간결 버전 작성 (WHY/IMPACT 주석 축약, 단계 보존)
++2. 공통 섹션 제거 (Language, Output, Essential Reference, MCP Fallback)
++3. 비기능 섹션 제거 (Research Integration, Orchestration Metadata, Works Well With)
++4. Team Collaboration 코드 블록 예시 제거 (요약은 Delegation Protocol에 유지)
++5. 결과 검증: 워크플로우 단계 수 비교 (before/after 동일해야 함)
++
++### Phase 3: Frontmatter 수정 (REQ-003 ~ REQ-006)
++
++모든 에이전트에 동시 적용:
++1. maxTurns 필드 제거 (22개 에이전트)
++2. permissionMode 수정 (4개 에이전트)
++3. tools 목록 최소화 (5개 에이전트)
++4. Hook matcher에 MultiEdit 추가 (2개 에이전트)
++
++### Phase 4: Stale Reference 정리 (REQ-007)
++
++1. Grep으로 존재하지 않는 참조 일괄 탐색
++2. 수정 또는 제거
++3. 검증: 모든 참조가 실존 자원을 가리키는지 확인
++
++### Phase 5: Template Rebuild + 검증
++
++1. `make build` 실행하여 embedded.go 재생성
++2. `go test ./...` 전체 테스트 통과 확인
++3. 로컬 `.claude/agents/moai/`에도 동일 변경 적용
++
++## 4. Workflow Preservation Verification
++
++[HARD] 각 에이전트 축소 후 다음을 검증:
++
++| 검증 항목 | 방법 |
++|----------|------|
++| Workflow Step 보존 | Before/After 단계 수 비교 — 동일해야 함 |
++| Delegation Protocol 보존 | 위임 대상 에이전트 목록 비교 — 동일해야 함 |
++| Scope Boundaries 보존 | IN/OUT 목록 비교 — 동일해야 함 |
++| SEMAP Contract 보존 | Pre/Post/Invariant/Forbidden 비교 — 동일해야 함 |
++| Skill References 보존 | frontmatter skills 목록 비교 — 동일해야 함 |
++| Hook Configuration 보존 | hooks 설정 비교 — 동일 (MultiEdit 추가 제외) |
++
++## 5. Risk Analysis
++
++| Risk | Impact | Likelihood | Mitigation |
++|------|--------|-----------|-----------|
++| Workflow step 누락 | High | Medium | Before/After 단계 수 자동 비교 스크립트 |
++| Rule 로드 실패 | High | Low | paths frontmatter 없이 전역 적용 검증 |
++| make build 실패 | Medium | Low | 즉시 감지 가능, 빠른 수정 |
++| 테스트 실패 | Medium | Low | go test ./... 필수 실행 |
++
++## 6. Success Metrics
++
++| Metric | Before | Target |
++|--------|--------|--------|
++| 평균 에이전트 본문 크기 | ~700줄 | 80-120줄 |
++| 토큰 소비 (에이전트 호출 당) | ~10-20K | ~1-2K |
++| permissionMode 불일치 | 4건 | 0건 |
++| 존재하지 않는 참조 | ~50건+ | 0건 |
++| 중복 콘텐츠 인스턴스 | 48+ (16 agents x 3 sections) | 1 (공통 rule) |
++| Workflow Step 보존율 | N/A | 100% |
+
+----------------------------------------------------------------------------------------------------
+FILE: .moai/specs/SPEC-AGENT-002/spec-compact.md
+STATUS: added
+ADDITIONS: 57
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,57 @@
++# SPEC-AGENT-002 Compact
++
++## Requirements
++
++- REQ-001: 공통 Agent Protocol을 rule 파일로 추출 (Language Handling, Output Format, MCP Fallback, Essential Reference)
++- REQ-002: Agent Body 80-120줄로 최소화 (워크플로우 단계 100% 보존, 비기능 콘텐츠 제거)
++- REQ-003: permissionMode 정렬 (strategy→plan, quality→plan, debug/perf→Write/Edit 제거)
++- REQ-004: maxTurns 제거 (22개 에이전트)
++- REQ-005: tools 최소 권한 원칙 적용 (분석 전용 에이전트에서 Write/Edit/Agent 제거)
++- REQ-006: Hook matcher에 MultiEdit 추가 (manager-ddd, manager-tdd)
++- REQ-007: Stale reference 정리 (존재하지 않는 규칙/에이전트/스킬 참조 제거)
++
++## Files to Modify
++
++- NEW: internal/template/templates/.claude/rules/moai/core/agent-common-protocol.md
++- MODIFY: internal/template/templates/.claude/agents/moai/expert-backend.md
++- MODIFY: internal/template/templates/.claude/agents/moai/expert-frontend.md
++- MODIFY: internal/template/templates/.claude/agents/moai/expert-security.md
++- MODIFY: internal/template/templates/.claude/agents/moai/expert-debug.md
++- MODIFY: internal/template/templates/.claude/agents/moai/expert-devops.md
++- MODIFY: internal/template/templates/.claude/agents/moai/expert-performance.md
++- MODIFY: internal/template/templates/.claude/agents/moai/expert-refactoring.md
++- MODIFY: internal/template/templates/.claude/agents/moai/expert-testing.md
++- MODIFY: internal/template/templates/.claude/agents/moai/manager-ddd.md
++- MODIFY: internal/template/templates/.claude/agents/moai/manager-tdd.md
++- MODIFY: internal/template/templates/.claude/agents/moai/manager-spec.md
++- MODIFY: internal/template/templates/.claude/agents/moai/manager-docs.md
++- MODIFY: internal/template/templates/.claude/agents/moai/manager-git.md
++- MODIFY: internal/template/templates/.claude/agents/moai/manager-quality.md
++- MODIFY: internal/template/templates/.claude/agents/moai/manager-project.md
++- MODIFY: internal/template/templates/.claude/agents/moai/manager-strategy.md
++- MODIFY: internal/template/templates/.claude/agents/moai/builder-agent.md
++- MODIFY: internal/template/templates/.claude/agents/moai/builder-plugin.md
++- MODIFY: internal/template/templates/.claude/agents/moai/builder-skill.md
++- MODIFY: internal/template/templates/.claude/agents/moai/evaluator-active.md
++
++## Exclusions (What NOT to Build)
++
++- Shall NOT modify Agency agents (.claude/agents/agency/*.md)
++- Shall NOT change agent naming conventions
++- Shall NOT modify CLAUDE.md Section 4
++- Shall NOT create new per-agent workflow skills
++- Shall NOT change model assignments
++- Shall NOT modify hook handler Go code
++
++## Acceptance Criteria
++
++- AC-001: Common rule exists and loads for all agents
++- AC-002: Workflow Step count preserved 100% (before/after identical)
++- AC-003: permissionMode aligned for 4 agents
++- AC-004: maxTurns removed from all 22 agents
++- AC-005: Average body < 120 lines, max < 200 lines
++- AC-006: Hook matchers include MultiEdit
++- AC-007: Zero stale references (grep verification)
++- AC-008: make build + go test ./... pass
++- AC-009: Delegation Protocol preserved per agent
++- AC-010: Scope Boundaries preserved per agent
+
+----------------------------------------------------------------------------------------------------
+FILE: .moai/specs/SPEC-AGENT-002/spec.md
+STATUS: added
+ADDITIONS: 134
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,134 @@
++---
++id: SPEC-AGENT-002
++version: 1.0.0
++status: draft
++created: 2026-04-09
++updated: 2026-04-09
++author: GOOS
++priority: high
++issue_number: 0
++---
++
++# SPEC-AGENT-002: Agent Definition Optimization - Token Efficiency with Workflow Preservation
++
++## HISTORY
++
++- 2026-04-09: Initial draft based on Claude Code Subagents blog analysis + 26 agent audit
++
++## Overview
++
++MoAI-ADK의 16개 MoAI 에이전트 정의 본문을 최적화하여 토큰 소비를 90% 절감하되, 기존 워크플로우의 기능을 100% 보존한다. Claude Code 공식 Subagents 블로그의 권장 패턴을 채택하고, Agency 에이전트(33~49줄)의 간결한 패턴을 MoAI 에이전트에 적용한다.
++
++## Environment
++
++- Claude Code v2.1.97+
++- moai-adk-go template system (internal/template/templates/)
++- 16 MoAI agent definitions (.claude/agents/moai/*.md)
++- 6 Agency agent definitions (.claude/agents/agency/*.md) - 참조 모델, 수정 대상 아님
++- Go embed system (make build required after template changes)
++
++## Assumptions
++
++- Agent body content는 subagent 호출 시 전체 컨텍스트에 주입됨
++- Skills는 frontmatter에 명시되면 agent 컨텍스트에 주입됨
++- Rules는 paths 패턴 매칭 또는 @import로 로드됨
++- maxTurns는 v2.1.69+에서 deprecated되었으며 maxContextSize로 대체 가능
++
++## Requirements
++
++### REQ-001: Common Agent Protocol Rule 추출 (Event-Driven)
++
++WHEN 에이전트가 호출될 때 THEN 공통 프로토콜(Language Handling, Output Format, MCP Fallback Strategy)이 rule에서 자동 로드되어야 한다.
++
++- 새 rule 파일 생성: `internal/template/templates/.claude/rules/moai/core/agent-common-protocol.md`
++- 16개 에이전트 본문에서 반복되는 Language Handling 섹션 통합
++- 16개 에이전트 본문에서 반복되는 Output Format Rules 섹션 통합
++- 3개 에이전트에서 반복되는 MCP Fallback Strategy 통합
++- "Essential Reference" 섹션 통합 (CLAUDE.md 자동 로드 중복 제거)
++
++### REQ-002: Agent Body 최소화 (State-Driven)
++
++WHILE 에이전트 본문이 로드된 상태에서 THEN 본문은 역할 정의, 행동 계약, 범위, 위임 프로토콜, 핵심 워크플로우만 포함해야 한다.
++
++각 에이전트 본문에서 제거 대상:
++- "Essential Reference" 섹션 (REQ-001 rule로 이동)
++- Language Handling 섹션 (REQ-001 rule로 이동)
++- Output Format Rules + 예시 (REQ-001 rule로 이동)
++- MCP Fallback Strategy (REQ-001 rule로 이동)
++- Research Integration & Continuous Learning 섹션 (비기능적 가상 프로세스 - 삭제)
++- Orchestration Metadata 블록 (Claude Code 미인식 커스텀 필드 - 삭제)
++- Agent Persona "Icon:" 빈 필드 (삭제)
++- Team Collaboration Patterns 코드 블록 예시 (삭제, 패턴 자체는 Delegation Protocol에 요약 유지)
++- "Works Well With" 섹션 (삭제 - CLAUDE.md Agent Catalog에서 관리)
++- 존재하지 않는 Rule 참조 (삭제: "Rule 1: 8-Step...", "Rule 3: Behavioral Constraints" 등)
++- 존재하지 않는 에이전트/스킬 참조 (수정 또는 삭제)
++
++각 에이전트 본문에서 보존 대상:
++- Primary Mission (1-2문장)
++- Behavioral Contract / SEMAP (해당 에이전트만)
++- Core Capabilities (간결 목록)
++- Scope Boundaries (IN/OUT)
++- Delegation Protocol (위임 규칙)
++- Workflow Steps (핵심 단계만 - WHY/IMPACT 주석은 축약하되 단계 자체는 100% 보존)
++- Framework Detection Logic (해당 에이전트만)
++- Success Criteria (간결 체크리스트)
++
++목표: 에이전트당 평균 700줄 → 80-120줄
++
++### REQ-003: Permission Mode 정렬 (Ubiquitous)
++
++시스템은 항상 에이전트의 permissionMode가 실제 역할과 일치해야 한다.
++
++| Agent | Current | Target | Reason |
++|-------|---------|--------|--------|
++| manager-strategy | bypassPermissions | plan | Read-Only Analysis Mode 선언됨 |
++| manager-quality | bypassPermissions | plan | "never modify source code" 선언됨 |
++| expert-debug | bypassPermissions | bypassPermissions | 유지 - Write/Edit tools만 제거 |
++| expert-performance | bypassPermissions | bypassPermissions | 유지 - Write/Edit tools만 제거 |
++
++### REQ-004: Deprecated maxTurns 제거 (Ubiquitous)
++
++시스템의 모든 에이전트 정의는 deprecated된 maxTurns 필드를 사용하지 않아야 한다.
++
++- 16개 MoAI 에이전트 + 6개 Agency 에이전트에서 maxTurns 필드 제거
++- 필요 시 maxContextSize로 대체 (현재 대부분 기본값 사용 가능)
++
++### REQ-005: Tools 최소 권한 원칙 적용 (Ubiquitous)
++
++시스템의 모든 에이전트는 역할에 필요한 최소한의 tools만 보유해야 한다.
++
++| Category | Tools to Remove | Affected Agents |
++|----------|----------------|-----------------|
++| Analysis-only | Write, Edit, Agent | manager-strategy |
++| Read-only evaluator | Write, Edit, Agent, WebFetch, WebSearch | manager-quality |
++| Diagnosis-only | Write, Edit | expert-debug |
++| Analysis-only | Write, Edit | expert-performance |
++| Implementation agents | Agent (spawns_subagents:false) | expert-backend, expert-frontend, expert-testing, expert-devops, expert-security |
++
++### REQ-006: Hook Matcher MultiEdit 포함 (Event-Driven)
++
++WHEN Write, Edit, 또는 MultiEdit 도구가 사용될 때 THEN 해당 에이전트의 hook이 트리거되어야 한다.
++
++- manager-ddd, manager-tdd: tools에 MultiEdit 포함하지만 hooks matcher가 `Write|Edit`만 매칭
++- 수정: matcher를 `Write|Edit|MultiEdit`로 변경
++
++### REQ-007: Stale Reference 정리 (Ubiquitous)
++
++시스템의 모든 에이전트 정의는 존재하지 않는 자원을 참조하지 않아야 한다.
++
++정리 대상:
++- 존재하지 않는 CLAUDE.md 규칙: "Rule 1: 8-Step User Request Analysis Process", "Rule 3: Behavioral Constraints", "Rule 5: Agent Delegation Guide (7-Tier hierarchy)", "Rule 6: Foundation Knowledge Access"
++- 존재하지 않는 에이전트: support-claude, workflow-docs, expert-database, design-uiux, core-planner, mcp-context7, mcp-sequential-thinking
++- 존재하지 않는 스킬: moai-core-trust-validation, moai-essentials-review, moai-essentials-perf, moai-core-tag-scanning, moai-manager-spec, moai-language-support, moai-ai-nano-banana
++- 존재하지 않는 hook 이벤트: Stop (SubagentStop으로 변경 필요 여부 확인)
++
++## Exclusions (What NOT to Build)
++
++- Shall NOT modify Agency agent definitions (.claude/agents/agency/*.md) - 이미 33~49줄로 최적
++- Shall NOT change agent naming conventions or SPEC ID format
++- Shall NOT modify CLAUDE.md Section 4 (Agent Catalog) - 별도 SPEC
++- Shall NOT restructure .claude/skills/ directory layout
++- Shall NOT change hook handler Go implementations (internal/hook/)
++- Shall NOT modify agent description multilingual keywords - 라우팅에 필요
++- Shall NOT create new per-agent workflow skills - 워크플로우는 본문에 간결하게 유지
++- Will NOT change model assignments (model_policy.go 관리)
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+POSITION 2
+SHA: cc98cd282e2fc653c8db1b15bea05f01eb641075
+refactor(agents): SPEC-AGENT-002 에이전트 정의 최적화 - 토큰 88% 절감
+
+16개 MoAI 에이전트 + 6개 Agency 에이전트 본문 크기를 대폭 축소하면서
+기존 워크플로우 단계를 100% 보존.
+
+주요 변경:
+- NEW: agent-common-protocol.md rule (Language/Output/MCP Fallback 통합)
+- 평균 에이전트 본문: ~700줄 → ~120줄 (83% 절감)
+- maxTurns 필드 전면 제거 (deprecated since v2.1.69)
+- manager-strategy, manager-quality: permissionMode → plan (read-only 정렬)
+- expert-debug, expert-performance: Write/Edit tools 제거
+- Stale reference 전면 정리 (존재하지 않는 Rule/Agent/Skill 참조)
+- 비기능적 Research Integration 섹션 삭제 (~600줄)
+
+워크플로우 보존 검증:
+- 모든 에이전트의 Workflow Steps 수 보존
+- Delegation Protocol 보존
+- Scope Boundaries (IN/OUT) 보존
+- SEMAP Contract 보존 (manager-ddd, manager-quality)
+- make build ✅ / go test ./... ✅
+
+SPEC: SPEC-AGENT-002
+Phase: RUN-IMPROVE
+
+https://adk.mo.ai.kr
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+----------------------------------------------------------------------------------------------------
+POSITION 3
+SHA: 0c53015128b12ee12466abf1acb01ce8667d1d78
+feat(spec): Add SPEC-SKILL-002 - Skill optimization (lang→rules, references/ links)
+
+57 skills audit results: 16 lang skills→rules conversion, foundation-claude
+rename, references/ link restoration, progressive_disclosure additions.
+
+🗿 MoAI <email@mo.ai.kr>
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: 2457562b73273254d6a4de57f694daf6e6ef8c80
+
+COMMIT MESSAGE:
+refactor(skills): SPEC-SKILL-002 Phase 1+2 — 16 lang skills→rules, foundation-claude→cc
+
+Phase 1: 16개 언어 스킬을 paths-based rules로 전환
+- 기존 rule (~47줄) + 스킬 (~173줄) = 병합된 rule (~120줄)
+- 스킬 디렉토리 16개 삭제 (57→41 스킬, 28% 감소)
+- paths frontmatter로 .go/.py/.ts 등 파일 작업 시 자동 로드
+
+Phase 2: moai-foundation-claude → moai-foundation-cc 이름 변경
+- 공식 가이드 "claude"/"anthropic" 이름 금지 규약 준수
+- 12개 파일에서 참조 일괄 수정
+
+테스트 임계값 조정: embed_test.go 350→300 (스킬 삭제 반영)
+make build ✅ / go test ./... ✅
+
+SPEC: SPEC-SKILL-002
+Phase: RUN-IMPROVE
+
+https://adk.mo.ai.kr
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+IMPLEMENTATION FILES:
+FILE: internal/template/embed_test.go
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

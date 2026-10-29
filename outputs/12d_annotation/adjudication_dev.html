@@ -1,0 +1,33 @@
+<!doctype html><meta charset='utf-8'><title>Adjudication - dev</title>
+<style>body{font-family:system-ui,sans-serif;max-width:1200px;margin:2em auto;padding:0 1em}.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 2.5em}.pair pre{white-space:pre-wrap;background:#f6f6f6;padding:10px;margin:0;font-size:13px}.lab{background:#fff4d6;padding:6px 10px;margin:.3em 0}</style>
+<h1>Adjudication - dev (11 disagreements)</h1>
+<p>Discuss each item together, agree a final label using the codebook, write it in adjudication_dev.csv with a one-line reason. If an item shows the codebook is unclear, note the rule you agreed - it becomes a codebook change before the held-out packet.</p>
+<h3>D-049</h3><div class='lab'>annotator 1: <b>COPIED</b> (other)<br>annotator 2: <b>RELATED</b> </div><div class='pair'><div><pre>- **FR-021**: Retry processing MUST reuse saved source artifacts and the recording source mode without requiring the user to re-record.</pre></div><div><pre>- **FR-011**: Retry MUST recompute or reuse turn ordering from saved source artifacts without requiring a new recording.</pre></div></div>
+<h3>D-066</h3><div class='lab'>annotator 1: <b>COPIED</b> (entity)<br>annotator 2: <b>RELATED</b> </div><div class='pair'><div><pre>- **FR-018**: Types MUST be exported from the public API for external consumers if needed</pre></div><div><pre>- **FR-009**: The `useIsEarnFeatureEnabled` hook MUST be exported from the public API</pre></div></div>
+<h3>D-069</h3><div class='lab'>annotator 1: <b>UNRELATED</b> <br>annotator 2: <b>BOILERPLATE</b>  - <i>Only the template phrase &quot;allow users to&quot; is shared</i></div><div class='pair'><div><pre>- **FR-008**: 系统必须允许用户在多个布局类型之间切换。</pre></div><div><pre>- **FR-003**: 系统必须允许用户在先前任务处理时提交新的生成任务</pre></div></div>
+<h3>D-071</h3><div class='lab'>annotator 1: <b>COPIED</b> (value)<br>annotator 2: <b>SAME_BEHAVIOUR</b>  - <i>A additionally forbids other tabs</i></div><div class='pair'><div><pre>- **FR-022**: The project detail page MUST default to the chat view, showing a session list sidebar and a message panel.</pre></div><div><pre>- **FR-001**: The project page MUST default to a chat interface with a session sidebar, message area, and input field — no other tabs or navigation within the project.</pre></div></div>
+<h3>D-072</h3><div class='lab'>annotator 1: <b>BOILERPLATE</b> <br>annotator 2: <b>COPIED</b> (entity) - <i>SuzieQ vs Nautobot</i></div><div class='pair'><div><pre>- **FR-012**: All connection credentials (SuzieQ REST API URL, API
+  key/token) MUST be read from environment variables at runtime.</pre></div><div><pre>- **FR-016**: All connection credentials (NAUTOBOT_URL, NAUTOBOT_TOKEN) MUST be read from environment variables at runtime.</pre></div></div>
+<h3>D-073</h3><div class='lab'>annotator 1: <b>BOILERPLATE</b> <br>annotator 2: <b>COPIED</b> (entity) - <i>service catalog vs products</i></div><div class='pair'><div><pre>- **FR-003**: System MUST show a loading indicator while products are being fetched.</pre></div><div><pre>- **FR-009**: System MUST show a loading indicator while service catalog data is being fetched or modified.</pre></div></div>
+<h3>D-074</h3><div class='lab'>annotator 1: <b>COPIED</b> (entity)<br>annotator 2: <b>BOILERPLATE</b>  - <i>Generic Polish-language rule</i></div><div class='pair'><div><pre>- **FR-005**: Cały tekst w menu MUST być w języku polskim.</pre></div><div><pre> - **FR-006**: Teksty w UI MUST być w języku polskim.</pre></div></div>
+<h3>D-092</h3><div class='lab'>annotator 1: <b>COPIED</b> (no)<br>annotator 2: <b>BOILERPLATE</b>  - <i>Generic rule (UI text in Polish); identical wording</i></div><div class='pair'><div><pre>- **FR-012**: Wszystkie teksty UI MUSZĄ być w języku polskim</pre></div><div><pre>- **FR-007**: Wszystkie teksty UI MUSZĄ być w języku polskim</pre></div></div>
+<h3>D-094</h3><div class='lab'>annotator 1: <b>RELATED</b> <br>annotator 2: <b>SAME_BEHAVIOUR</b>  - <i>Both require a copy button for the command preview; A also requires selectable text</i></div><div class='pair'><div><pre>- **FR-006**: The command preview MUST be selectable text and offer a Copy button (matching the existing `CommandPreview` component behavior).</pre></div><div><pre>- **FR-006**: The push dialog MUST include a copy button adjacent to the command preview that copies the command text to the system clipboard.</pre></div></div>
+<h3>D-110</h3><div class='lab'>annotator 1: <b>SAME_BEHAVIOUR</b> <br>annotator 2: <b>BOILERPLATE</b>  - <i>Only the provider-wide connection template is shared; independently worded</i></div><div class='pair'><div><pre>### Requirement: Elasticsearch connection (REQ-010–REQ-011)
+
+The resource SHALL use the provider’s configured Elasticsearch client by default. When the (deprecated) `elasticsearch_connection` block is configured on the resource, the resource SHALL use that connection to create an Elasticsearch client for all API calls of that instance.
+
+#### Scenario: Resource-scoped connection
+
+- GIVEN `elasticsearch_connection` is set on the resource
+- WHEN any API call runs for that instance
+- THEN the client SHALL be built from that block
+</pre></div><div><pre>### Requirement: Connection (REQ-007)
+
+The resource SHALL use the `elasticsearch_connection` block, injected by the `entitycore.ElasticsearchResource` envelope, to resolve a scoped Elasticsearch client per resource instance. When the block is absent, the provider-level connection is used.
+
+#### Scenario: Resource-level connection override
+- GIVEN an `elasticsearch_connection` block is provided on the resource
+- WHEN any CRUD operation is performed
+- THEN the scoped connection is used instead of the provider-level connection
+</pre></div></div>
+<h3>D-115</h3><div class='lab'>annotator 1: <b>BOILERPLATE</b> <br>annotator 2: <b>RELATED</b>  - <i>Same intent but different commands (pnpm vs yarn)</i></div><div class='pair'><div><pre>- **FR-013**: Type checking (`yarn test:ts`) MUST continue to work unchanged; this migration MUST NOT affect the TypeScript-only verification path.</pre></div><div><pre>- **FR-017**: TypeScript type-checking via `pnpm test:ts` MUST continue to pass for the docs package after migration.</pre></div></div>

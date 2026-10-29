@@ -1,0 +1,160 @@
+﻿item_id,label,behaviour_differs,notes
+D-001,UNRELATED,,
+D-002,COPIED,entity,Same sentence with system and claim target swapped (Symphony ticket/worktree vs Matrix task/workspace)
+D-003,UNRELATED,,
+D-004,COPIED,entity,Paraphrased template with a different set of immutable fields
+D-005,UNRELATED,,
+D-006,COPIED,entity,Identical requirement; scenario names a different resource
+D-007,COPIED,entity,
+D-008,COPIED,entity,
+D-009,UNRELATED,,
+D-010,COPIED,entity,counterfactual vs earn
+D-011,BOILERPLATE,,Generic quality rule (existing tests pass); near-identical wording
+D-012,COPIED,no,bazowej vs bazy
+D-013,COPIED,other,B adds clauses (apply property / shared utils.ts / Vitest types); same package and title but no continue/remain signal
+D-014,RELATED,,
+D-015,RELATED,,
+D-016,COPIED,entity,
+D-017,COPIED,entity,workflow_id vs skill_id
+D-018,COPIED,entity,ceremony standup vs backlog daily command
+D-019,RELATED,,Both dry-run; A lists sessions and B indicates path updates
+D-020,BOILERPLATE,,One side is the bare generic rule (existing functionality works after refactoring)
+D-021,RELATED,,
+D-022,BOILERPLATE,,One side is the bare generic rule (existing functionality works after refactoring)
+D-023,COPIED,value,
+D-024,COPIED,no,
+D-025,COPIED,entity,Claw vs OpenClawInstance
+D-026,COPIED,entity,Different function; A also requires an examples block
+D-027,BOILERPLATE,,Only the generic clear-error-messages phrase is shared
+D-028,RELATED,,
+D-029,COPIED,entity,Kibana role API with id used directly vs generic role API with id parsed
+D-030,RELATED,,
+D-031,COPIED,value,Available condition changed to Ready; CRD also renamed OpenClaw to Claw
+D-032,RELATED,,
+D-033,COPIED,entity,generated replies vs spoken content
+D-034,COPIED,entity,OpenClaw vs OpenClawInstance; B also adds Deployment creation
+D-035,COPIED,entity,
+D-036,COPIED,entity,Claw vs OpenClawInstance
+D-037,COPIED,entity,Only the provider-wide connection template is shared; other content differs (ForceNew vs phase validation)
+D-038,COPIED,no,Identical text
+D-039,COPIED,entity,
+D-040,COPIED,other,Failed-refresh scenarios reused; A is Claude-specific with stale-model removal and B adds selection fallback rules
+D-041,RELATED,,
+D-042,RELATED,,
+D-043,COPIED,entity,
+D-044,BOILERPLATE,,Only the generic clear-error-messages phrase is shared
+D-045,COPIED,entity,
+D-046,RELATED,,Generic provider-registration content; not copied structure (written in different languages)
+D-047,COPIED,entity,
+D-048,COPIED,entity,all components vs No Fee Campaign components
+D-049,RELATED,,
+D-050,COPIED,entity,every feature vs ledger feature; B omits services directory
+D-051,COPIED,entity,OpenClaw vs Claw
+D-052,COPIED,entity,Same version-gate template applied to different resources and fields
+D-053,RELATED,,
+D-054,RELATED,,
+D-055,RELATED,,Different limits (5000 vs 512); independently worded
+D-056,RELATED,,A also constructs the compare URL
+D-057,COPIED,other,B adds the garbage-collection clause; same resource
+D-058,COPIED,entity,MongoDB vs Postgres audit service
+D-059,COPIED,entity,every feature vs earn component; B also covers the loading state
+D-060,RELATED,,
+D-061,COPIED,other,Same lead clause; A says cards open chat and B says workspaces are grouped under projects
+D-062,BOILERPLATE,,"Only ""continue to work exactly as before"" is shared"
+D-063,COPIED,no,Identical text
+D-064,COPIED,entity,cls_console vs bh kubeconfig; B adds a NOTE and drops the ImportState step
+D-065,COPIED,other,B adds redacted-secret preservation for actions
+D-066,RELATED,,
+D-067,UNRELATED,,
+D-068,COPIED,entity,
+D-069,BOILERPLATE,,"Only the template phrase ""allow users to"" is shared"
+D-070,COPIED,entity,Princesses vs Fairies
+D-071,SAME_BEHAVIOUR,,A additionally forbids other tabs
+D-072,COPIED,entity,SuzieQ vs Nautobot
+D-073,COPIED,entity,service catalog vs products
+D-074,BOILERPLATE,,Generic Polish-language rule
+D-075,COPIED,other,B adds status/ConfigMap/Deployment permissions and widens PVC verbs
+D-076,COPIED,entity,
+D-077,COPIED,entity,parameter vs skill operations
+D-078,BOILERPLATE,,Generic configurable-via-env-vars rule
+D-079,COPIED,entity,Menu vs Category; B adds breadcrumbs
+D-080,RELATED,,
+D-081,COPIED,entity,
+D-082,RELATED,,A is feature-specific with more acceptance criteria than the general rule in B
+D-083,COPIED,entity,
+D-084,UNRELATED,,
+D-085,COPIED,other,A embeds the Deployment RBAC scenarios from B and adds OpenClaw and ConfigMap permissions
+D-086,COPIED,entity,
+D-087,COPIED,value,ConfigMap name openclaw-config vs claw-config
+D-088,COPIED,entity,compare link vs both links
+D-089,RELATED,,Contradictory: A requires ServiceNow CR gating and B forbids it
+D-090,COPIED,no,Identical text
+D-091,COPIED,entity,
+D-092,BOILERPLATE,,Generic rule (UI text in Polish); identical wording
+D-093,COPIED,other,A adds clauses (no shared utils.ts; index.ts delegates)
+D-094,SAME_BEHAVIOUR,,Both require a copy button for the command preview; A also requires selectable text
+D-095,COPIED,entity,
+D-096,UNRELATED,,
+D-097,COPIED,no,mode 0755 vs permissions 0755
+D-098,COPIED,entity,
+D-099,RELATED,,Same regex enforced in different tools (LSP diagnostics vs lint rule)
+D-100,COPIED,entity,task data vs material data
+D-101,COPIED,entity,OpenClaw vs Claw; B also adds the garbage-collection clause
+D-102,RELATED,,
+D-103,COPIED,entity,postgres vs MySQL; B adds an all-fail scenario
+D-104,RELATED,,A replaces the Linked-to picker that B describes
+D-105,RELATED,,
+D-106,COPIED,entity,NetFlow vs sFlow
+D-107,COPIED,entity,Record-based signatures vs batch interfaces
+D-108,RELATED,,B adds YAML validation
+D-109,COPIED,entity,
+D-110,BOILERPLATE,,Only the provider-wide connection template is shared; independently worded
+D-111,COPIED,other,Same resource; A adds Deployment creation and titles differ
+D-112,COPIED,entity,
+D-113,COPIED,entity,
+D-114,COPIED,value,Generic rule (UI text in Polish); identical wording
+D-115,RELATED,,Same intent but different commands (pnpm vs yarn)
+D-116,COPIED,entity,
+D-117,RELATED,,A is feature-specific with more acceptance criteria than the general rule in B
+D-118,BOILERPLATE,,Only the generic clear-error-messages phrase is shared
+D-119,COPIED,entity,
+D-120,COPIED,entity,OpenClawInstance vs Claw
+D-121,COPIED,entity,OpenClaw vs Claw; B adds image fields
+D-122,COPIED,entity,
+D-123,COPIED,entity,visualization requests vs all interactions; B adds an out-of-scope clause
+D-124,REVISION,,A migrates the existing /reset and preserves identical behaviour
+D-125,COPIED,other,B adds a Tags null-handling scenario
+D-126,RELATED,,
+D-127,BOILERPLATE,,Generic quality rule (existing tests pass)
+D-128,COPIED,entity,
+D-129,COPIED,entity,
+D-130,COPIED,entity,
+D-131,COPIED,entity,
+D-132,RELATED,,
+D-133,RELATED,,
+D-134,COPIED,entity,
+D-135,COPIED,entity,ceremony standup vs backlog daily command
+D-136,COPIED,other,Edge-case list reused; B adds more questions and changes the missing-key behaviour (422 vs fallback)
+D-137,COPIED,entity,OpenClawInstance vs OpenClaw
+D-138,BOILERPLATE,,Generic observability rule (emit OpenTelemetry signals)
+D-139,COPIED,no,
+D-140,COPIED,entity,
+D-141,COPIED,entity,
+D-142,COPIED,entity,Category vs MenuItem; B adds menu ownership constraints
+D-143,RELATED,,
+D-144,RELATED,,
+D-145,COPIED,value,
+D-146,RELATED,,
+D-147,RELATED,,
+D-148,COPIED,entity,symbol indexing vs markdown indexing
+D-149,COPIED,entity,Message text filter vs date filter
+D-150,RELATED,,
+D-151,RELATED,,
+D-152,REVISION,,Both preserve existing non-TXT behaviour; B is broader (screens and flows)
+D-153,UNRELATED,,"Only the template phrase ""provide a command to"" is shared"
+D-154,RELATED,,
+D-155,COPIED,entity,
+D-156,RELATED,,
+D-157,COPIED,entity,
+D-158,RELATED,,B is stricter (shape and colour by role; includes load balancer)
+D-159,BOILERPLATE,,"Only ""continue to work as before"" is shared"

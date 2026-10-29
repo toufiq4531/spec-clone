@@ -1,0 +1,69 @@
+SPECMINE PILOT SELECTION
+================================================================================
+
+Episodes: 100
+Repositories: 25
+
+TOOL DISTRIBUTION
+--------------------------------------------------------------------------------
+tool
+openspec       40
+speckit        34
+conductor       9
+claude_code     6
+codex           5
+moai            5
+trae            1
+
+LANGUAGE DISTRIBUTION
+--------------------------------------------------------------------------------
+repo_language
+TypeScript    25
+Python        24
+Go            21
+Rust          13
+C#             8
+JavaScript     5
+Elixir         4
+
+HISTORY CLASS
+--------------------------------------------------------------------------------
+history_class
+complete    83
+partial     16
+none         1
+
+BASIC READINESS
+--------------------------------------------------------------------------------
+pilot_ready_basic
+1    95
+0     5
+
+SELECTED REPOSITORIES
+--------------------------------------------------------------------------------
+       tool                               repo_name repo_language  candidate_prs  ready_prs  complete_history_prs  tree_truncated
+   openspec             epam/ai-dial-admin-frontend    TypeScript             96         95                    81               0
+   openspec                    sherif-fanous/pi-rtk    TypeScript              4          4                     1               0
+   openspec  BlackBeltTechnology/pi-agent-dashboard    TypeScript            164        164                   109               0
+   openspec                    pablospe/docx-editor        Python              4          4                     4               0
+   openspec                         Soju06/codex-lb        Python            127        127                   100               0
+   openspec                          Mic92/gitea-mq            Go              4          4                     3               0
+   openspec elastic/terraform-provider-elasticstack            Go            292        292                   206               0
+   openspec                         pmcfadin/cqlite          Rust              7          7                     7               0
+   openspec builtbyproxy/jellyfin-plugin-letterboxd            C#              6          6                     5               0
+   openspec                 carverauto/serviceradar        Elixir             49          0                    21               1
+    speckit            b0x42/Super-Productivity-MCP    TypeScript              4          4                     4               0
+    speckit          alfredoperez/speckit-companion    TypeScript            160        160                   159               0
+    speckit           UnitedTraders/nginxauthdaemon        Python              4          4                     4               0
+    speckit                           timcsy/ai-api        Python             48         48                    48               0
+    speckit                         mazrean/kessoku            Go              4          4                     3               0
+    speckit             smart-mcp-proxy/mcpproxy-go            Go             63         63                    62               0
+    speckit                           wildcard/caro          Rust              5          5                     4               0
+    speckit              elsa-workflows/elsa-studio            C#              6          6                     6               0
+claude_code                           base44/skills        Python              2          2                     2               0
+claude_code                         gaia-react/gaia    JavaScript             28         28                    28               0
+  conductor               hlhr202/Conductor-for-all    TypeScript              4          4                     4               0
+  conductor               derailed-dash/rickbot-adk        Python              6          6                     6               0
+       moai                        modu-ai/moai-adk            Go             82         82                    68               0
+      codex                             zzispp/Hook          Rust             11         11                    10               0
+       trae              BloretCrew/Bloret-Launcher        Python              1          1                     1               0

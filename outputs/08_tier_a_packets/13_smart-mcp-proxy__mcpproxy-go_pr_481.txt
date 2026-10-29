@@ -1,0 +1,3308 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 13/15
+Repository: smart-mcp-proxy/mcpproxy-go
+PR: #481
+Tool: speckit
+Language: Go
+
+First specification commit position: 1
+First implementation commit position: 5
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: 3633b6e51233e54bb3a4debe95219310dd223721
+
+COMMIT MESSAGE:
+spec(050): global tools overview page
+
+Related #437
+
+Single table-style page listing every tool across all configured MCP
+servers, with substring search, server/state/risk/approval filters,
+column sorting, and batch enable/disable. Replaces the orphaned Tools
+view. Backend usage aggregation + consolidated tools payload.
+
+Scope, data source, search approach, and v1 columns settled in
+brainstorming with the user.
+
+FILE: specs/050-global-tools-page/checklists/requirements.md
+STATUS: added
+ADDITIONS: 36
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,36 @@
++# Specification Quality Checklist: Global Tools Overview Page
++
++**Purpose**: Validate specification completeness and quality before proceeding to planning
++**Created**: 2026-05-18
++**Feature**: [spec.md](../spec.md)
++
++## Content Quality
++
++- [x] No implementation details (languages, frameworks, APIs)
++- [x] Focused on user value and business needs
++- [x] Written for non-technical stakeholders
++- [x] All mandatory sections completed
++
++## Requirement Completeness
++
++- [x] No [NEEDS CLARIFICATION] markers remain
++- [x] Requirements are testable and unambiguous
++- [x] Success criteria are measurable
++- [x] Success criteria are technology-agnostic (no implementation details)
++- [x] All acceptance scenarios are defined
++- [x] Edge cases are identified
++- [x] Scope is clearly bounded
++- [x] Dependencies and assumptions identified
++
++## Feature Readiness
++
++- [x] All functional requirements have clear acceptance criteria
++- [x] User scenarios cover primary flows
++- [x] Feature meets measurable outcomes defined in Success Criteria
++- [x] No implementation details leak into specification
++
++## Notes
++
++- Spec passes all quality gates on first iteration. Scope was bounded during the brainstorming session with the user (data source, v1 columns, search approach, and disposition of the existing orphaned tools view all decided), so no [NEEDS CLARIFICATION] markers were required.
++- The spec deliberately keeps endpoint/component specifics out of the mandatory sections; the technical decisions agreed during brainstorming are recorded as Assumptions and will be expanded in `plan.md`.
++- Ready for `/speckit.plan`.
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/050-global-tools-page/spec.md
+STATUS: added
+ADDITIONS: 166
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,166 @@
++# Feature Specification: Global Tools Overview Page
++
++**Feature Branch**: `050-global-tools-page`
++**Created**: 2026-05-18
++**Status**: Draft
++**Input**: User description: "Global Tools Overview page (issue #437): a single table-style page listing every tool across all configured MCP servers, with filtering, sorting, and batch enable/disable, for auditing and curating large MCP setups."
++
++## User Scenarios & Testing *(mandatory)*
++
++### User Story 1 - See every tool in one place (Priority: P1)
++
++A user with many MCP servers configured (e.g., 12 servers exposing ~500 tools, some setups ~700) opens a single "Tools" page and sees one table containing every tool from every configured server — including tools from disabled servers and tools that are individually disabled or denied by config. Each row shows the tool name, its server, a short description, a risk indicator, approval status, whether it is currently enabled, how many times it has been used recently, and when it was last used.
++
++**Why this priority**: This is the core of the request. Without a single global view, auditing tools across many servers is impractical — the user must visit each server's detail page individually. This story alone delivers the primary value: visibility.
++
++**Independent Test**: Configure multiple servers (including one disabled), open the Tools page, and confirm every tool from every server appears in the table with its server, state, approval status, and usage columns populated.
++
++**Acceptance Scenarios**:
++
++1. **Given** several configured servers with many tools, **When** the user opens the Tools page, **Then** all tools from all servers are listed in one table with no per-server navigation required.
++2. **Given** a server that is disabled, **When** the user opens the Tools page, **Then** that server's tools still appear, clearly indicated as not enabled.
++3. **Given** a tool that has never been called, **When** the user views its row, **Then** its usage count shows zero and its last-used value shows that it has never been used.
++4. **Given** the page is open, **When** the user reads the summary cards, **Then** the total number of tools and the counts of enabled, disabled, and pending-approval tools are shown and match the table contents.
++
++---
++
++### User Story 2 - Find and narrow down tools (Priority: P1)
++
++The user filters and sorts the table to focus on a subset: typing in a search box to match by tool name, description, or server; choosing a specific server; filtering by enabled/disabled state, by risk level, or by approval status; and sorting any column (e.g., by last-used to find stale tools, or by usage count to find unused ones).
++
++**Why this priority**: With hundreds of tools, an unfiltered list is unusable for decision-making. Search and filter are required for the page to deliver on its "audit and cleanup" purpose, so this is co-equal P1 with the listing itself.
++
++**Independent Test**: With the full list loaded, type a substring and confirm only matching tools remain; apply each dropdown filter and confirm the list narrows correctly; click a column header and confirm the order changes; confirm disabled and config-denied tools remain visible when matched (search must not hide them).
++
++**Acceptance Scenarios**:
++
++1. **Given** the full tool list, **When** the user types text in the search box, **Then** only tools whose name, description, or server contains that text remain visible, and disabled/denied tools are not excluded from results.
++2. **Given** the full tool list, **When** the user selects a server in the server filter, **Then** only that server's tools are shown.
++3. **Given** the full tool list, **When** the user filters by state, risk, or approval status, **Then** only tools matching that criterion are shown, and filters combine (all active filters apply together).
++4. **Given** a filtered/unfiltered list, **When** the user clicks a sortable column header, **Then** the rows reorder by that column and a second click reverses the order.
++5. **Given** more tools than fit on one page, **When** the user pages through results, **Then** the active filters and sort order are preserved across pages.
++
++---
++
++### User Story 3 - Bulk enable/disable tools (Priority: P2)
++
++The user selects multiple tools (individually, or all tools currently shown on the page) and applies a single batch action to enable or disable them all at once. Progress is shown, and if some tools fail, the user is told which succeeded and which did not.
++
++**Why this priority**: This is the highest-leverage cleanup action and explicitly requested ("50–100 of them needing to be disabled"). It depends on the listing and filtering stories existing first, so it is P2 — valuable but built on P1.
++
++**Independent Test**: Select several tools across different servers, choose "Disable selected", and confirm each selected tool's state changes to disabled and the table reflects it; repeat with "Enable selected"; simulate a partial failure and confirm the user sees a per-tool success/failure summary.
++
++**Acceptance Scenarios**:
++
++1. **Given** the tools table, **When** the user checks individual rows, **Then** a batch action bar appears showing how many tools are selected.
++2. **Given** a filtered table, **When** the user uses "select all", **Then** only the tools currently shown (matching active filters, on the current page) are selected.
++3. **Given** one or more selected tools, **When** the user clicks "Disable selected", **Then** every selected tool becomes disabled and the table and summary cards update to reflect the new states.
++4. **Given** a batch action where some tools fail to update, **When** the action completes, **Then** the user sees how many succeeded and which specific tools failed, and successfully changed tools remain changed.
++
++---
++
++### Edge Cases
++
++- **No servers / no tools**: The page shows an empty state explaining that connecting MCP servers will populate it, with a link to server management.
++- **A server is unreachable or errors while listing its tools**: The page still renders all tools it could gather and indicates that one or more servers could not be fully read, rather than failing the whole page.
++- **Very large tool count (700+)**: The page remains usable — filtering, sorting, and paging stay responsive and do not require the user to wait on a server-by-server load.
++- **A tool's state changes elsewhere (another client, CLI) while the page is open**: Refreshing the page reflects the current authoritative state; the page does not show stale enable/disable state after a refresh.
++- **Search interacts with cleanup intent**: Searching must never hide disabled or config-denied tools that match the query, because those are exactly the tools a user is trying to find and clean up.
++- **Batch action partially applied then interrupted**: Tools already changed stay changed; the summary makes the partial outcome explicit so the user can retry only the failures.
++- **Config-denied tools**: Tools blocked by configuration policy are shown as not enabled and are visually distinguishable from user-disabled tools; the page does not let the user "enable" a config-denied tool into an inconsistent state.
++
++## Requirements *(mandatory)*
++
++### Functional Requirements
++
++- **FR-001**: The system MUST provide a single page that lists every tool from every configured MCP server, including tools from disabled servers and individually disabled or config-denied tools.
++- **FR-002**: The system MUST present the global tool list from one consolidated data source so the page does not degrade as the number of servers grows (no per-server sequential loading visible to the user).
++- **FR-003**: Each tool row MUST display: tool name, originating server, a truncated description, a risk indicator (read / write / destructive), approval status, current enabled state, recent usage count, and last-used time (or an explicit "never used" indication).
++- **FR-004**: The page MUST show summary counts for total tools, enabled tools, disabled tools, and tools pending approval, and these MUST stay consistent with the underlying list.
++- **FR-005**: The system MUST derive "enabled" as a single clear state from the underlying user-disabled and config-denied conditions, so the user is never shown an ambiguous enabled/disabled status.
++- **FR-006**: Recent usage count and last-used time MUST be derived from recorded activity over a fixed recent window; tools with no activity in that window MUST report zero usage and "never used" (within the window) without error.
++- **FR-007**: The page MUST provide a free-text search that filters the visible tools by substring match against tool name, description, and server, and MUST NOT exclude disabled or config-denied tools from search results.
++- **FR-008**: The page MUST provide filters for server, enabled/disabled (and config-denied) state, risk level, and approval status, and these filters MUST combine (logical AND).
++- **FR-009**: The page MUST allow sorting by any displayed column, with ascending/descending toggle, and MUST preserve active filters and sort order while paging through results.
++- **FR-010**: The page MUST allow the user to inspect a single tool's full details (including its input schema) without leaving the page.
++- **FR-011**: The user MUST be able to select multiple tools, including a "select all currently shown" action that selects only the tools matching active filters on the current page.
++- **FR-012**: The user MUST be able to apply a batch "enable" or "disable" action to all selected tools in one operation, with visible progress.
++- **FR-013**: When a batch action partially fails, the system MUST report which tools succeeded and which failed, and MUST leave successfully changed tools in their new state.
++- **FR-014**: The page MUST be reachable from the primary navigation and MUST display a live count of total tools in the navigation entry.
++- **FR-015**: The page MUST show clear empty, loading, and partial-error states.
++- **FR-016**: The existing tool-discovery mechanism used by AI agents MUST remain unchanged and unaffected by this feature (this page is a separate audit surface, not a change to agent discovery).
++
++### Out of Scope (v1)
++
++The following appear in the originating issue as desirable but are explicitly deferred to a future iteration and MUST NOT be implemented in this feature:
++
++- Permanently hiding tools (distinct from disabling them)
++- Assigning custom tags or categories to tools
++- Resetting tool permissions in bulk
++- User-configurable usage/analytics time window
++- Any change to the agent-facing relevance-ranked tool discovery
++
++### Key Entities *(include if feature involves data)*
++
++- **Tool (global view)**: A single tool exposed by one MCP server, as presented on this page. Attributes: name, owning server, description, risk/operation classification, approval status, user-disabled flag, config-denied flag, derived enabled state, recent usage count, last-used timestamp.
++- **Tool usage summary**: Per-tool aggregation over a fixed recent activity window — a count of invocations and the most recent invocation time. Absence of records means zero usage / never used within the window.
++- **Global tools response**: The consolidated payload backing the page: the full list of tools (across all servers) plus aggregate counts (total, enabled, disabled, pending approval).
++- **Batch selection**: The set of tools the user has selected for a bulk action, scoped to what is currently shown when "select all" is used.
++
++## Success Criteria *(mandatory)*
++
++### Measurable Outcomes
++
++- **SC-001**: A user managing 12+ servers and ~500 tools can see all tools in one place and locate a specific tool by name or server in under 15 seconds, without visiting any per-server page.
++- **SC-002**: A user can disable a set of 50+ unwanted tools in a single batch operation from one screen, instead of toggling them one by one across multiple server pages.
++- **SC-003**: With 700 tools loaded, applying a search term, a filter, or a column sort updates the visible list in under 1 second as perceived by the user.
++- **SC-004**: Disabled and config-denied tools remain discoverable on the page (including via search), so 100% of cleanup-candidate tools can be located from this single surface.
++- **SC-005**: After a batch enable/disable, the page's displayed states and summary counts match the system's authoritative state on the next load, with any partial failures explicitly surfaced to the user.
++- **SC-006**: Opening or using the page does not slow down or alter AI-agent tool discovery; agent discovery behavior is unchanged.
++
++## Assumptions
++
++- "Recent" usage is aggregated over a fixed 30-day window for v1; making the window configurable is explicitly out of scope.
++- Per-tool enable/disable uses the existing per-server tool toggle capability; batch actions are an orchestration over that existing capability, not a new persistence model.
++- Approval status, user-disabled state, and config-denied state already exist as authoritative per-tool data (from prior security/quarantine and layered-config work) and are surfaced as-is.
++- The risk indicator reuses the existing operation-type classification (read / write / destructive); no new risk model is introduced.
++- The page replaces the existing unused/orphaned tools view rather than adding a parallel one, to avoid two competing "tools" surfaces.
++- Search is a deterministic substring filter over the already-loaded set, deliberately not relevance-ranked discovery, because the audit use case requires seeing every matching tool (including disabled ones) in a stable, user-sortable order.
++- Reasonable web-app defaults apply for pagination size, debounce on search input, and user-friendly error messaging.
++
++## Commit Message Conventions *(mandatory)*
++
++When committing changes for this feature, follow these guidelines:
++
++### Issue References
++- ✅ **Use**: `Related #437` — links the commit to the issue without auto-closing
++- ❌ **Do NOT use**: `Fixes #437`, `Closes #437`, `Resolves #437`
++
++**Rationale**: Issues should only be closed manually after verification and testing in production, not automatically on merge.
++
++### Co-Authorship
++- ❌ **Do NOT include**: `Co-Authored-By: Claude <noreply@anthropic.com>`
++- ❌ **Do NOT include**: "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
++
++**Rationale**: Commit authorship should reflect the human contributors. (This also matches the repo-specific rule of no Claude git attribution in mcpproxy-go.)
++
++### Example Commit Message
++```
++feat: global tools overview page
++
++Related #437
++
++Adds a single table-style page listing every tool across all configured
++MCP servers, with substring search, server/state/risk/approval filters,
++column sorting, and batch enable/disable.
++
++## Changes
++- Consolidated global tools data source with per-tool usage aggregation
++- Tools page with summary cards, filter bar, sortable table, batch actions
++- Navigation entry with live tool count
++
++## Testing
++- Backend table tests for usage aggregation + aggregation handler (race)
++- API E2E assertion for the global tools payload shape
++- Playwright UI sweep with HTML report (empty/loaded/filter/sort/batch)
++```
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+POSITION 2
+SHA: 3469296efefa30bdcf079c1759edd1640d62f02b
+spec(050): add CLI parity (US4, FR-017..020, SC-007)
+
+Related #437
+
+Global tools page must have a CLI equivalent per the project's CLI/UI
+parity pattern. Folded into spec 050 (same consolidated data source +
+per-tool state change), not a separate spec.
+----------------------------------------------------------------------------------------------------
+POSITION 3
+SHA: 17b0f62f4b20f04376436458b8b15d825c83a0c4
+plan(050): impl plan + Phase 0/1 design artifacts
+
+Related #437
+
+plan.md, research.md (6 decisions), data-model.md, contracts/global-tools-api.md,
+quickstart.md. Constitution check passes (no violations). No new deps, no schema
+change — reuses activity bucket + per-server enrichment loop.
+----------------------------------------------------------------------------------------------------
+POSITION 4
+SHA: f695e79878f72ce6befb76ce1736c3c830dbd27d
+tasks(050): 26 tasks, 4 user stories, TDD
+
+Related #437
+
+US1 (global listing/MVP), US2 (filter/sort/search), US3 (batch),
+US4 (CLI parity). Phase 2 foundational = AggregateToolUsage + contracts.
+Fan-out: backend / frontend / CLI agents after T007.
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: 9e8705f19aecef5bf59b9827bbd707bb94b6d4cd
+
+COMMIT MESSAGE:
+feat(050): global tools overview — endpoint, page, CLI parity
+
+Related #437
+
+Backend: storage.AggregateToolUsage (single bounded cursor pass over the
+activity bucket, 30d window, no schema change); GET /api/v1/tools merging
+all servers via a shared enrichServerTools helper + usage fold-in;
+partial-server-failure tolerant. Frontend: Tools.vue rewritten
+Activity.vue-style (cards, filters, sortable table, batch enable/disable,
+schema modal); /tools route + sidebar badge. CLI: global tools list +
+tools enable|disable <server:tool ...> batch. Docs/OAS/E2E updated.
+Tests: storage + httpapi + CLI; lint + frontend build clean.
+
+IMPLEMENTATION FILES:
+FILE: cmd/mcpproxy/tools_cmd.go
+STATUS: modified
+ADDITIONS: 357
+DELETIONS: 34
+
+PATCH:
+@@ -5,6 +5,7 @@ import (
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"time"
+ 
+ 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/cli/output"
+@@ -30,26 +31,158 @@ var (
+ 
+ 	toolsListCmd = &cobra.Command{
+ 		Use:   "list",
+-		Short: "List tools from an upstream server",
+-		Long: `List all available tools from a specific upstream server.
+-This command is primarily used for debugging upstream server connections and tool discovery.
++		Short: "List tools from upstream servers",
++		Long: `List all available tools. Without --server, lists every tool across all
++configured servers from the running daemon (global view). With --server,
++lists tools from that specific server only.
+ 
+ Examples:
+-  mcpproxy tools list --server=github-server --log-level=trace
+-  mcpproxy tools list --server=weather-api --log-level=debug
+-  mcpproxy tools list --server=local-script --log-level=info
+-  mcpproxy tools list --server=jetbrains-sse --trace-transport  # Enable HTTP/SSE frame tracing`,
++  mcpproxy tools list                            # global list, all servers
++  mcpproxy tools list -o json                    # JSON output
++  mcpproxy tools list --status disabled          # only disabled/config-denied
++  mcpproxy tools list --risk read                # read-only tools
++  mcpproxy tools list --approval pending         # tools pending approval
++  mcpproxy tools list --server=github-server     # server-scoped (debug mode)
++  mcpproxy tools list --server=github-server --log-level=trace`,
+ 		RunE: runToolsList,
+ 	}
+ 
++	toolsEnableCmd = &cobra.Command{
++		Use:   "enable <server:tool> [<server:tool>...]",
++		Short: "Enable one or more tools",
++		Long: `Enable one or more tools by their server:tool identifier.
++
++Multiple targets are processed independently. If any target fails, the
++command exits non-zero but all other targets are still attempted.
++
++Examples:
++  mcpproxy tools enable github:create_issue
++  mcpproxy tools enable github:create_issue github:list_repos`,
++		Args: cobra.MinimumNArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			return runToolsSetEnabled(args, true)
++		},
++	}
++
++	toolsDisableCmd = &cobra.Command{
++		Use:   "disable <server:tool> [<server:tool>...]",
++		Short: "Disable one or more tools",
++		Long: `Disable one or more tools by their server:tool identifier.
++
++Multiple targets are processed independently. If any target fails, the
++command exits non-zero but all other targets are still attempted.
++
++Examples:
++  mcpproxy tools disable github:create_issue
++  mcpproxy tools disable github:create_issue memory:foo`,
++		Args: cobra.MinimumNArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			return runToolsSetEnabled(args, false)
++		},
++	}
++
+ 	// Command flags
+ 	serverName     string
+ 	toolsLogLevel  string
+ 	configPath     string
+ 	timeout        time.Duration
+ 	traceTransport bool // Enable HTTP/SSE frame-by-frame tracing
++
++	// Global list filter flags (T019)
++	toolsStatusFilter   string // enabled | disabled | config-denied
++	toolsRiskFilter     string // read | write | destructive
++	toolsApprovalFilter string // approved | pending | changed
+ )
+ 
++// serverToolTarget holds a parsed server:tool pair.
++type serverToolTarget struct {
++	server string
++	tool   string
++}
++
++// parseServerTool splits an arg of the form "server:tool" on the first ':'.
++// The tool name itself may contain further colons.
++func parseServerTool(arg string) (server, tool string, err error) {
++	if arg == "" {
++		return "", "", fmt.Errorf("invalid target %q: must be in <server>:<tool> format", arg)
++	}
++	idx := strings.Index(arg, ":")
++	if idx < 0 {
++		return "", "", fmt.Errorf("invalid target %q: missing ':' separator (use <server>:<tool>)", arg)
++	}
++	server = arg[:idx]
++	tool = arg[idx+1:]
++	if server == "" {
++		return "", "", fmt.Errorf("invalid target %q: server name is empty", arg)
++	}
++	if tool == "" {
++		return "", "", fmt.Errorf("invalid target %q: tool name is empty", arg)
++	}
++	return server, tool, nil
++}
++
++// groupByServer groups targets by their server name.
++func groupByServer(targets []serverToolTarget) map[string][]string {
++	groups := make(map[string][]string)
++	for _, t := range targets {
++		groups[t.server] = append(groups[t.server], t.tool)
++	}
++	return groups
++}
++
++// applyGlobalToolFilters applies client-side filters to the global tool list.
++// statusFilter: "enabled" | "disabled" | "config-denied" | ""
++// riskFilter:   "read" | "write" | "destructive" | ""
++// approvalFilter: "approved" | "pending" | "changed" | ""
++func applyGlobalToolFilters(tools []map[string]interface{}, statusFilter, riskFilter, approvalFilter string) []map[string]interface{} {
++	if statusFilter == "" && riskFilter == "" && approvalFilter == "" {
++		return tools
++	}
++
++	out := make([]map[string]interface{}, 0, len(tools))
++	for _, t := range tools {
++		if statusFilter != "" {
++			disabled := getBoolField(t, "disabled")
++			configDenied := getBoolField(t, "config_denied")
++			isDisabled := disabled || configDenied
++			switch statusFilter {
++			case "enabled":
++				if isDisabled {
++					continue
++				}
++			case "disabled":
++				if !isDisabled {
++					continue
++				}
++			case "config-denied":
++				if !configDenied {
++					continue
++				}
++			}
++		}
++
++		if riskFilter != "" {
++			opType := ""
++			if ann, ok := t["annotations"].(map[string]interface{}); ok {
++				opType, _ = ann["operation_type"].(string)
++			}
++			if !strings.EqualFold(opType, riskFilter) {
++				continue
++			}
++		}
++
++		if approvalFilter != "" {
++			status := getStringField(t, "approval_status")
++			if !strings.EqualFold(status, approvalFilter) {
++				continue
++			}
++		}
++
++		out = append(out, t)
++	}
++	return out
++}
++
+ // GetToolsCommand returns the tools command for adding to the root command
+ func GetToolsCommand() *cobra.Command {
+ 	return toolsCmd
+@@ -58,28 +191,41 @@ func GetToolsCommand() *cobra.Command {
+ func init() {
+ 	// toolsCmd will be added to rootCmd in main.go
+ 	toolsCmd.AddCommand(toolsListCmd)
++	toolsCmd.AddCommand(toolsEnableCmd)
++	toolsCmd.AddCommand(toolsDisableCmd)
+ 
+-	// Define flags for tools list command
+-	toolsListCmd.Flags().StringVarP(&serverName, "server", "s", "", "Name of the upstream server to query (required)")
++	initToolsFlags()
++}
++
++// initToolsFlags registers flags on toolsListCmd. Extracted so tests can call
++// it independently of init().
++func initToolsFlags() {
++	// Define flags for tools list command — reset to avoid double-registration
++	// in tests that call this function more than once.
++	toolsListCmd.ResetFlags()
++
++	toolsListCmd.Flags().StringVarP(&serverName, "server", "s", "", "Name of the upstream server to query (optional; omit for global list)")
+ 	toolsListCmd.Flags().StringVarP(&toolsLogLevel, "log-level", "l", "info", "Log level (trace, debug, info, warn, error)")
+ 	toolsListCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to MCP configuration file (default: ~/.mcpproxy/mcp_config.json)")
+ 	toolsListCmd.Flags().DurationVarP(&timeout, "timeout", "t", 30*time.Second, "Connection timeout")
++	toolsListCmd.Flags().BoolVar(&traceTransport, "trace-transport", false, "Enable detailed HTTP/SSE frame-by-frame tracing")
++
++	// Global-list filter flags (T019)
++	toolsListCmd.Flags().StringVar(&toolsStatusFilter, "status", "", "Filter by state: enabled, disabled, config-denied")
++	toolsListCmd.Flags().StringVar(&toolsRiskFilter, "risk", "", "Filter by risk: read, write, destructive")
++	toolsListCmd.Flags().StringVar(&toolsApprovalFilter, "approval", "", "Filter by approval: approved, pending, changed")
++
+ 	// Note: -o/--output flag is inherited from root command via globalOutputFormat
+-	toolsListCmd.Flags().BoolVar(&traceTransport, "trace-transport", false, "Enable detailed HTTP/SSE frame-by-frame tracing (useful for debugging SSE connection issues)")
++	// Note: --server is NOT marked required — global list works without it.
+ 
+-	// Mark required flags
+-	err := toolsListCmd.MarkFlagRequired("server")
+-	if err != nil {
+-		panic(fmt.Sprintf("Failed to mark server flag as required: %v", err))
+-	}
++	toolsListCmd.Example = `  # Global list (all servers) — requires daemon
++  mcpproxy tools list
++  mcpproxy tools list -o json | jq '.[0]'
++  mcpproxy tools list --status disabled
+ 
+-	// Add examples and usage help
+-	toolsListCmd.Example = `  # List tools with trace logging to see all JSON-RPC frames
++  # Server-scoped list (standalone or daemon)
+   mcpproxy tools list --server=github-server --log-level=trace
+ 
+-  # List tools with debug output
+-  mcpproxy tools list --server=weather-api --log-level=debug
+-
+   # Use custom config file
+   mcpproxy tools list --server=local-script --config=/path/to/config.json
+ 
+@@ -94,7 +240,7 @@ func runToolsList(_ *cobra.Command, _ []string) error {
+ 	// Enable transport tracing if requested
+ 	if traceTransport {
+ 		transport.GlobalTraceEnabled = true
+-		fmt.Println("🔍 HTTP/SSE TRANSPORT TRACING ENABLED")
++		fmt.Println("HTTP/SSE TRANSPORT TRACING ENABLED")
+ 		fmt.Println("   All HTTP requests/responses and SSE frames will be logged")
+ 		fmt.Println()
+ 	}
+@@ -112,7 +258,12 @@ func runToolsList(_ *cobra.Command, _ []string) error {
+ 	}
+ 	defer func() { _ = logger.Sync() }()
+ 
+-	// Check if daemon is running and use client mode
++	// If no --server given → global list (requires daemon)
++	if serverName == "" {
++		return runToolsListGlobal(ctx, globalConfig.DataDir, logger)
++	}
++
++	// --server given → server-scoped path (daemon or standalone)
+ 	if shouldUseToolsDaemon(globalConfig.DataDir) {
+ 		logger.Info("Detected running daemon, using client mode via socket",
+ 			zap.String("server", serverName))
+@@ -125,6 +276,178 @@ func runToolsList(_ *cobra.Command, _ []string) error {
+ 	return runToolsListStandalone(ctx, serverName, globalConfig, logger)
+ }
+ 
++// runToolsListGlobal fetches all tools from the global endpoint via the daemon.
++func runToolsListGlobal(ctx context.Context, dataDir string, logger *zap.Logger) error {
++	if !shouldUseToolsDaemon(dataDir) {
++		return fmt.Errorf("global tool list requires the daemon to be running.\n" +
++			"Start mcpproxy (mcpproxy serve) and try again, or use --server=<name> for a single-server debug listing")
++	}
++
++	socketPath := socket.DetectSocketPath(dataDir)
++	client := cliclient.NewClient(socketPath, logger.Sugar())
++
++	pingCtx, pingCancel := context.WithTimeout(ctx, 2*time.Second)
++	defer pingCancel()
++	if err := client.Ping(pingCtx); err != nil {
++		return fmt.Errorf("daemon is not responding: %w\n"+
++			"Start mcpproxy (mcpproxy serve) and try again", err)
++	}
++
++	fmt.Fprintf(os.Stderr, "Using daemon mode (via socket)\n\n")
++
++	tools, err := client.GetGlobalTools(ctx)
++	if err != nil {
++		return cliError("failed to get global tools from daemon", err)
++	}
++
++	// Apply client-side filters
++	tools = applyGlobalToolFilters(tools, toolsStatusFilter, toolsRiskFilter, toolsApprovalFilter)
++
++	return outputGlobalTools(tools)
++}
++
++// outputGlobalTools renders the global tool list with extended columns.
++func outputGlobalTools(tools []map[string]interface{}) error {
++	outputFormat := ResolveOutputFormat()
++	formatter, err := GetOutputFormatter()
++	if err != nil {
++		return output.NewStructuredError(output.ErrCodeInvalidOutputFormat, err.Error()).
++			WithGuidance("Use -o table, -o json, or -o yaml")
++	}
++
++	// JSON / YAML: emit the raw slice
++	if outputFormat == "json" || outputFormat == "yaml" {
++		result, fmtErr := formatter.Format(tools)
++		if fmtErr != nil {
++			return fmt.Errorf("failed to format output: %w", fmtErr)
++		}
++		fmt.Println(result)
++		return nil
++	}
++
++	// Table format with extended columns for global view
++	headers := []string{"NAME", "SERVER", "STATE", "APPROVAL", "USAGE", "LAST USED", "DESCRIPTION"}
++	var rows [][]string
++	for _, t := range tools {
++		name := getStringField(t, "name")
++		srv := getStringField(t, "server_name")
++		disabled := getBoolField(t, "disabled")
++		configDenied := getBoolField(t, "config_denied")
++
++		state := "enabled"
++		if configDenied {
++			state = "config-denied"
++		} else if disabled {
++			state = "disabled"
++		}
++
++		approval := getStringField(t, "approval_status")
++		if approval == "" {
++			approval = "-"
++		}
++
++		usageVal := getIntField(t, "usage")
++		usage := fmt.Sprintf("%d", usageVal)
++
++		lastUsed := "-"
++		if lu := getStringField(t, "last_used"); lu != "" {
++			lastUsed = lu
++		}
++
++		desc := getStringField(t, "description")
++		if len(desc) > 60 {
++			desc = desc[:57] + "..."
++		}
++
++		rows = append(rows, []string{name, srv, state, approval, usage, lastUsed, desc})
++	}
++
++	result, fmtErr := formatter.FormatTable(headers, rows)
++	if fmtErr != nil {
++		return fmt.Errorf("failed to format table: %w", fmtErr)
++	}
++	fmt.Print(result)
++	return nil
++}
++
++// runToolsSetEnabled implements the enable/disable subcommands.
++// It parses each arg as server:tool, groups by server, calls the per-tool
++// endpoint, prints per-target results, and exits non-zero if any failed.
++func runToolsSetEnabled(args []string, enabled bool) error {
++	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
++	defer cancel()
++
++	// Load config to find the data dir / socket path
++	globalConfig, err := loadToolsConfig()
++	if err != nil {
++		return fmt.Errorf("failed to load configuration: %w", err)
++	}
++
++	logger, err := logs.SetupCommandLogger(false, "warn", false, "")
++	if err != nil {
++		return fmt.Errorf("failed to setup logger: %w", err)
++	}
++	defer func() { _ = logger.Sync() }()
++
++	if !shouldUseToolsDaemon(globalConfig.DataDir) {
++		return fmt.Errorf("enable/disable requires the daemon to be running.\n" +
++			"Start mcpproxy (mcpproxy serve) and try again")
++	}
++
++	socketPath := socket.DetectSocketPath(globalConfig.DataDir)
++	client := cliclient.NewClient(socketPath, logger.Sugar())
++
++	pingCtx, pingCancel := context.WithTimeout(ctx, 2*time.Second)
++	defer pingCancel()
++	if err := client.Ping(pingCtx); err != nil {
++		return fmt.Errorf("daemon is not responding: %w", err)
++	}
++
++	// Parse all targets; collect parse errors as per-target failures
++	type result struct {
++		arg string
++		err error
++	}
++	var validTargets []serverToolTarget
++	var results []result
++
++	for _, arg := range args {
++		srv, tool, parseErr := parseServerTool(arg)
++		if parseErr != nil {
++			results = append(results, result{arg: arg, err: parseErr})
++			continue
++		}
++		validTargets = append(validTargets, serverToolTarget{server: srv, tool: tool})
++	}
++
++	// Call per-tool endpoint for each valid target
++	action := "enabled"
++	if !enabled {
++		action = "disabled"
++	}
++
++	for _, target := range validTargets {
++		callErr := client.SetToolEnabled(ctx, target.server, target.tool, enabled)
++		results = append(results, result{arg: target.server + ":" + target.tool, err: callErr})
++	}
++
++	// Print per-target summary
++	anyFailed := false
++	for _, r := range results {
++		if r.err != nil {
++			anyFailed = true
++			fmt.Fprintf(os.Stderr, "FAILED  %s: %s\n", r.arg, r.err.Error())
++		} else {
++			fmt.Printf("OK      %s: %s\n", r.arg, action)
++		}
++	}
++
++	if anyFailed {
++		return fmt.Errorf("one or more targets failed (see above)")
++	}
++	return nil
++}
++
+ // loadToolsConfig loads the MCP configuration file for tools command
+ func loadToolsConfig() (*config.Config, error) {
+ 	var configFilePath string
+@@ -238,7 +561,7 @@ func runToolsListClientMode(ctx context.Context, dataDir, serverName string, log
+ 		return runToolsListStandalone(ctx, serverName, cfg, logger)
+ 	}
+ 
+-	fmt.Fprintf(os.Stderr, "ℹ️  Using daemon mode (via socket) - fast execution\n\n")
++	fmt.Fprintf(os.Stderr, "Using daemon mode (via socket) - fast execution\n\n")
+ 
+ 	// Fetch tools from daemon
+ 	tools, err := client.GetServerTools(ctx, serverName)
+@@ -302,9 +625,9 @@ func runToolsListStandalone(ctx context.Context, serverName string, globalConfig
+ 			serverName, getAvailableServerNames(globalConfig))
+ 	}
+ 
+-	fmt.Printf("🚀 MCP Tools List - Server: %s\n", serverName)
+-	fmt.Printf("📝 Log Level: %s\n", toolsLogLevel)
+-	fmt.Printf("⏱️  Timeout: %v\n", timeout)
++	fmt.Printf("MCP Tools List - Server: %s\n", serverName)
++	fmt.Printf("Log Level: %s\n", toolsLogLevel)
++	fmt.Printf("Timeout: %v\n", timeout)
+ 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+ 
+ 	// Create storage (optional, for OAuth persistence)
+@@ -337,16 +660,16 @@ func runToolsListStandalone(ctx context.Context, serverName string, globalConfig
+ 	}
+ 
+ 	// Connect to server
+-	fmt.Printf("🔗 Connecting to server '%s'...\n", serverName)
++	fmt.Printf("Connecting to server '%s'...\n", serverName)
+ 	if err := managedClient.Connect(ctx); err != nil {
+ 		return fmt.Errorf("failed to connect to server '%s': %w", serverName, err)
+ 	}
+ 
+ 	// Ensure cleanup on exit
+ 	defer func() {
+-		fmt.Printf("🔌 Disconnecting from server...\n")
++		fmt.Printf("Disconnecting from server...\n")
+ 		if disconnectErr := managedClient.Disconnect(); disconnectErr != nil {
+-			fmt.Fprintf(os.Stderr, "⚠️  Warning: Failed to disconnect cleanly: %v\n", disconnectErr)
++			fmt.Fprintf(os.Stderr, "Warning: Failed to disconnect cleanly: %v\n", disconnectErr)
+ 		}
+ 	}()
+ 
+@@ -360,11 +683,11 @@ func runToolsListStandalone(ctx context.Context, serverName string, globalConfig
+ 	if len(tools) == 0 {
+ 		outputFormat := ResolveOutputFormat()
+ 		if outputFormat == "table" {
+-			fmt.Printf("⚠️  No tools found on server '%s'\n", serverName)
+-			fmt.Printf("💡 This could indicate:\n")
+-			fmt.Printf("   • Server doesn't support tools\n")
+-			fmt.Printf("   • Server is not properly configured\n")
+-			fmt.Printf("   • Connection issues during tool discovery\n")
++			fmt.Printf("No tools found on server '%s'\n", serverName)
++			fmt.Printf("This could indicate:\n")
++			fmt.Printf("   Server doesn't support tools\n")
++			fmt.Printf("   Server is not properly configured\n")
++			fmt.Printf("   Connection issues during tool discovery\n")
+ 			return nil
+ 		}
+ 		// For JSON/YAML, output empty array
+
+----------------------------------------------------------------------------------------------------
+FILE: cmd/mcpproxy/tools_cmd_test.go
+STATUS: modified
+ADDITIONS: 276
+DELETIONS: 0
+
+PATCH:
+@@ -1,13 +1,17 @@
+ package main
+ 
+ import (
++	"bytes"
++	"encoding/json"
++	"os"
+ 	"runtime"
+ 	"strings"
+ 	"testing"
+ 
+ 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/socket"
+ 
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestShouldUseToolsDaemon(t *testing.T) {
+@@ -39,3 +43,275 @@ func TestDetectSocketPath_Tools(t *testing.T) {
+ 			"Unix socket should have unix:// prefix")
+ 	}
+ }
++
++// ---------------------------------------------------------------------------
++// T018: Unit tests for new global-tools CLI logic
++// ---------------------------------------------------------------------------
++
++// TestParseServerTool verifies that parseServerTool correctly splits on the
++// first ':' only, handles edge cases, and rejects malformed input.
++func TestParseServerTool(t *testing.T) {
++	tests := []struct {
++		input      string
++		wantServer string
++		wantTool   string
++		wantErr    bool
++	}{
++		{"github:create_issue", "github", "create_issue", false},
++		{"my-server:some_tool", "my-server", "some_tool", false},
++		// Tool name may contain colons — only the first colon is the separator
++		{"server:tool:with:colons", "server", "tool:with:colons", false},
++		// Missing colon → error
++		{"notaservertool", "", "", true},
++		// Empty server → error
++		{":toolonly", "", "", true},
++		// Empty tool → error
++		{"serveronly:", "", "", true},
++		// Completely empty → error
++		{"", "", "", true},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.input, func(t *testing.T) {
++			srv, tool, err := parseServerTool(tc.input)
++			if tc.wantErr {
++				assert.Error(t, err, "expected error for input %q", tc.input)
++				return
++			}
++			require.NoError(t, err)
++			assert.Equal(t, tc.wantServer, srv)
++			assert.Equal(t, tc.wantTool, tool)
++		})
++	}
++}
++
++// TestGroupByServer verifies that groupByServer correctly groups
++// (server, tool) pairs by their server name.
++func TestGroupByServer(t *testing.T) {
++	targets := []serverToolTarget{
++		{server: "github", tool: "create_issue"},
++		{server: "github", tool: "list_repos"},
++		{server: "gitlab", tool: "merge_request"},
++	}
++
++	groups := groupByServer(targets)
++
++	assert.Len(t, groups, 2)
++	assert.ElementsMatch(t, []string{"create_issue", "list_repos"}, groups["github"])
++	assert.ElementsMatch(t, []string{"merge_request"}, groups["gitlab"])
++}
++
++// TestApplyGlobalToolFilters_Status verifies that the status filter correctly
++// identifies enabled vs disabled/config-denied tools.
++func TestApplyGlobalToolFilters_Status(t *testing.T) {
++	tools := []map[string]interface{}{
++		{"name": "tool_a", "server_name": "srv", "disabled": false, "config_denied": false},
++		{"name": "tool_b", "server_name": "srv", "disabled": true, "config_denied": false},
++		{"name": "tool_c", "server_name": "srv", "disabled": false, "config_denied": true},
++		{"name": "tool_d", "server_name": "srv", "disabled": false, "config_denied": false},
++	}
++
++	// Filter to disabled only
++	got := applyGlobalToolFilters(tools, "disabled", "", "")
++	assert.Len(t, got, 2, "expect tool_b (disabled) and tool_c (config_denied)")
++	names := toolNames(got)
++	assert.Contains(t, names, "tool_b")
++	assert.Contains(t, names, "tool_c")
++
++	// Filter to enabled only
++	got = applyGlobalToolFilters(tools, "enabled", "", "")
++	assert.Len(t, got, 2, "expect tool_a and tool_d")
++	names = toolNames(got)
++	assert.Contains(t, names, "tool_a")
++	assert.Contains(t, names, "tool_d")
++
++	// No filter → all returned
++	got = applyGlobalToolFilters(tools, "", "", "")
++	assert.Len(t, got, 4)
++}
++
++// TestApplyGlobalToolFilters_Risk verifies the risk filter matches annotations.
++func TestApplyGlobalToolFilters_Risk(t *testing.T) {
++	tools := []map[string]interface{}{
++		{
++			"name":        "read_file",
++			"server_name": "srv",
++			"annotations": map[string]interface{}{"operation_type": "read"},
++		},
++		{
++			"name":        "write_file",
++			"server_name": "srv",
++			"annotations": map[string]interface{}{"operation_type": "write"},
++		},
++		{
++			"name":        "delete_repo",
++			"server_name": "srv",
++			"annotations": map[string]interface{}{"operation_type": "destructive"},
++		},
++	}
++
++	got := applyGlobalToolFilters(tools, "", "read", "")
++	require.Len(t, got, 1)
++	assert.Equal(t, "read_file", got[0]["name"])
++
++	got = applyGlobalToolFilters(tools, "", "write", "")
++	require.Len(t, got, 1)
++	assert.Equal(t, "write_file", got[0]["name"])
++}
++
++// TestApplyGlobalToolFilters_Approval verifies the approval filter.
++func TestApplyGlobalToolFilters_Approval(t *testing.T) {
++	tools := []map[string]interface{}{
++		{"name": "approved_tool", "server_name": "srv", "approval_status": "approved"},
++		{"name": "pending_tool", "server_name": "srv", "approval_status": "pending"},
++		{"name": "changed_tool", "server_name": "srv", "approval_status": "changed"},
++	}
++
++	got := applyGlobalToolFilters(tools, "", "", "pending")
++	require.Len(t, got, 1)
++	assert.Equal(t, "pending_tool", got[0]["name"])
++
++	got = applyGlobalToolFilters(tools, "", "", "approved")
++	require.Len(t, got, 1)
++	assert.Equal(t, "approved_tool", got[0]["name"])
++}
++
++// TestOutputGlobalTools_JSONShape verifies -o json emits a valid JSON array
++// with the expected fields.
++func TestOutputGlobalTools_JSONShape(t *testing.T) {
++	tools := []map[string]interface{}{
++		{
++			"name":            "create_issue",
++			"server_name":     "github",
++			"description":     "Create a new GitHub issue",
++			"approval_status": "approved",
++			"disabled":        false,
++			"config_denied":   false,
++			"usage":           float64(42),
++		},
++	}
++
++	oldStdout := os.Stdout
++	r, w, _ := os.Pipe()
++	os.Stdout = w
++	defer func() { os.Stdout = oldStdout }()
++
++	globalOutputFormat = "json"
++	globalJSONOutput = false
++	err := outputGlobalTools(tools)
++
++	w.Close()
++	var buf bytes.Buffer
++	_, _ = buf.ReadFrom(r)
++	outStr := buf.String()
++
++	require.NoError(t, err)
++
++	var parsed []map[string]interface{}
++	require.NoError(t, json.Unmarshal([]byte(outStr), &parsed), "output must be valid JSON array")
++	require.Len(t, parsed, 1)
++	assert.Equal(t, "create_issue", parsed[0]["name"])
++	assert.Equal(t, "github", parsed[0]["server_name"])
++}
++
++// TestOutputGlobalTools_TableColumns verifies that table output contains the
++// expected column headers for the global view.
++func TestOutputGlobalTools_TableColumns(t *testing.T) {
++	tools := []map[string]interface{}{
++		{
++			"name":            "create_issue",
++			"server_name":     "github",
++			"description":     "Create a new issue",
++			"approval_status": "approved",
++			"disabled":        false,
++			"config_denied":   false,
++			"usage":           float64(7),
++		},
++	}
++
++	oldStdout := os.Stdout
++	r, w, _ := os.Pipe()
++	os.Stdout = w
++	defer func() { os.Stdout = oldStdout }()
++
++	globalOutputFormat = "table"
++	globalJSONOutput = false
++	err := outputGlobalTools(tools)
++
++	w.Close()
++	var buf bytes.Buffer
++	_, _ = buf.ReadFrom(r)
++	outStr := buf.String()
++
++	require.NoError(t, err)
++	assert.Contains(t, outStr, "NAME", "table must contain NAME column")
++	assert.Contains(t, outStr, "SERVER", "table must contain SERVER column")
++	assert.Contains(t, outStr, "STATE", "table must contain STATE column")
++	assert.Contains(t, outStr, "APPROVAL", "table must contain APPROVAL column")
++	assert.Contains(t, outStr, "USAGE", "table must contain USAGE column")
++	assert.Contains(t, outStr, "create_issue", "table must contain tool name")
++	assert.Contains(t, outStr, "github", "table must contain server name")
++}
++
++// TestGetToolsCommand_Subcommands verifies the tools command group has the
++// expected subcommands including the new enable/disable.
++func TestGetToolsCommand_Subcommands(t *testing.T) {
++	cmd := GetToolsCommand()
++	assert.Equal(t, "tools", cmd.Use)
++
++	subCmds := cmd.Commands()
++	names := make(map[string]bool)
++	for _, sub := range subCmds {
++		names[sub.Name()] = true
++	}
++
++	assert.True(t, names["list"], "tools command should have 'list' subcommand")
++	assert.True(t, names["enable"], "tools command should have 'enable' subcommand")
++	assert.True(t, names["disable"], "tools command should have 'disable' subcommand")
++}
++
++// TestToolsListCmd_ServerOptional verifies that --server flag is no longer
++// required on 'tools list'.
++func TestToolsListCmd_ServerOptional(t *testing.T) {
++	// The --server flag should not be marked as required.
++	// If it were required, calling without it would return an error from cobra.
++	toolsListCmd.ResetFlags()
++	initToolsFlags() // re-register flags to a clean state is tricky; check via annotation
++
++	flag := toolsListCmd.Flags().Lookup("server")
++	require.NotNil(t, flag, "server flag must exist")
++
++	// Cobra marks required flags via the "cobra_annotation_bash_completion_one_required_flag"
++	// annotation. Verify it is NOT set (flag is optional).
++	annotations := flag.Annotations
++	_, hasRequired := annotations["cobra_annotation_bash_completion_one_required_flag"]
++	assert.False(t, hasRequired, "--server flag must NOT be marked as required for global listing")
++}
++
++// TestToolsEnableCmd_ArgValidation verifies enable/disable require at least one arg.
++func TestToolsEnableCmd_ArgValidation(t *testing.T) {
++	enableCmd := toolsEnableCmd
++	require.NotNil(t, enableCmd)
++	assert.Error(t, enableCmd.Args(enableCmd, []string{}), "enable must reject zero args")
++	assert.NoError(t, enableCmd.Args(enableCmd, []string{"server:tool"}), "enable must accept one arg")
++	assert.NoError(t, enableCmd.Args(enableCmd, []string{"server:tool", "other:tool2"}), "enable must accept multiple args")
++
++	disableCmd := toolsDisableCmd
++	require.NotNil(t, disableCmd)
++	assert.Error(t, disableCmd.Args(disableCmd, []string{}), "disable must reject zero args")
++	assert.NoError(t, disableCmd.Args(disableCmd, []string{"server:tool"}), "disable must accept one arg")
++}
++
++// ---------------------------------------------------------------------------
++// helpers
++// ---------------------------------------------------------------------------
++
++func toolNames(tools []map[string]interface{}) []string {
++	names := make([]string, 0, len(tools))
++	for _, t := range tools {
++		if n, ok := t["name"].(string); ok {
++			names = append(names, n)
++		}
++	}
++	return names
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/components/SidebarNav.vue
+STATUS: modified
+ADDITIONS: 36
+DELETIONS: 1
+
+PATCH:
+@@ -213,6 +213,21 @@
+                 <span v-show="!collapsed">Servers</span>
+               </router-link>
+             </li>
++            <li>
++              <router-link
++                to="/tools"
++                :class="{ 'active': isActiveRoute('/tools') }"
++                class="rounded-lg font-medium"
++                :title="collapsed ? 'Tools' : ''"
++              >
++                <IconTools class="w-5 h-5 shrink-0" />
++                <span v-show="!collapsed">Tools</span>
++                <span
++                  v-if="!collapsed && toolCount > 0"
++                  class="badge badge-sm badge-ghost ml-auto tabular-nums"
++                >{{ toolCount }}</span>
++              </router-link>
++            </li>
+             <li>
+               <router-link
+                 to="/secrets"
+@@ -388,11 +403,12 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { computed, h, onMounted, type FunctionalComponent } from 'vue'
++import { computed, h, onMounted, ref, type FunctionalComponent } from 'vue'
+ import { useRoute, useRouter } from 'vue-router'
+ import { useSystemStore } from '@/stores/system'
+ import { useAuthStore } from '@/stores/auth'
+ import { useOnboardingStore } from '@/stores/onboarding'
++import api from '@/services/api'
+ 
+ const route = useRoute()
+ const router = useRouter()
+@@ -434,6 +450,7 @@ onMounted(() => {
+   // edition only — the surrounding template gates this for personal users.
+   if (!authStore.isTeamsEdition) {
+     void onboardingStore.fetchState()
++    void fetchToolCount()
+   }
+ })
+ 
+@@ -526,6 +543,24 @@ const IconSettings = makeIcon(
+ const IconSparkles = makeIcon(
+   'M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3zm6 11l.8 2.4L21 17l-2.2.6L18 20l-.8-2.4L15 17l2.2-.6L18 14zM6 14l.8 2.4L9 17l-2.2.6L6 20l-.8-2.4L3 17l2.2-.6L6 14z'
+ )
++// Spec 050: wrench/tool icon for the global Tools nav entry.
++const IconTools = makeIcon(
++  'M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3-3a1 1 0 000-1.4l-1.6-1.6a1 1 0 00-1.4 0l-1 1L15 3l-5 5-1.3-1.3a1 1 0 00-1.4 0l-3 3a1 1 0 000 1.4L6 13l-3 3a1 1 0 000 1.4l2.6 2.6a1 1 0 001.4 0l3-3a1 1 0 000-1.4L8.7 14l5-5 1.6 1.6z'
++)
++
++// Spec 050: live tool count for the sidebar badge.
++const toolCount = ref(0)
++
++async function fetchToolCount() {
++  try {
++    const resp = await api.getGlobalTools()
++    if (resp.success && resp.data) {
++      toolCount.value = resp.data.stats.total
++    }
++  } catch {
++    // Silently ignore — badge is non-critical
++  }
++}
+ 
+ // Server edition menus (unchanged behavior)
+ const teamsUserMenu = [
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/router/index.ts
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 0
+
+PATCH:
+@@ -85,6 +85,14 @@ const router = createRouter({
+         title: 'MCP Sessions',
+       },
+     },
++    {
++      path: '/tools',
++      name: 'tools',
++      component: () => import('@/views/Tools.vue'),
++      meta: {
++        title: 'Tools',
++      },
++    },
+     {
+       path: '/activity',
+       name: 'activity',
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/services/api.ts
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 1
+
+PATCH:
+@@ -1,4 +1,4 @@
+-import type { APIResponse, Server, Tool, ToolApproval, SearchResult, StatusUpdate, SecretRef, MigrationAnalysis, ConfigSecretsResponse, GetToolCallsResponse, GetToolCallDetailResponse, GetServerToolCallsResponse, GetConfigResponse, ValidateConfigResponse, ConfigApplyResult, ServerTokenMetrics, GetRegistriesResponse, SearchRegistryServersResponse, RepositoryServer, GetSessionsResponse, GetSessionDetailResponse, InfoResponse, ActivityListResponse, ActivityDetailResponse, ActivitySummaryResponse, ImportResponse, AgentTokenInfo, CreateAgentTokenRequest, CreateAgentTokenResponse, RoutingInfo, ConnectStatusResponse, ConnectResult, OnboardingStateResponse, OnboardingMarkRequest, DiagnosticFixResponse } from '@/types'
++import type { APIResponse, Server, Tool, ToolApproval, SearchResult, StatusUpdate, SecretRef, MigrationAnalysis, ConfigSecretsResponse, GetToolCallsResponse, GetToolCallDetailResponse, GetServerToolCallsResponse, GetConfigResponse, ValidateConfigResponse, ConfigApplyResult, ServerTokenMetrics, GetRegistriesResponse, SearchRegistryServersResponse, RepositoryServer, GetSessionsResponse, GetSessionDetailResponse, InfoResponse, ActivityListResponse, ActivityDetailResponse, ActivitySummaryResponse, ImportResponse, AgentTokenInfo, CreateAgentTokenRequest, CreateAgentTokenResponse, RoutingInfo, ConnectStatusResponse, ConnectResult, OnboardingStateResponse, OnboardingMarkRequest, DiagnosticFixResponse, GlobalToolsResponse } from '@/types'
+ 
+ // Event types for API service
+ export interface APIAuthEvent {
+@@ -329,6 +329,11 @@ class APIService {
+     return this.request<{ tools: Tool[] }>(`/api/v1/servers/${encodeURIComponent(serverName)}/tools`)
+   }
+ 
++  // Global tools listing (Spec 050) — all tools across all servers from a single consolidated endpoint.
++  async getGlobalTools(): Promise<APIResponse<GlobalToolsResponse>> {
++    return this.request<GlobalToolsResponse>('/api/v1/tools')
++  }
++
+   // Tool-level quarantine (Spec 032)
+   async getToolApprovals(serverName: string): Promise<APIResponse<{ tools: ToolApproval[], count: number }>> {
+     const response = await this.request<{ tools: ToolApproval[], count: number }>(`/api/v1/servers/${encodeURIComponent(serverName)}/tools/export`)
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/types/api.ts
+STATUS: modified
+ADDITIONS: 28
+DELETIONS: 0
+
+PATCH:
+@@ -213,6 +213,34 @@ export interface DiagnosticFixResponse {
+   failure_msg?: string
+ }
+ 
++// Global Tools response types (Spec 050)
++export interface GlobalTool {
++  name: string
++  server_name: string
++  description: string
++  approval_status: string  // "pending" | "changed" | "approved" | ""
++  disabled: boolean        // per-tool user toggle
++  config_denied: boolean   // layered config (read-only)
++  usage: number
++  last_used?: string       // ISO 8601; omitted if never used in window
++  annotations?: ToolAnnotation
++  // derived locally: enabled = !disabled && !config_denied
++}
++
++export interface GlobalToolsStats {
++  total: number
++  enabled: number
++  disabled: number
++  pending_approval: number
++}
++
++export interface GlobalToolsResponse {
++  tools: GlobalTool[]
++  stats: GlobalToolsStats
++  partial: boolean
++  failed_servers: string[]
++}
++
+ // Tool Annotation types
+ export interface ToolAnnotation {
+   title?: string
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/views/Tools.vue
+STATUS: modified
+ADDITIONS: 643
+DELETIONS: 310
+
+PATCH:
+@@ -1,431 +1,764 @@
+ <template>
+-  <div class="space-y-6">
++  <div class="space-y-6" data-test="tools-page">
+     <!-- Page Header -->
+-    <div class="flex justify-between items-center">
++    <div class="flex flex-wrap justify-between items-start gap-4">
+       <div>
+         <h1 class="text-3xl font-bold">Tools</h1>
+-        <p class="text-base-content/70 mt-1">Browse and manage MCP tools across all servers</p>
++        <p class="text-base-content/70 mt-1">Monitor and edit all individual tools</p>
+       </div>
+-      <div class="flex items-center space-x-2">
+-        <div class="badge badge-outline">{{ totalTools }} tools</div>
+-        <div class="badge badge-success">{{ connectedServers }} servers</div>
++      <div class="flex items-center gap-3">
++        <div v-if="stats" class="badge badge-outline badge-lg">
++          {{ stats.total }} tools
++        </div>
++        <button @click="loadTools" class="btn btn-sm btn-ghost" :disabled="loading">
++          <svg class="w-4 h-4" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
++          </svg>
++        </button>
++      </div>
++    </div>
++
++    <!-- Summary Stat Cards -->
++    <div v-if="stats" class="stats shadow bg-base-100 w-full">
++      <div class="stat" data-test="stat-total">
++        <div class="stat-title">Total</div>
++        <div class="stat-value text-2xl">{{ stats.total }}</div>
++      </div>
++      <div class="stat" data-test="stat-enabled">
++        <div class="stat-title">Enabled</div>
++        <div class="stat-value text-2xl text-success">{{ stats.enabled }}</div>
++      </div>
++      <div class="stat" data-test="stat-disabled">
++        <div class="stat-title">Disabled</div>
++        <div class="stat-value text-2xl text-warning">{{ stats.disabled }}</div>
++      </div>
++      <div class="stat" data-test="stat-pending">
++        <div class="stat-title">Pending Approval</div>
++        <div class="stat-value text-2xl" :class="stats.pending_approval > 0 ? 'text-error' : ''">
++          {{ stats.pending_approval }}
++        </div>
+       </div>
+     </div>
+ 
+-    <!-- Search and Filters -->
++    <!-- Partial-error banner -->
++    <div v-if="partial && failedServers.length > 0" class="alert alert-warning">
++      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
++      </svg>
++      <div>
++        <div class="font-medium">Partial results — some servers could not be read</div>
++        <div class="text-sm">Failed servers: {{ failedServers.join(', ') }}</div>
++      </div>
++    </div>
++
++    <!-- Filters -->
+     <div class="card bg-base-100 shadow-md">
+-      <div class="card-body">
+-        <div class="flex flex-col lg:flex-row gap-4">
+-          <!-- Search Input -->
+-          <div class="flex-1">
++      <div class="card-body py-4">
++        <div class="flex flex-wrap gap-4 items-end">
++          <!-- Search -->
++          <div class="form-control flex-1 min-w-[200px]">
++            <label class="label py-1">
++              <span class="label-text text-xs">Search</span>
++            </label>
+             <div class="relative">
+               <input
+                 v-model="searchQuery"
+                 type="text"
+-                placeholder="Search tools by name or description..."
+-                class="input input-bordered w-full pl-10"
+-                @input="debouncedSearch"
++                placeholder="Search by name, description, or server..."
++                class="input input-bordered input-sm w-full pl-8"
++                data-test="tools-search"
+               />
+-              <svg class="absolute left-3 top-3 w-5 h-5 text-base-content/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++              <svg class="absolute left-2.5 top-2 w-4 h-4 text-base-content/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+               </svg>
+             </div>
+           </div>
+ 
+-          <!-- Server Filter -->
+-          <div class="lg:w-64">
+-            <select v-model="selectedServer" class="select select-bordered w-full">
++          <!-- Server filter -->
++          <div class="form-control min-w-[140px]">
++            <label class="label py-1">
++              <span class="label-text text-xs">Server</span>
++            </label>
++            <select v-model="filterServer" class="select select-bordered select-sm" data-test="filter-server">
+               <option value="">All Servers</option>
+-              <option v-for="server in availableServers" :key="server" :value="server">
+-                {{ server }}
+-              </option>
++              <option v-for="srv in availableServers" :key="srv" :value="srv">{{ srv }}</option>
+             </select>
+           </div>
+ 
+-          <!-- View Toggle -->
+-          <div class="btn-group">
+-            <button
+-              :class="['btn', viewMode === 'grid' ? 'btn-active' : '']"
+-              @click="viewMode = 'grid'"
+-            >
+-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+-              </svg>
+-            </button>
+-            <button
+-              :class="['btn', viewMode === 'list' ? 'btn-active' : '']"
+-              @click="viewMode = 'list'"
+-            >
+-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+-              </svg>
+-            </button>
++          <!-- Status filter -->
++          <div class="form-control min-w-[130px]">
++            <label class="label py-1">
++              <span class="label-text text-xs">Status</span>
++            </label>
++            <select v-model="filterStatus" class="select select-bordered select-sm" data-test="filter-status">
++              <option value="">All</option>
++              <option value="enabled">Enabled</option>
++              <option value="disabled">Disabled</option>
++              <option value="config_denied">Config Denied</option>
++            </select>
+           </div>
++
++          <!-- Risk filter -->
++          <div class="form-control min-w-[120px]">
++            <label class="label py-1">
++              <span class="label-text text-xs">Risk</span>
++            </label>
++            <select v-model="filterRisk" class="select select-bordered select-sm" data-test="filter-risk">
++              <option value="">All</option>
++              <option value="read">Read</option>
++              <option value="write">Write</option>
++              <option value="destructive">Destructive</option>
++            </select>
++          </div>
++
++          <!-- Approval filter -->
++          <div class="form-control min-w-[120px]">
++            <label class="label py-1">
++              <span class="label-text text-xs">Approval</span>
++            </label>
++            <select v-model="filterApproval" class="select select-bordered select-sm" data-test="filter-approval">
++              <option value="">All</option>
++              <option value="approved">Approved</option>
++              <option value="pending">Pending</option>
++              <option value="changed">Changed</option>
++            </select>
++          </div>
++
++          <!-- Clear Filters -->
++          <button v-if="hasActiveFilters" @click="clearFilters" class="btn btn-sm btn-ghost">
++            Clear Filters
++          </button>
+         </div>
+-      </div>
+-    </div>
+ 
+-    <!-- Loading State -->
+-    <div v-if="loading" class="text-center py-12">
+-      <span class="loading loading-spinner loading-lg"></span>
+-      <p class="mt-4">Loading tools...</p>
++        <!-- Active filter chips -->
++        <div v-if="hasActiveFilters" class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-base-300">
++          <span class="text-xs text-base-content/60">Active filters:</span>
++          <span v-if="searchQuery" class="badge badge-sm badge-outline">Search: {{ searchQuery }}</span>
++          <span v-if="filterServer" class="badge badge-sm badge-outline">Server: {{ filterServer }}</span>
++          <span v-if="filterStatus" class="badge badge-sm badge-outline">Status: {{ filterStatus }}</span>
++          <span v-if="filterRisk" class="badge badge-sm badge-outline">Risk: {{ filterRisk }}</span>
++          <span v-if="filterApproval" class="badge badge-sm badge-outline">Approval: {{ filterApproval }}</span>
++        </div>
++      </div>
+     </div>
+ 
+-    <!-- Error State -->
+-    <div v-else-if="error" class="alert alert-error">
+-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+-      </svg>
+-      <span>{{ error }}</span>
+-      <button class="btn btn-sm" @click="loadTools">Retry</button>
++    <!-- Batch action bar -->
++    <div v-if="selectedKeys.size > 0" class="alert shadow-md" data-test="tools-batch-bar">
++      <div class="flex items-center gap-3 w-full flex-wrap">
++        <span class="font-medium">{{ selectedKeys.size }} tool{{ selectedKeys.size === 1 ? '' : 's' }} selected</span>
++        <button
++          @click="batchEnable(true)"
++          :disabled="batchLoading"
++          class="btn btn-sm btn-success"
++          data-test="batch-enable"
++        >
++          <span v-if="batchLoading" class="loading loading-spinner loading-xs"></span>
++          Enable selected
++        </button>
++        <button
++          @click="batchEnable(false)"
++          :disabled="batchLoading"
++          class="btn btn-sm btn-warning"
++          data-test="batch-disable"
++        >
++          <span v-if="batchLoading" class="loading loading-spinner loading-xs"></span>
++          Disable selected
++        </button>
++        <button @click="selectedKeys.clear()" class="btn btn-sm btn-ghost ml-auto">
++          Clear selection
++        </button>
++      </div>
+     </div>
+ 
+-    <!-- Empty State -->
+-    <div v-else-if="paginatedTools.length === 0" class="text-center py-12">
+-      <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
++    <!-- Batch result summary -->
++    <div v-if="batchResult" class="alert" :class="batchResult.failed > 0 ? 'alert-warning' : 'alert-success'">
++      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+       </svg>
+-      <h3 class="text-xl font-semibold mb-2">
+-        {{ searchQuery ? 'No tools found' : 'No tools available' }}
+-      </h3>
+-      <p class="text-base-content/70 mb-4">
+-        {{ searchQuery ? 'Try adjusting your search or filter criteria.' : 'Connect some MCP servers to see their tools here.' }}
+-      </p>
+-      <div class="space-x-2">
+-        <button v-if="searchQuery" class="btn btn-outline" @click="clearSearch">
+-          Clear Search
+-        </button>
+-        <router-link to="/servers" class="btn btn-primary">
+-          Manage Servers
+-        </router-link>
++      <div class="flex-1">
++        <div class="font-medium">Batch action complete: {{ batchResult.succeeded }} succeeded, {{ batchResult.failed }} failed</div>
++        <div v-if="batchResult.failedTools.length > 0" class="text-sm mt-1">
++          Failed: {{ batchResult.failedTools.join(', ') }}
++        </div>
+       </div>
++      <button @click="batchResult = null" class="btn btn-sm btn-ghost">Dismiss</button>
+     </div>
+ 
+-    <!-- Tools Display -->
+-    <div v-else>
+-      <!-- Grid View -->
+-      <div v-if="viewMode === 'grid'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+-        <div
+-          v-for="tool in paginatedTools"
+-          :key="`${tool.server}:${tool.name}`"
+-          class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow"
+-        >
+-          <div class="card-body">
+-            <div class="flex items-start justify-between">
+-              <h3 class="card-title text-lg">{{ tool.name }}</h3>
+-              <div class="badge badge-secondary badge-sm">{{ tool.server }}</div>
+-            </div>
+-            <p class="text-sm text-base-content/70 line-clamp-3">
+-              {{ tool.description || 'No description available' }}
+-            </p>
+-            <div class="card-actions justify-end mt-4">
+-              <button
+-                class="btn btn-sm btn-outline"
+-                @click="viewToolDetails(tool)"
+-              >
+-                View Details
+-              </button>
+-            </div>
++    <!-- Table card -->
++    <div class="card bg-base-100 shadow-md">
++      <div class="card-body p-0">
++        <!-- Loading -->
++        <div v-if="loading && allTools.length === 0" class="flex justify-center py-12">
++          <span class="loading loading-spinner loading-lg"></span>
++        </div>
++
++        <!-- Error -->
++        <div v-else-if="error" class="alert alert-error m-4">
++          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
++          </svg>
++          <span>{{ error }}</span>
++          <button @click="loadTools" class="btn btn-sm btn-ghost">Retry</button>
++        </div>
++
++        <!-- Empty state -->
++        <div v-else-if="filteredTools.length === 0 && !loading" class="text-center py-12 text-base-content/60">
++          <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
++          </svg>
++          <p class="text-lg">
++            {{ hasActiveFilters ? 'No matching tools' : 'No tools available' }}
++          </p>
++          <p class="text-sm mt-1">
++            {{ hasActiveFilters ? 'Try adjusting your filters or search query' : 'Connect MCP servers to see their tools here.' }}
++          </p>
++          <div class="mt-4 space-x-2">
++            <button v-if="hasActiveFilters" @click="clearFilters" class="btn btn-outline btn-sm">Clear Filters</button>
++            <router-link v-else to="/servers" class="btn btn-primary btn-sm">Manage Servers</router-link>
+           </div>
+         </div>
+-      </div>
+ 
+-      <!-- List View -->
+-      <div v-else class="space-y-4">
+-        <div
+-          v-for="tool in paginatedTools"
+-          :key="`${tool.server}:${tool.name}`"
+-          class="card bg-base-100 shadow-md"
+-        >
+-          <div class="card-body py-4">
+-            <div class="flex items-center justify-between">
+-              <div class="flex-1">
+-                <div class="flex items-center space-x-3">
+-                  <h3 class="text-lg font-semibold">{{ tool.name }}</h3>
+-                  <div class="badge badge-secondary badge-sm">{{ tool.server }}</div>
+-                </div>
+-                <p class="text-sm text-base-content/70 mt-1">
+-                  {{ tool.description || 'No description available' }}
+-                </p>
+-              </div>
+-              <div class="flex items-center space-x-2">
+-                <button
+-                  class="btn btn-sm btn-outline"
+-                  @click="viewToolDetails(tool)"
+-                >
+-                  Details
+-                </button>
+-              </div>
++        <!-- Table -->
++        <div v-else class="overflow-x-auto">
++          <table class="table table-sm" data-test="tools-table">
++            <thead>
++              <tr>
++                <th class="w-10">
++                  <input
++                    type="checkbox"
++                    class="checkbox checkbox-sm"
++                    :checked="allPageSelected"
++                    :indeterminate="somePageSelected && !allPageSelected"
++                    @change="toggleSelectAll"
++                    data-test="tools-select-all"
++                  />
++                </th>
++                <th class="cursor-pointer hover:bg-base-200 select-none" @click="sortBy('name')">
++                  Tool {{ getSortIndicator('name') }}
++                </th>
++                <th class="cursor-pointer hover:bg-base-200 select-none" @click="sortBy('server_name')">
++                  Server {{ getSortIndicator('server_name') }}
++                </th>
++                <th>Description</th>
++                <th class="cursor-pointer hover:bg-base-200 select-none" @click="sortBy('risk')">
++                  Risk {{ getSortIndicator('risk') }}
++                </th>
++                <th class="cursor-pointer hover:bg-base-200 select-none" @click="sortBy('approval_status')">
++                  Approval {{ getSortIndicator('approval_status') }}
++                </th>
++                <th class="cursor-pointer hover:bg-base-200 select-none" @click="sortBy('enabled')">
++                  Enabled {{ getSortIndicator('enabled') }}
++                </th>
++                <th class="cursor-pointer hover:bg-base-200 select-none" @click="sortBy('usage')">
++                  Usage {{ getSortIndicator('usage') }}
++                </th>
++                <th class="cursor-pointer hover:bg-base-200 select-none" @click="sortBy('last_used')">
++                  Last Used {{ getSortIndicator('last_used') }}
++                </th>
++              </tr>
++            </thead>
++            <tbody>
++              <tr
++                v-for="tool in paginatedTools"
++                :key="toolKey(tool)"
++                class="hover cursor-pointer"
++                :class="{ 'bg-primary/5': selectedKeys.has(toolKey(tool)) }"
++                @click="openDetail(tool)"
++                data-test="tool-row"
++              >
++                <td @click.stop>
++                  <input
++                    type="checkbox"
++                    class="checkbox checkbox-sm"
++                    :checked="selectedKeys.has(toolKey(tool))"
++                    @change="toggleSelect(tool)"
++                  />
++                </td>
++                <td>
++                  <code class="text-xs bg-base-200 px-1.5 py-0.5 rounded">{{ tool.name }}</code>
++                </td>
++                <td>
++                  <router-link
++                    :to="`/servers/${tool.server_name}`"
++                    class="link link-hover text-sm font-medium"
++                    @click.stop
++                  >
++                    {{ tool.server_name }}
++                  </router-link>
++                </td>
++                <td>
++                  <div class="max-w-xs truncate text-sm text-base-content/70">
++                    {{ tool.description || '—' }}
++                  </div>
++                </td>
++                <td>
++                  <span class="badge badge-sm" :class="getRiskBadgeClass(tool)">
++                    {{ getRiskLabel(tool) }}
++                  </span>
++                </td>
++                <td>
++                  <span v-if="tool.approval_status" class="badge badge-sm" :class="getApprovalBadgeClass(tool.approval_status)">
++                    {{ tool.approval_status }}
++                  </span>
++                  <span v-else class="text-base-content/30 text-xs">—</span>
++                </td>
++                <td>
++                  <span v-if="tool.config_denied" class="badge badge-sm badge-error">config-denied</span>
++                  <span v-else-if="tool.disabled" class="badge badge-sm badge-warning">disabled</span>
++                  <span v-else class="badge badge-sm badge-success">enabled</span>
++                </td>
++                <td class="text-sm text-right">
++                  {{ tool.usage || 0 }}
++                </td>
++                <td class="text-sm text-base-content/60">
++                  <span v-if="tool.last_used">{{ formatRelativeTime(tool.last_used) }}</span>
++                  <span v-else class="text-base-content/30">never</span>
++                </td>
++              </tr>
++            </tbody>
++          </table>
++
++          <!-- Pagination -->
++          <div v-if="totalPages > 1" class="flex justify-between items-center px-4 py-3 border-t border-base-300">
++            <div class="text-sm text-base-content/60">
++              Showing {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, sortedTools.length) }} of {{ sortedTools.length }}
++            </div>
++            <div class="join">
++              <button @click="currentPage = 1" :disabled="currentPage === 1" class="join-item btn btn-sm">«</button>
++              <button @click="currentPage = Math.max(1, currentPage - 1)" :disabled="currentPage === 1" class="join-item btn btn-sm">‹</button>
++              <button class="join-item btn btn-sm">{{ currentPage }} / {{ totalPages }}</button>
++              <button @click="currentPage = Math.min(totalPages, currentPage + 1)" :disabled="currentPage === totalPages" class="join-item btn btn-sm">›</button>
++              <button @click="currentPage = totalPages" :disabled="currentPage === totalPages" class="join-item btn btn-sm">»</button>
++            </div>
++            <div class="form-control">
++              <select v-model.number="pageSize" class="select select-bordered select-sm">
++                <option :value="25">25 / page</option>
++                <option :value="50">50 / page</option>
++                <option :value="100">100 / page</option>
++              </select>
+             </div>
+           </div>
+         </div>
+       </div>
++    </div>
+ 
+-      <!-- Pagination -->
+-      <div v-if="filteredTools.length > itemsPerPage" class="flex justify-center mt-8">
+-        <div class="btn-group">
+-          <button
+-            :class="['btn', currentPage === 1 ? 'btn-disabled' : '']"
+-            @click="currentPage = Math.max(1, currentPage - 1)"
+-          >
+-            Previous
+-          </button>
+-          <span class="btn btn-disabled">
+-            Page {{ currentPage }} of {{ totalPages }}
+-          </span>
+-          <button
+-            :class="['btn', currentPage === totalPages ? 'btn-disabled' : '']"
+-            @click="currentPage = Math.min(totalPages, currentPage + 1)"
+-          >
+-            Next
++    <!-- Tool Detail Modal -->
++    <div v-if="selectedTool" class="modal modal-open" @click.self="selectedTool = null">
++      <div class="modal-box max-w-3xl">
++        <div class="flex justify-between items-start mb-4">
++          <div>
++            <h3 class="font-bold text-lg">
++              <code class="text-base bg-base-200 px-2 py-1 rounded">{{ selectedTool.name }}</code>
++            </h3>
++            <div class="flex items-center gap-2 mt-2">
++              <router-link :to="`/servers/${selectedTool.server_name}`" class="link link-primary text-sm">
++                {{ selectedTool.server_name }}
++              </router-link>
++              <span class="badge badge-sm" :class="getRiskBadgeClass(selectedTool)">{{ getRiskLabel(selectedTool) }}</span>
++              <span v-if="selectedTool.config_denied" class="badge badge-sm badge-error">config-denied</span>
++              <span v-else-if="selectedTool.disabled" class="badge badge-sm badge-warning">disabled</span>
++              <span v-else class="badge badge-sm badge-success">enabled</span>
++            </div>
++          </div>
++          <button class="btn btn-sm btn-circle btn-ghost" @click="selectedTool = null">
++            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
++            </svg>
+           </button>
+         </div>
+-      </div>
+-    </div>
+-
+-    <!-- Tool Details Modal -->
+-    <div v-if="selectedTool" class="modal modal-open">
+-      <div class="modal-box max-w-4xl">
+-        <h3 class="font-bold text-lg mb-4">{{ selectedTool.name }}</h3>
+ 
+         <div class="space-y-4">
+-          <div>
+-            <label class="block text-sm font-medium mb-1">Server</label>
+-            <div class="badge badge-secondary">{{ selectedTool.server }}</div>
++          <div v-if="selectedTool.description">
++            <h4 class="text-sm font-semibold mb-1 text-base-content/70">Description</h4>
++            <p class="text-sm">{{ selectedTool.description }}</p>
+           </div>
+ 
+-          <div>
+-            <label class="block text-sm font-medium mb-1">Description</label>
+-            <p class="text-sm">{{ selectedTool.description || 'No description available' }}</p>
++          <div class="flex gap-6 text-sm">
++            <div>
++              <span class="text-base-content/60">Usage (30d):</span>
++              <span class="ml-1 font-medium">{{ selectedTool.usage || 0 }}</span>
++            </div>
++            <div v-if="selectedTool.last_used">
++              <span class="text-base-content/60">Last used:</span>
++              <span class="ml-1">{{ formatRelativeTime(selectedTool.last_used) }}</span>
++            </div>
++            <div v-if="selectedTool.approval_status">
++              <span class="text-base-content/60">Approval:</span>
++              <span class="badge badge-sm ml-1" :class="getApprovalBadgeClass(selectedTool.approval_status)">
++                {{ selectedTool.approval_status }}
++              </span>
++            </div>
++          </div>
++
++          <div v-if="selectedTool.annotations && Object.keys(selectedTool.annotations).length > 0">
++            <h4 class="text-sm font-semibold mb-1 text-base-content/70">Annotations</h4>
++            <div class="flex flex-wrap gap-2">
++              <span v-if="selectedTool.annotations.readOnlyHint" class="badge badge-sm badge-info">readOnly</span>
++              <span v-if="selectedTool.annotations.destructiveHint" class="badge badge-sm badge-error">destructive</span>
++              <span v-if="selectedTool.annotations.idempotentHint" class="badge badge-sm badge-ghost">idempotent</span>
++              <span v-if="selectedTool.annotations.openWorldHint" class="badge badge-sm badge-ghost">openWorld</span>
++            </div>
+           </div>
+ 
+-          <div v-if="selectedTool.input_schema">
+-            <label class="block text-sm font-medium mb-1">Input Schema</label>
+-            <div class="mockup-code">
+-              <pre><code>{{ JSON.stringify(selectedTool.input_schema, null, 2) }}</code></pre>
++          <div v-if="selectedToolSchema">
++            <h4 class="text-sm font-semibold mb-1 flex items-center gap-2 text-base-content/70">
++              Input Schema
++              <span class="badge badge-sm badge-ghost">JSON</span>
++            </h4>
++            <div class="mockup-code max-h-64 overflow-y-auto">
++              <pre class="text-xs"><code>{{ JSON.stringify(selectedToolSchema, null, 2) }}</code></pre>
+             </div>
+           </div>
+         </div>
+ 
+         <div class="modal-action">
+-          <button class="btn" @click="selectedTool = null">Close</button>
++          <button class="btn btn-sm" @click="selectedTool = null">Close</button>
+         </div>
+       </div>
+     </div>
+ 
+-    <!-- Hints Panel (Bottom of Page) -->
++    <!-- Hints Panel -->
+     <CollapsibleHintsPanel :hints="toolsHints" />
+   </div>
+ </template>
+ 
+ <script setup lang="ts">
+ import { ref, computed, onMounted, watch } from 'vue'
+-import { useServersStore } from '@/stores/servers'
+-import { useSystemStore } from '@/stores/system'
+ import CollapsibleHintsPanel from '@/components/CollapsibleHintsPanel.vue'
+ import type { Hint } from '@/components/CollapsibleHintsPanel.vue'
+-import type { Tool } from '@/types'
++import type { GlobalTool, GlobalToolsStats } from '@/types/api'
+ import api from '@/services/api'
+ 
+-const serversStore = useServersStore()
+-const systemStore = useSystemStore()
+-
+-// State
+-const allTools = ref<Tool[]>([])
++// ---- State ----
++const allTools = ref<GlobalTool[]>([])
++const stats = ref<GlobalToolsStats | null>(null)
++const partial = ref(false)
++const failedServers = ref<string[]>([])
+ const loading = ref(false)
+ const error = ref<string | null>(null)
++const selectedTool = ref<GlobalTool | null>(null)
++
++// ---- Filters ----
+ const searchQuery = ref('')
+-const selectedServer = ref('')
+-const viewMode = ref<'grid' | 'list'>('grid')
+-const selectedTool = ref<Tool | null>(null)
++const filterServer = ref('')
++const filterStatus = ref('')
++const filterRisk = ref('')
++const filterApproval = ref('')
++
++// Debounce search
++let searchTimer: ReturnType<typeof setTimeout> | null = null
++watch(searchQuery, () => {
++  if (searchTimer) clearTimeout(searchTimer)
++  searchTimer = setTimeout(() => { currentPage.value = 1 }, 300)
++})
++
++// ---- Sort ----
++type SortCol = 'name' | 'server_name' | 'risk' | 'approval_status' | 'enabled' | 'usage' | 'last_used'
++const sortColumn = ref<SortCol>('name')
++const sortDirection = ref<'asc' | 'desc'>('asc')
++
++function sortBy(col: SortCol) {
++  if (sortColumn.value === col) {
++    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
++  } else {
++    sortColumn.value = col
++    sortDirection.value = col === 'usage' || col === 'last_used' ? 'desc' : 'asc'
++  }
++}
++
++function getSortIndicator(col: SortCol): string {
++  if (sortColumn.value !== col) return ''
++  return sortDirection.value === 'asc' ? '↑' : '↓'
++}
++
++// ---- Pagination ----
+ const currentPage = ref(1)
+-const itemsPerPage = ref(12)
++const pageSize = ref(25)
++
++// ---- Selection ----
++const selectedKeys = ref(new Set<string>())
++
++function toolKey(tool: GlobalTool): string {
++  return `${tool.server_name}\x00${tool.name}`
++}
++
++const allPageSelected = computed(() =>
++  paginatedTools.value.length > 0 && paginatedTools.value.every(t => selectedKeys.value.has(toolKey(t)))
++)
++
++const somePageSelected = computed(() =>
++  paginatedTools.value.some(t => selectedKeys.value.has(toolKey(t)))
++)
++
++function toggleSelectAll() {
++  if (allPageSelected.value) {
++    paginatedTools.value.forEach(t => selectedKeys.value.delete(toolKey(t)))
++  } else {
++    paginatedTools.value.forEach(t => selectedKeys.value.add(toolKey(t)))
++  }
++}
+ 
+-// Computed
+-const totalTools = computed(() => allTools.value.length)
+-const connectedServers = computed(() => serversStore.serverCount.connected)
++function toggleSelect(tool: GlobalTool) {
++  const k = toolKey(tool)
++  if (selectedKeys.value.has(k)) {
++    selectedKeys.value.delete(k)
++  } else {
++    selectedKeys.value.add(k)
++  }
++}
++
++// ---- Batch actions ----
++const batchLoading = ref(false)
++const batchResult = ref<{ succeeded: number; failed: number; failedTools: string[] } | null>(null)
++
++async function batchEnable(enabled: boolean) {
++  if (batchLoading.value || selectedKeys.value.size === 0) return
++  batchLoading.value = true
++  batchResult.value = null
++
++  const targets = allTools.value.filter(t => selectedKeys.value.has(toolKey(t)))
++  let succeeded = 0
++  let failed = 0
++  const failedTools: string[] = []
++
++  for (const tool of targets) {
++    try {
++      const resp = await api.setToolEnabled(tool.server_name, tool.name, enabled)
++      if (resp.success) {
++        succeeded++
++        // Update local state immediately so row reflects change
++        tool.disabled = !enabled
++      } else {
++        failed++
++        failedTools.push(`${tool.server_name}:${tool.name} (${resp.error || 'failed'})`)
++      }
++    } catch (err) {
++      failed++
++      failedTools.push(`${tool.server_name}:${tool.name}`)
++    }
++  }
++
++  batchResult.value = { succeeded, failed, failedTools }
++  selectedKeys.value.clear()
++  batchLoading.value = false
++
++  // Refresh to get authoritative server state
++  await loadTools()
++}
+ 
++// ---- Computed: available filter options ----
+ const availableServers = computed(() => {
+-  const servers = new Set(allTools.value.map(tool => tool.server))
+-  return Array.from(servers).sort()
++  const s = new Set<string>()
++  allTools.value.forEach(t => s.add(t.server_name))
++  return Array.from(s).sort()
+ })
+ 
++const hasActiveFilters = computed(() =>
++  !!searchQuery.value || !!filterServer.value || !!filterStatus.value || !!filterRisk.value || !!filterApproval.value
++)
++
++// ---- Computed: risk derivation ----
++function getRisk(tool: GlobalTool): 'read' | 'write' | 'destructive' {
++  if (tool.annotations?.destructiveHint) return 'destructive'
++  if (tool.annotations?.readOnlyHint) return 'read'
++  return 'write'
++}
++
++function getRiskLabel(tool: GlobalTool): string {
++  return getRisk(tool)
++}
++
++function getRiskBadgeClass(tool: GlobalTool): string {
++  const r = getRisk(tool)
++  if (r === 'destructive') return 'badge-error'
++  if (r === 'read') return 'badge-success'
++  return 'badge-warning'
++}
++
++function getApprovalBadgeClass(status: string): string {
++  if (status === 'approved') return 'badge-success'
++  if (status === 'pending') return 'badge-warning'
++  if (status === 'changed') return 'badge-error'
++  return 'badge-ghost'
++}
++
++// ---- Computed: filtering ----
+ const filteredTools = computed(() => {
+   let tools = allTools.value
+ 
+-  // Filter by server
+-  if (selectedServer.value) {
+-    tools = tools.filter(tool => tool.server === selectedServer.value)
+-  }
+-
+-  // Filter by search query
+   if (searchQuery.value) {
+-    const query = searchQuery.value.toLowerCase()
+-    tools = tools.filter(tool =>
+-      tool.name.toLowerCase().includes(query) ||
+-      tool.description?.toLowerCase().includes(query) ||
+-      tool.server.toLowerCase().includes(query)
++    const q = searchQuery.value.toLowerCase()
++    tools = tools.filter(t =>
++      t.name.toLowerCase().includes(q) ||
++      (t.description || '').toLowerCase().includes(q) ||
++      t.server_name.toLowerCase().includes(q)
+     )
+   }
+ 
++  if (filterServer.value) {
++    tools = tools.filter(t => t.server_name === filterServer.value)
++  }
++
++  if (filterStatus.value === 'enabled') {
++    tools = tools.filter(t => !t.disabled && !t.config_denied)
++  } else if (filterStatus.value === 'disabled') {
++    tools = tools.filter(t => t.disabled && !t.config_denied)
++  } else if (filterStatus.value === 'config_denied') {
++    tools = tools.filter(t => t.config_denied)
++  }
++
++  if (filterRisk.value) {
++    tools = tools.filter(t => getRisk(t) === filterRisk.value)
++  }
++
++  if (filterApproval.value) {
++    tools = tools.filter(t => t.approval_status === filterApproval.value)
++  }
++
+   return tools
+ })
+ 
+-const paginatedTools = computed(() => {
+-  const start = (currentPage.value - 1) * itemsPerPage.value
+-  return filteredTools.value.slice(start, start + itemsPerPage.value)
++// ---- Computed: sorting ----
++const sortedTools = computed(() => {
++  const list = [...filteredTools.value]
++  const col = sortColumn.value
++  const dir = sortDirection.value
++
++  list.sort((a, b) => {
++    let av: string | number
++    let bv: string | number
++
++    switch (col) {
++      case 'name':
++        av = a.name; bv = b.name; break
++      case 'server_name':
++        av = a.server_name; bv = b.server_name; break
++      case 'risk':
++        av = getRisk(a); bv = getRisk(b); break
++      case 'approval_status':
++        av = a.approval_status || ''; bv = b.approval_status || ''; break
++      case 'enabled': {
++        // sort: enabled first in asc
++        const ae = (!a.disabled && !a.config_denied) ? 1 : 0
++        const be = (!b.disabled && !b.config_denied) ? 1 : 0
++        av = ae; bv = be; break
++      }
++      case 'usage':
++        av = a.usage || 0; bv = b.usage || 0; break
++      case 'last_used':
++        av = a.last_used ? new Date(a.last_used).getTime() : 0
++        bv = b.last_used ? new Date(b.last_used).getTime() : 0
++        break
++      default:
++        av = ''; bv = ''
++    }
++
++    if (typeof av === 'number' && typeof bv === 'number') {
++      return dir === 'asc' ? av - bv : bv - av
++    }
++    const as = String(av); const bs = String(bv)
++    return dir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as)
++  })
++
++  return list
+ })
+ 
+-const totalPages = computed(() => Math.ceil(filteredTools.value.length / itemsPerPage.value))
++// ---- Computed: pagination ----
++const totalPages = computed(() => Math.ceil(sortedTools.value.length / pageSize.value))
+ 
+-// Debounced search
+-let searchTimeout: number | null = null
+-const debouncedSearch = () => {
+-  if (searchTimeout) {
+-    clearTimeout(searchTimeout)
+-  }
+-  searchTimeout = setTimeout(() => {
+-    currentPage.value = 1 // Reset to first page on search
+-  }, 300)
+-}
++const paginatedTools = computed(() => {
++  const start = (currentPage.value - 1) * pageSize.value
++  return sortedTools.value.slice(start, start + pageSize.value)
++})
+ 
+-// Methods
++// ---- Computed: modal schema ----
++const selectedToolSchema = computed(() => {
++  if (!selectedTool.value) return null
++  const t = selectedTool.value as any
++  return t.input_schema || t.schema || null
++})
++
++// ---- Methods ----
+ async function loadTools() {
+   loading.value = true
+   error.value = null
+-  allTools.value = []
+ 
+   try {
+-    // Load servers first
+-    await serversStore.fetchServers()
+-
+-    // Get tools from all connected servers
+-    const connectedServersList = serversStore.servers.filter(s => s.connected && s.enabled)
+-
+-    for (const server of connectedServersList) {
+-      try {
+-        const response = await api.getServerTools(server.name)
+-        if (response.success && response.data) {
+-          const serverTools = response.data.tools.map(tool => ({
+-            ...tool,
+-            server: server.name
+-          }))
+-          allTools.value.push(...serverTools)
+-        }
+-      } catch (err) {
+-        console.warn(`Failed to load tools from server ${server.name}:`, err)
+-      }
++    const resp = await api.getGlobalTools()
++    if (resp.success && resp.data) {
++      allTools.value = resp.data.tools || []
++      stats.value = resp.data.stats
++      partial.value = resp.data.partial || false
++      failedServers.value = resp.data.failed_servers || []
++    } else {
++      error.value = resp.error || 'Failed to load tools'
+     }
+   } catch (err) {
+-    error.value = err instanceof Error ? err.message : 'Failed to load tools'
++    error.value = err instanceof Error ? err.message : 'Unknown error'
+   } finally {
+     loading.value = false
+   }
+ }
+ 
+-function viewToolDetails(tool: Tool) {
++function openDetail(tool: GlobalTool) {
+   selectedTool.value = tool
+ }
+ 
+-function clearSearch() {
++function clearFilters() {
+   searchQuery.value = ''
++  filterServer.value = ''
++  filterStatus.value = ''
++  filterRisk.value = ''
++  filterApproval.value = ''
+   currentPage.value = 1
+ }
+ 
+-// Watch for server changes and reload tools
+-watch(() => serversStore.serverCount.connected, () => {
+-  if (serversStore.serverCount.connected > 0) {
+-    loadTools()
+-  }
+-})
++function formatRelativeTime(ts: string): string {
++  const diff = Date.now() - new Date(ts).getTime()
++  if (diff < 60_000) return 'just now'
++  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
++  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
++  if (diff < 30 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`
++  return new Date(ts).toLocaleDateString()
++}
+ 
+-// Watch for search/filter changes to reset pagination
+-watch([searchQuery, selectedServer], () => {
++// Reset page when filters/sort change
++watch([filterServer, filterStatus, filterRisk, filterApproval, sortColumn, sortDirection], () => {
+   currentPage.value = 1
+ })
+ 
+-// Tools page hints
+-const toolsHints = computed<Hint[]>(() => {
+-  return [
+-    {
+-      icon: '🔍',
+-      title: 'Browse All Tools',
+-      description: 'Explore tools from all connected MCP servers',
+-      sections: [
+-        {
+-          title: 'Filtering and search',
+-          list: [
+-            'Search by tool name or description',
+-            'Filter by specific server',
+-            'Switch between grid and list view',
+-            'View detailed tool schemas'
+-          ]
+-        },
+-        {
+-          title: 'List tools via CLI',
+-          codeBlock: {
+-            language: 'bash',
+-            code: `# List all tools\nmcpproxy tools list\n\n# List tools from specific server\nmcpproxy tools list --server=server-name`
+-          }
+-        }
+-      ]
+-    },
+-    {
+-      icon: '🛠️',
+-      title: 'Using Tools',
+-      description: 'Execute tools from the command line or via API',
+-      sections: [
+-        {
+-          title: 'Call a tool',
+-          codeBlock: {
+-            language: 'bash',
+-            code: `# Execute a tool with arguments\nmcpproxy call tool --tool-name=server:tool-name \\\n  --json_args='{"arg1":"value1","arg2":"value2"}'`
+-          }
+-        },
+-        {
+-          title: 'Get tool schema',
+-          text: 'View input schema to understand required arguments:',
+-          codeBlock: {
+-            language: 'bash',
+-            code: `# Get tool details and schema\nmcpproxy tools list --server=server-name | jq '.tools[] | select(.name=="tool-name")'`
+-          }
+-        }
+-      ]
+-    },
+-    {
+-      icon: '🤖',
+-      title: 'LLM Integration',
+-      description: 'Let AI agents discover and use tools',
+-      sections: [
+-        {
+-          title: 'Example prompts',
+-          list: [
+-            'Search for all file-related tools and use them to read my project',
+-            'Find tools for GitHub integration and create an issue',
+-            'Discover what tools are available and explain what they do',
+-            'Use the best tool to perform [specific task]'
+-          ]
++// Also reset when pageSize changes
++watch(pageSize, () => { currentPage.value = 1 })
++
++// ---- Hints ----
++const toolsHints = computed<Hint[]>(() => [
++  {
++    icon: '🔍',
++    title: 'Global Tools Overview',
++    description: 'See every tool across all configured MCP servers in one place',
++    sections: [
++      {
++        title: 'Audit and cleanup',
++        list: [
++          'Search by tool name, description, or server',
++          'Filter by status, risk level, or approval state',
++          'Sort any column to find stale or unused tools',
++          'Select multiple tools for batch enable/disable',
++        ],
++      },
++      {
++        title: 'List all tools via CLI',
++        codeBlock: {
++          language: 'bash',
++          code: '# List all tools across all servers\nmcpproxy tools list\n\n# Filter by status\nmcpproxy tools list --status disabled\n\n# Disable tools in bulk\nmcpproxy tools disable server1:tool_a server2:tool_b',
+         },
+-        {
+-          title: 'How MCPProxy helps LLMs',
+-          text: 'MCPProxy uses BM25 search to find the most relevant tools based on natural language queries, massively reducing tokens sent to the LLM.'
+-        }
+-      ]
+-    }
+-  ]
+-})
++      },
++    ],
++  },
++])
+ 
+-// Load tools on mount
++// ---- Lifecycle ----
+ onMounted(() => {
+   loadTools()
+ })
+ </script>
+-
+-<style scoped>
+-.line-clamp-3 {
+-  display: -webkit-box;
+-  -webkit-line-clamp: 3;
+-  -webkit-box-orient: vertical;
+-  overflow: hidden;
+-}
+-</style>
+\ No newline at end of file
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/cliclient/client.go
+STATUS: modified
+ADDITIONS: 46
+DELETIONS: 0
+
+PATCH:
+@@ -899,6 +899,52 @@ func (c *Client) DisableAll(ctx context.Context) (*BulkOperationResult, error) {
+ 	return apiResp.Data, nil
+ }
+ 
++// GetGlobalTools retrieves all tools across every configured server from the
++// consolidated GET /api/v1/tools endpoint (Spec 050). The returned slice
++// contains one map per tool with the same fields as the web page's data source.
++func (c *Client) GetGlobalTools(ctx context.Context) ([]map[string]interface{}, error) {
++	url := c.baseURL + "/api/v1/tools"
++	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
++	if err != nil {
++		return nil, fmt.Errorf("failed to create request: %w", err)
++	}
++	c.prepareRequest(ctx, req)
++
++	resp, err := c.httpClient.Do(req)
++	if err != nil {
++		return nil, fmt.Errorf("failed to call global tools API: %w", err)
++	}
++	defer resp.Body.Close()
++
++	bodyBytes, err := io.ReadAll(resp.Body)
++	if err != nil {
++		return nil, fmt.Errorf("failed to read response: %w", err)
++	}
++
++	if resp.StatusCode != http.StatusOK {
++		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(bodyBytes))
++	}
++
++	var apiResp struct {
++		Success bool `json:"success"`
++		Data    struct {
++			Tools []map[string]interface{} `json:"tools"`
++		} `json:"data"`
++		Error     string `json:"error"`
++		RequestID string `json:"request_id"`
++	}
++
++	if err := json.Unmarshal(bodyBytes, &apiResp); err != nil {
++		return nil, fmt.Errorf("failed to parse response: %w", err)
++	}
++
++	if !apiResp.Success {
++		return nil, parseAPIError(apiResp.Error, apiResp.RequestID)
++	}
++
++	return apiResp.Data.Tools, nil
++}
++
+ // GetServerTools retrieves tools for a specific server from daemon.
+ func (c *Client) GetServerTools(ctx context.Context, serverName string) ([]map[string]interface{}, error) {
+ 	url := fmt.Sprintf("%s/api/v1/servers/%s/tools", c.baseURL, serverName)
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/contracts/types.go
+STATUS: modified
+ADDITIONS: 22
+DELETIONS: 0
+
+PATCH:
+@@ -333,6 +333,28 @@ type GetServerToolsResponse struct {
+ 	Count      int    `json:"count"`
+ }
+ 
++// GlobalToolsStats is the aggregate rollup shown on the global tools page
++// (spec 050). Disabled counts a tool that is user-disabled OR config-denied;
++// Enabled = Total - Disabled; PendingApproval counts pending/changed approval.
++type GlobalToolsStats struct {
++	Total           int `json:"total"`
++	Enabled         int `json:"enabled"`
++	Disabled        int `json:"disabled"`
++	PendingApproval int `json:"pending_approval"`
++}
++
++// GlobalToolsResponse is the response for GET /api/v1/tools — every tool from
++// every configured server (including disabled servers and disabled/
++// config-denied tools), enriched with approval state and usage. Partial is set
++// when one or more servers could not be read; the list still contains every
++// tool that could be gathered.
++type GlobalToolsResponse struct {
++	Tools         []Tool           `json:"tools"`
++	Stats         GlobalToolsStats `json:"stats"`
++	Partial       bool             `json:"partial,omitempty"`
++	FailedServers []string         `json:"failed_servers,omitempty"`
++}
++
+ // SearchToolsResponse is the response for GET /api/v1/index/search
+ type SearchToolsResponse struct {
+ 	Query   string         `json:"query"`
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/httpapi/contracts_test.go
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -258,6 +258,9 @@ func (m *MockServerController) ListActivities(_ storage.ActivityFilter) ([]*stor
+ func (m *MockServerController) GetActivity(_ string) (*storage.ActivityRecord, error) {
+ 	return nil, nil
+ }
++func (m *MockServerController) AggregateToolUsage(_ time.Time) (map[string]storage.ToolUsageStat, error) {
++	return map[string]storage.ToolUsageStat{}, nil
++}
+ func (m *MockServerController) StreamActivities(_ storage.ActivityFilter) <-chan *storage.ActivityRecord {
+ 	ch := make(chan *storage.ActivityRecord)
+ 	close(ch)
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/httpapi/security_test.go
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -7,6 +7,7 @@ import (
+ 	"net/http"
+ 	"net/http/httptest"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/config"
+ 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/contracts"
+@@ -324,6 +325,9 @@ func (m *baseController) ListActivities(_ storage.ActivityFilter) ([]*storage.Ac
+ func (m *baseController) GetActivity(_ string) (*storage.ActivityRecord, error) {
+ 	return nil, nil
+ }
++func (m *baseController) AggregateToolUsage(_ time.Time) (map[string]storage.ToolUsageStat, error) {
++	return map[string]storage.ToolUsageStat{}, nil
++}
+ func (m *baseController) StreamActivities(_ storage.ActivityFilter) <-chan *storage.ActivityRecord {
+ 	ch := make(chan *storage.ActivityRecord)
+ 	close(ch)
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/httpapi/server.go
+STATUS: modified
+ADDITIONS: 106
+DELETIONS: 18
+
+PATCH:
+@@ -124,6 +124,9 @@ type ServerController interface {
+ 	ListActivities(filter storage.ActivityFilter) ([]*storage.ActivityRecord, int, error)
+ 	GetActivity(id string) (*storage.ActivityRecord, error)
+ 	StreamActivities(filter storage.ActivityFilter) <-chan *storage.ActivityRecord
++	// AggregateToolUsage rolls up tool_call activity per (server,tool) since the
++	// given time. Backs the global tools page usage columns (spec 050).
++	AggregateToolUsage(since time.Time) (map[string]storage.ToolUsageStat, error)
+ 
+ 	// Tool-level quarantine (Spec 032)
+ 	ListToolApprovals(serverName string) ([]*storage.ToolApprovalRecord, error)
+@@ -563,6 +566,9 @@ func (s *Server) setupRoutes() {
+ 		// Search
+ 		r.Get("/index/search", s.handleSearchTools)
+ 
++		// Global tools overview — every tool across all servers (spec 050, issue #437)
++		r.Get("/tools", s.handleGetGlobalTools)
++
+ 		// Docker recovery status
+ 		r.Get("/docker/status", s.handleGetDockerStatus)
+ 
+@@ -2427,23 +2433,40 @@ func (s *Server) handleGetServerTools(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 
+-	// Convert to typed tools
+-	typedTools := contracts.ConvertGenericToolsToTyped(tools)
++	// Convert + enrich (shared with the global tools endpoint, spec 050).
++	typedTools := s.enrichServerTools(serverID, tools)
+ 
+-	// Enrich with approval status + per-tool disabled state from storage.
+-	// Using GetToolApproval (instead of GetToolApprovalStatus) lets us
+-	// surface the disabled flag without a second lookup. Missing records
+-	// are normal — they just mean the tool has never been quarantined or
+-	// explicitly toggled.
+-	enrichedCount := 0
+-	var firstErr error
++	// Sort: pending/changed tools first, then approved
++	sort.SliceStable(typedTools, func(i, j int) bool {
++		return toolApprovalPriority(typedTools[i].ApprovalStatus) < toolApprovalPriority(typedTools[j].ApprovalStatus)
++	})
++
++	response := contracts.GetServerToolsResponse{
++		ServerName: serverID,
++		Tools:      typedTools,
++		Count:      len(typedTools),
++	}
++
++	s.writeSuccess(w, response)
++}
++
++// enrichServerTools converts generic upstream tools to typed tools and enriches
++// each with approval status, per-tool disabled state, and config-denied state.
++// Shared by the per-server tools endpoint and the global tools endpoint
++// (spec 050). ServerName is forced to serverID so the global merge can attribute
++// every tool to its server even if the upstream payload omits server_name.
++func (s *Server) enrichServerTools(serverID string, tools []map[string]interface{}) []contracts.Tool {
++	typedTools := contracts.ConvertGenericToolsToTyped(tools)
+ 
+ 	type configDeniedChecker interface {
+ 		IsToolConfigDenied(serverName, toolName string) bool
+ 	}
+ 	configChecker, hasConfigChecker := s.controller.(configDeniedChecker)
+ 
++	enrichedCount := 0
++	var firstErr error
+ 	for i := range typedTools {
++		typedTools[i].ServerName = serverID
+ 		record, err := s.controller.GetToolApproval(serverID, typedTools[i].Name)
+ 		if err == nil && record != nil {
+ 			typedTools[i].ApprovalStatus = record.Status
+@@ -2459,19 +2482,84 @@ func (s *Server) handleGetServerTools(w http.ResponseWriter, r *http.Request) {
+ 	if firstErr != nil {
+ 		s.logger.Debug("Tool approval enrichment partial", "server", serverID, "enriched", enrichedCount, "total", len(typedTools), "error", firstErr)
+ 	}
++	return typedTools
++}
+ 
+-	// Sort: pending/changed tools first, then approved
+-	sort.SliceStable(typedTools, func(i, j int) bool {
+-		return toolApprovalPriority(typedTools[i].ApprovalStatus) < toolApprovalPriority(typedTools[j].ApprovalStatus)
+-	})
++// globalToolsUsageWindow is the fixed look-back window for the usage columns on
++// the global tools page (spec 050). Not user-configurable in v1.
++const globalToolsUsageWindow = 30 * 24 * time.Hour
+ 
+-	response := contracts.GetServerToolsResponse{
+-		ServerName: serverID,
+-		Tools:      typedTools,
+-		Count:      len(typedTools),
++// handleGetGlobalTools godoc
++// @Summary List every tool across all servers
++// @Description Consolidated, read-only listing of all tools from every configured server (including disabled servers and disabled/config-denied tools), enriched with approval state and 30-day usage. Backs the global Tools page and the CLI global `tools list` (spec 050, issue #437).
++// @Tags tools
++// @Produce json
++// @Security ApiKeyAuth
++// @Security ApiKeyQuery
++// @Success 200 {object} contracts.GlobalToolsResponse "All tools across all servers"
++// @Failure 500 {object} contracts.ErrorResponse "Could not enumerate servers"
++// @Router /api/v1/tools [get]
++func (s *Server) handleGetGlobalTools(w http.ResponseWriter, r *http.Request) {
++	allServers, err := s.controller.GetAllServers()
++	if err != nil {
++		s.writeError(w, r, http.StatusInternalServerError, "Failed to enumerate servers")
++		return
+ 	}
+ 
+-	s.writeSuccess(w, response)
++	// Usage rollup is a single bounded pass over the activity log; a failure
++	// here must not fail the whole page — usage columns just stay zero.
++	usage, usageErr := s.controller.AggregateToolUsage(time.Now().Add(-globalToolsUsageWindow))
++	if usageErr != nil {
++		s.logger.Warn("Global tools: usage aggregation failed, continuing without usage", "error", usageErr)
++		usage = map[string]storage.ToolUsageStat{}
++	}
++
++	resp := contracts.GlobalToolsResponse{
++		Tools: make([]contracts.Tool, 0, 256),
++	}
++
++	for _, srv := range allServers {
++		name, _ := srv["name"].(string)
++		if name == "" {
++			continue
++		}
++
++		generic, terr := s.controller.GetServerTools(name)
++		if terr != nil {
++			// Spec edge case: still return every tool we could gather.
++			resp.Partial = true
++			resp.FailedServers = append(resp.FailedServers, name)
++			s.logger.Debug("Global tools: server tools fetch failed", "server", name, "error", terr)
++			continue
++		}
++
++		typed := s.enrichServerTools(name, generic)
++		for i := range typed {
++			if st, ok := usage[name+"\x00"+typed[i].Name]; ok {
++				typed[i].Usage = st.Count
++				if !st.LastUsed.IsZero() {
++					lu := st.LastUsed
++					typed[i].LastUsed = &lu
++				}
++			}
++		}
++		resp.Tools = append(resp.Tools, typed...)
++	}
++
++	for i := range resp.Tools {
++		t := &resp.Tools[i]
++		resp.Stats.Total++
++		if t.Disabled || t.ConfigDenied {
++			resp.Stats.Disabled++
++		} else {
++			resp.Stats.Enabled++
++		}
++		if t.ApprovalStatus == storage.ToolApprovalStatusPending || t.ApprovalStatus == storage.ToolApprovalStatusChanged {
++			resp.Stats.PendingApproval++
++		}
++	}
++
++	s.writeSuccess(w, resp)
+ }
+ 
+ // handleGetServerLogs godoc
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/httpapi/server_global_tools_test.go
+STATUS: added
+ADDITIONS: 168
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,168 @@
++package httpapi
++
++import (
++	"encoding/json"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++	"go.uber.org/zap/zaptest"
++
++	"github.com/smart-mcp-proxy/mcpproxy-go/internal/storage"
++)
++
++// globalToolsController drives the GET /api/v1/tools handler (spec 050).
++type globalToolsController struct {
++	MockServerController
++	allServers   []map[string]interface{}
++	serverTools  map[string][]map[string]interface{}
++	serverErr    map[string]error
++	approvals    map[string]*storage.ToolApprovalRecord // key serverName + "\x00" + toolName
++	configDenied map[string]bool
++	usage        map[string]storage.ToolUsageStat
++	usageErr     error
++}
++
++func (m *globalToolsController) GetAllServers() ([]map[string]interface{}, error) {
++	return m.allServers, nil
++}
++
++func (m *globalToolsController) GetServerTools(serverName string) ([]map[string]interface{}, error) {
++	if err, ok := m.serverErr[serverName]; ok {
++		return nil, err
++	}
++	return m.serverTools[serverName], nil
++}
++
++func (m *globalToolsController) GetToolApproval(serverName, toolName string) (*storage.ToolApprovalRecord, error) {
++	if r, ok := m.approvals[serverName+"\x00"+toolName]; ok {
++		return r, nil
++	}
++	return nil, nil
++}
++
++func (m *globalToolsController) IsToolConfigDenied(serverName, toolName string) bool {
++	return m.configDenied[serverName+"\x00"+toolName]
++}
++
++func (m *globalToolsController) AggregateToolUsage(_ time.Time) (map[string]storage.ToolUsageStat, error) {
++	if m.usageErr != nil {
++		return nil, m.usageErr
++	}
++	return m.usage, nil
++}
++
++func doGlobalTools(t *testing.T, ctrl *globalToolsController) map[string]interface{} {
++	t.Helper()
++	srv := NewServer(ctrl, zaptest.NewLogger(t).Sugar(), nil)
++	req := httptest.NewRequest("GET", "/api/v1/tools", nil)
++	req.Header.Set("X-Request-Source", "socket")
++	w := httptest.NewRecorder()
++	srv.router.ServeHTTP(w, req)
++	require.Equal(t, http.StatusOK, w.Code)
++	var resp map[string]interface{}
++	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
++	data, ok := resp["data"].(map[string]interface{})
++	require.True(t, ok, "expected data object")
++	return data
++}
++
++func TestGlobalTools_MergeEnrichmentStatsUsage(t *testing.T) {
++	lastUsed := time.Now().Add(-2 * time.Hour).UTC()
++	ctrl := &globalToolsController{
++		allServers: []map[string]interface{}{
++			{"name": "github"},
++			{"name": "memory"}, // disabled server — tools must still appear
++		},
++		serverTools: map[string][]map[string]interface{}{
++			"github": {
++				{"name": "create_issue", "description": "Create issue"},
++				{"name": "delete_repo", "description": "Delete repo"},
++			},
++			"memory": {
++				{"name": "store", "description": "Store memory"},
++			},
++		},
++		approvals: map[string]*storage.ToolApprovalRecord{
++			"github\x00create_issue": {Status: storage.ToolApprovalStatusApproved, Disabled: true},
++			"github\x00delete_repo":  {Status: storage.ToolApprovalStatusPending},
++		},
++		configDenied: map[string]bool{"memory\x00store": true},
++		usage: map[string]storage.ToolUsageStat{
++			"github\x00create_issue": {Count: 7, LastUsed: lastUsed},
++		},
++	}
++
++	data := doGlobalTools(t, ctrl)
++
++	tools := data["tools"].([]interface{})
++	assert.Len(t, tools, 3, "all tools from all servers incl. disabled server")
++
++	byName := map[string]map[string]interface{}{}
++	for _, x := range tools {
++		tm := x.(map[string]interface{})
++		byName[tm["name"].(string)] = tm
++	}
++	// disabled-server tool present and attributed
++	require.Contains(t, byName, "store")
++	assert.Equal(t, "memory", byName["store"]["server_name"])
++	assert.Equal(t, true, byName["store"]["config_denied"])
++	// enrichment + usage
++	assert.Equal(t, true, byName["create_issue"]["disabled"])
++	assert.Equal(t, float64(7), byName["create_issue"]["usage"])
++	assert.NotEmpty(t, byName["create_issue"]["last_used"])
++	// never-used tool: usage 0, no last_used
++	assert.Equal(t, float64(0), byName["delete_repo"]["usage"])
++	assert.NotContains(t, byName["delete_repo"], "last_used")
++
++	stats := data["stats"].(map[string]interface{})
++	assert.Equal(t, float64(3), stats["total"])
++	// create_issue (user-disabled) + store (config-denied) => 2 disabled
++	assert.Equal(t, float64(2), stats["disabled"])
++	assert.Equal(t, float64(1), stats["enabled"])
++	assert.Equal(t, float64(1), stats["pending_approval"]) // delete_repo pending
++	assert.NotEqual(t, true, data["partial"])
++}
++
++func TestGlobalTools_PartialServerFailureDoesNotFail(t *testing.T) {
++	ctrl := &globalToolsController{
++		allServers: []map[string]interface{}{
++			{"name": "ok"},
++			{"name": "broken"},
++		},
++		serverTools: map[string][]map[string]interface{}{
++			"ok": {{"name": "ping", "description": "ping"}},
++		},
++		serverErr: map[string]error{"broken": errors.New("connection refused")},
++	}
++
++	data := doGlobalTools(t, ctrl)
++
++	assert.Len(t, data["tools"].([]interface{}), 1)
++	assert.Equal(t, true, data["partial"])
++	failed := data["failed_servers"].([]interface{})
++	assert.Equal(t, []interface{}{"broken"}, failed)
++}
++
++func TestGlobalTools_UsageErrorDegradesGracefully(t *testing.T) {
++	ctrl := &globalToolsController{
++		allServers:  []map[string]interface{}{{"name": "s"}},
++		serverTools: map[string][]map[string]interface{}{"s": {{"name": "t", "description": "d"}}},
++		usageErr:    errors.New("bolt closed"),
++	}
++	data := doGlobalTools(t, ctrl)
++	tools := data["tools"].([]interface{})
++	require.Len(t, tools, 1)
++	assert.Equal(t, float64(0), tools[0].(map[string]interface{})["usage"])
++}
++
++func TestGlobalTools_Empty(t *testing.T) {
++	ctrl := &globalToolsController{allServers: []map[string]interface{}{}}
++	data := doGlobalTools(t, ctrl)
++	assert.Len(t, data["tools"].([]interface{}), 0)
++	assert.Equal(t, float64(0), data["stats"].(map[string]interface{})["total"])
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/runtime/runtime.go
+STATUS: modified
+ADDITIONS: 9
+DELETIONS: 0
+
+PATCH:
+@@ -2464,6 +2464,15 @@ func (r *Runtime) GetActivity(id string) (*storage.ActivityRecord, error) {
+ 	return r.storageManager.GetActivity(id)
+ }
+ 
++// AggregateToolUsage rolls up tool_call activity per (server,tool) since the
++// given time (spec 050). Returns an empty map when storage is unavailable.
++func (r *Runtime) AggregateToolUsage(since time.Time) (map[string]storage.ToolUsageStat, error) {
++	if r.storageManager == nil {
++		return map[string]storage.ToolUsageStat{}, nil
++	}
++	return r.storageManager.AggregateToolUsage(since)
++}
++
+ // StreamActivities returns a channel that yields activity records matching the filter.
+ func (r *Runtime) StreamActivities(filter storage.ActivityFilter) <-chan *storage.ActivityRecord {
+ 	if r.storageManager == nil {
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/server/server.go
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 0
+
+PATCH:
+@@ -2467,6 +2467,12 @@ func (s *Server) StreamActivities(filter storage.ActivityFilter) <-chan *storage
+ 	return s.runtime.StreamActivities(filter)
+ }
+ 
++// AggregateToolUsage rolls up tool_call activity per (server,tool) since the
++// given time (spec 050).
++func (s *Server) AggregateToolUsage(since time.Time) (map[string]storage.ToolUsageStat, error) {
++	return s.runtime.AggregateToolUsage(since)
++}
++
+ // ListToolApprovals returns tool approval records for a server (Spec 032).
+ func (s *Server) ListToolApprovals(serverName string) ([]*storage.ToolApprovalRecord, error) {
+ 	return s.runtime.ListToolApprovals(serverName)
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/storage/activity.go
+STATUS: modified
+ADDITIONS: 64
+DELETIONS: 0
+
+PATCH:
+@@ -227,6 +227,70 @@ func (m *Manager) CountActivities() (int, error) {
+ 	return count, err
+ }
+ 
++// ToolUsageStat is a per-tool rollup of activity over a bounded window.
++// Used by the global tools view (spec 050). A zero LastUsed means the tool
++// was never used within the window.
++type ToolUsageStat struct {
++	Count    int
++	LastUsed time.Time
++}
++
++// toolUsageKey builds the map key for AggregateToolUsage. A NUL separator is
++// used so it cannot collide with ':' or other characters valid in server/tool
++// names.
++func toolUsageKey(serverName, toolName string) string {
++	return serverName + "\x00" + toolName
++}
++
++// AggregateToolUsage performs a single pass over the activity bucket and
++// returns per-(server,tool) call counts and last-used time for tool_call
++// records with Timestamp >= since. Records outside the window and non
++// tool_call records are skipped. An empty/absent bucket yields an empty map
++// (not an error). This is the consolidated usage source for GET /api/v1/tools
++// (spec 050) — read-only, no schema change.
++func (m *Manager) AggregateToolUsage(since time.Time) (map[string]ToolUsageStat, error) {
++	stats := make(map[string]ToolUsageStat)
++
++	err := m.db.db.View(func(tx *bbolt.Tx) error {
++		bucket := tx.Bucket([]byte(ActivityRecordsBucket))
++		if bucket == nil {
++			return nil // no activity yet
++		}
++
++		cursor := bucket.Cursor()
++		for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
++			var record ActivityRecord
++			if err := record.UnmarshalBinary(v); err != nil {
++				m.logger.Warnw("Failed to unmarshal activity record during usage aggregation",
++					"key", string(k), "error", err)
++				continue
++			}
++
++			if record.Type != ActivityTypeToolCall {
++				continue
++			}
++			if record.ToolName == "" {
++				continue
++			}
++			if record.Timestamp.Before(since) {
++				continue
++			}
++
++			key := toolUsageKey(record.ServerName, record.ToolName)
++			st := stats[key]
++			st.Count++
++			if record.Timestamp.After(st.LastUsed) {
++				st.LastUsed = record.Timestamp
++			}
++			stats[key] = st
++		}
++
++		return nil
++	})
++
++	return stats, err
++}
++
+ // StreamActivities returns a channel that yields activity records matching the filter.
+ // The channel is closed when all matching records have been sent.
+ // This is useful for streaming large exports without loading all records into memory.
+
+----------------------------------------------------------------------------------------------------
+FILE: internal/storage/activity_test.go
+STATUS: modified
+ADDITIONS: 95
+DELETIONS: 22
+
+PATCH:
+@@ -73,38 +73,38 @@ func TestActivityRecord_MarshalUnmarshal(t *testing.T) {
+ 
+ func TestActivityFilter_Validate(t *testing.T) {
+ 	tests := []struct {
+-		name     string
+-		filter   ActivityFilter
++		name       string
++		filter     ActivityFilter
+ 		wantLimit  int
+ 		wantOffset int
+ 	}{
+ 		{
+-			name:     "default values",
+-			filter:   ActivityFilter{},
++			name:       "default values",
++			filter:     ActivityFilter{},
+ 			wantLimit:  50,
+ 			wantOffset: 0,
+ 		},
+ 		{
+-			name:     "negative limit becomes default",
+-			filter:   ActivityFilter{Limit: -5},
++			name:       "negative limit becomes default",
++			filter:     ActivityFilter{Limit: -5},
+ 			wantLimit:  50,
+ 			wantOffset: 0,
+ 		},
+ 		{
+-			name:     "limit over 100 capped",
+-			filter:   ActivityFilter{Limit: 200},
++			name:       "limit over 100 capped",
++			filter:     ActivityFilter{Limit: 200},
+ 			wantLimit:  100,
+ 			wantOffset: 0,
+ 		},
+ 		{
+-			name:     "negative offset becomes 0",
+-			filter:   ActivityFilter{Limit: 50, Offset: -10},
++			name:       "negative offset becomes 0",
++			filter:     ActivityFilter{Limit: 50, Offset: -10},
+ 			wantLimit:  50,
+ 			wantOffset: 0,
+ 		},
+ 		{
+-			name:     "valid values unchanged",
+-			filter:   ActivityFilter{Limit: 25, Offset: 10},
++			name:       "valid values unchanged",
++			filter:     ActivityFilter{Limit: 25, Offset: 10},
+ 			wantLimit:  25,
+ 			wantOffset: 10,
+ 		},
+@@ -195,39 +195,39 @@ func TestActivityFilter_Matches(t *testing.T) {
+ 			matches: false,
+ 		},
+ 		{
+-			name:    "time range matches",
+-			filter:  ActivityFilter{
++			name: "time range matches",
++			filter: ActivityFilter{
+ 				StartTime: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+ 				EndTime:   time.Date(2024, 6, 30, 0, 0, 0, 0, time.UTC),
+ 			},
+ 			matches: true,
+ 		},
+ 		{
+-			name:    "before start time",
+-			filter:  ActivityFilter{
++			name: "before start time",
++			filter: ActivityFilter{
+ 				StartTime: time.Date(2024, 6, 20, 0, 0, 0, 0, time.UTC),
+ 			},
+ 			matches: false,
+ 		},
+ 		{
+-			name:    "after end time",
+-			filter:  ActivityFilter{
++			name: "after end time",
++			filter: ActivityFilter{
+ 				EndTime: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+ 			},
+ 			matches: false,
+ 		},
+ 		{
+-			name:    "multiple filters all match",
+-			filter:  ActivityFilter{
++			name: "multiple filters all match",
++			filter: ActivityFilter{
+ 				Types:  []string{"tool_call"},
+ 				Server: "github",
+ 				Status: "success",
+ 			},
+ 			matches: true,
+ 		},
+ 		{
+-			name:    "multiple filters one fails",
+-			filter:  ActivityFilter{
++			name: "multiple filters one fails",
++			filter: ActivityFilter{
+ 				Types:  []string{"tool_call"},
+ 				Server: "gitlab", // does not match
+ 				Status: "success",
+@@ -860,3 +860,76 @@ func TestCalculateMaxSeverity_Storage(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestAggregateToolUsage(t *testing.T) {
++	t.Run("empty bucket returns empty map", func(t *testing.T) {
++		manager, cleanup := setupTestStorageForActivity(t)
++		defer cleanup()
++
++		got, err := manager.AggregateToolUsage(time.Now().Add(-30 * 24 * time.Hour))
++		require.NoError(t, err)
++		assert.Empty(t, got)
++	})
++
++	t.Run("counts per server+tool and tracks last used", func(t *testing.T) {
++		manager, cleanup := setupTestStorageForActivity(t)
++		defer cleanup()
++
++		base := time.Now().UTC().Add(-1 * time.Hour)
++		recs := []*ActivityRecord{
++			{Type: ActivityTypeToolCall, ServerName: "github", ToolName: "create_issue", Status: "success", Timestamp: base},
++			{Type: ActivityTypeToolCall, ServerName: "github", ToolName: "create_issue", Status: "error", Timestamp: base.Add(10 * time.Minute)},
++			{Type: ActivityTypeToolCall, ServerName: "github", ToolName: "list_repos", Status: "success", Timestamp: base.Add(5 * time.Minute)},
++			{Type: ActivityTypeToolCall, ServerName: "memory", ToolName: "create_issue", Status: "success", Timestamp: base.Add(2 * time.Minute)},
++		}
++		for _, r := range recs {
++			require.NoError(t, manager.SaveActivity(r))
++		}
++
++		got, err := manager.AggregateToolUsage(base.Add(-time.Hour))
++		require.NoError(t, err)
++
++		gh := got["github\x00create_issue"]
++		assert.Equal(t, 2, gh.Count)
++		assert.Equal(t, base.Add(10*time.Minute).Unix(), gh.LastUsed.Unix())
++		// Same tool name on a different server must NOT collide.
++		assert.Equal(t, 1, got["memory\x00create_issue"].Count)
++		assert.Equal(t, 1, got["github\x00list_repos"].Count)
++	})
++
++	t.Run("window boundary: at-since included, before-since excluded", func(t *testing.T) {
++		manager, cleanup := setupTestStorageForActivity(t)
++		defer cleanup()
++
++		since := time.Now().UTC().Add(-24 * time.Hour).Truncate(time.Second)
++		require.NoError(t, manager.SaveActivity(&ActivityRecord{
++			Type: ActivityTypeToolCall, ServerName: "s", ToolName: "at", Status: "success", Timestamp: since,
++		}))
++		require.NoError(t, manager.SaveActivity(&ActivityRecord{
++			Type: ActivityTypeToolCall, ServerName: "s", ToolName: "before", Status: "success", Timestamp: since.Add(-time.Second),
++		}))
++
++		got, err := manager.AggregateToolUsage(since)
++		require.NoError(t, err)
++		assert.Equal(t, 1, got["s\x00at"].Count, "record exactly at since must be included")
++		_, ok := got["s\x00before"]
++		assert.False(t, ok, "record before since must be excluded")
++	})
++
++	t.Run("never-used tool absent and non-tool_call ignored", func(t *testing.T) {
++		manager, cleanup := setupTestStorageForActivity(t)
++		defer cleanup()
++
++		require.NoError(t, manager.SaveActivity(&ActivityRecord{
++			Type: ActivityType("oauth_login"), ServerName: "s", ToolName: "ignored", Status: "success",
++			Timestamp: time.Now().UTC(),
++		}))
++
++		got, err := manager.AggregateToolUsage(time.Now().Add(-30 * 24 * time.Hour))
++		require.NoError(t, err)
++		_, ok := got["s\x00ignored"]
++		assert.False(t, ok, "non tool_call records must not be counted")
++		_, ok = got["s\x00nonexistent"]
++		assert.False(t, ok, "never-used tools must be absent from the map")
++	})
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: oas/docs.go
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+FILE: oas/swagger.yaml
+STATUS: modified
+ADDITIONS: 53
+DELETIONS: 0
+
+PATCH:
+@@ -1061,6 +1061,34 @@ components:
+         total:
+           type: integer
+       type: object
++    contracts.GlobalToolsResponse:
++      properties:
++        failed_servers:
++          items:
++            type: string
++          type: array
++          uniqueItems: false
++        partial:
++          type: boolean
++        stats:
++          $ref: '#/components/schemas/contracts.GlobalToolsStats'
++        tools:
++          items:
++            $ref: '#/components/schemas/contracts.Tool'
++          type: array
++          uniqueItems: false
++      type: object
++    contracts.GlobalToolsStats:
++      properties:
++        disabled:
++          type: integer
++        enabled:
++          type: integer
++        pending_approval:
++          type: integer
++        total:
++          type: integer
++      type: object
+     contracts.HealthStatus:
+       description: Unified health status calculated by the backend
+       properties:
+@@ -4685,6 +4713,31 @@ paths:
+       summary: Replay a tool call
+       tags:
+       - tool-calls
++  /api/v1/tools:
++    get:
++      description: 'Consolidated, read-only listing of all tools from every configured
++        server (including disabled servers and disabled/config-denied tools), enriched
++        with approval state and 30-day usage. Backs the global Tools page and the
++        CLI global `tools list` (spec 050, issue #437).'
++      responses:
++        "200":
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/contracts.GlobalToolsResponse'
++          description: All tools across all servers
++        "500":
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/contracts.ErrorResponse'
++          description: Could not enumerate servers
++      security:
++      - ApiKeyAuth: []
++      - ApiKeyQuery: []
++      summary: List every tool across all servers
++      tags:
++      - tools
+   /api/v1/tools/call:
+     post:
+       description: Execute a tool on an upstream MCP server (wrapper around MCP tool
+
+----------------------------------------------------------------------------------------------------
+FILE: scripts/test-api-e2e.sh
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 0
+
+PATCH:
+@@ -605,6 +605,10 @@ test_api "GET /api/v1/servers" "GET" "${API_BASE}/servers" "200" "" \
+ test_api "GET /api/v1/servers/everything/tools" "GET" "${API_BASE}/servers/everything/tools" "200" "" \
+     "jq -e '.success == true and (.data.tools | length) > 0' < '$TEST_RESULTS_FILE' >/dev/null"
+ 
++# Test 2b: Global tools overview (spec 050, issue #437) — consolidated listing + stats
++test_api "GET /api/v1/tools" "GET" "${API_BASE}/tools" "200" "" \
++    "jq -e '.success == true and (.data.tools | type == \"array\") and (.data.tools | length) > 0 and (.data.stats | has(\"total\") and has(\"enabled\") and has(\"disabled\") and has(\"pending_approval\")) and (.data.stats.total == (.data.tools | length))' < '$TEST_RESULTS_FILE' >/dev/null"
++
+ # Test 3: Search tools
+ test_api "GET /api/v1/index/search?q=echo" "GET" "${API_BASE}/index/search?q=echo" "200" "" \
+     "jq -e '.success == true and (.data.results | length) > 0' < '$TEST_RESULTS_FILE' >/dev/null"
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

@@ -1,0 +1,61 @@
+STEP 12 - SPEC CLONE PAIRS AND YIELD GATE
+============================================================
+Variant: norm_text | shingle=5 | MinHash 126 perms, 42x3 bands
+Provisional labels: near = J>=0.5 or C>=0.8 (>= 10 shared); gray >= 0.3
+Oversized LSH buckets skipped: 0
+
+Primary blocks: 40,071 in 2,584 episodes, 325 repos
+Repository families (shared root commits): 324
+Candidate block pairs scored: 5,992
+
+BLOCK PAIRS: LABEL x PROVENANCE
+provenance  cross_repo  same_owner  same_requirement_lineage  shared_ancestry  within_repo_reuse   All
+label                                                                                                 
+exact                0           1                      1405                7                 18  1431
+gray                 8           0                       236                0                157   401
+low               2354          10                       221                2                504  3091
+near                 1           0                       930                0                138  1069
+All               2363          11                      2792                9                817  5992
+
+RQ1 PREVIEW (provisional thresholds, lineage and shared-ancestry pairs excluded)
+  episodes with >=1 duplicated requirement block      : 54 / 2,584 (2.1%)
+  ...duplicated in another repository                 : 4 (0.2%)
+
+EPISODE PAIRS BY EXPOSURE x STRATUM
+stratum       cross_repo  within_repo   All
+exposure                                   
+A                      2           39    41
+gray                   8          133   141
+lineage_only           1          598   599
+low                  931          259  1190
+All                  942         1029  1971
+
+YIELD GATE (A pairs that share a primary language)
+  within_repo: 39 A pairs from 15 repositories [gate NOT MET: >=50 pairs, >=15 units]
+      TypeScript      12 pairs,    7 repos
+      Python           6 pairs,    5 repos
+      Go              23 pairs,    5 repos
+  cross_repo: 2 A pairs from 2 independent components [gate NOT MET: >=50 pairs, >=15 units]
+      TypeScript       2 pairs,    2 repos
+      Python           0 pairs,    0 repos
+      Go               0 pairs,    0 repos
+
+PROVENANCE OF CROSS-REPO A PAIRS
+provenance
+same_owner    1
+cross_repo    1
+
+LARGEST CONTRIBUTORS TO WITHIN-REPO A PAIRS (dominance check)
+repo_i
+codeready-toolchain/claw-operator                    14
+RacyMind/kalkulator-dla-przedsiebiorcy-vue            5
+langoai/lango                                         4
+alkem-io/client-web                                   2
+elastic/terraform-provider-elasticstack               2
+kniwase/WebComPy                                      2
+tencentcloudstack/terraform-provider-tencentcloud     2
+Anantys-oss/koan                                      1
+Badminton-Apps/badman                                 1
+TencentBlueKing/bk-lite                               1
+
+Runtime: 35s

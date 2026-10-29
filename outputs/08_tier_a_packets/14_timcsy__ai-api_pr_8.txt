@@ -1,0 +1,1660 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 14/15
+Repository: timcsy/ai-api
+PR: #8
+Tool: speckit
+Language: Python
+
+First specification commit position: 1
+First implementation commit position: 2
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: 4558a954ccfe9edc6a253edd7fd4f00693d105c2
+
+COMMIT MESSAGE:
+chore(spec): Phase 3b.0 Frontend Scaffold spec/plan/research/contracts/quickstart/tasks
+
+First SPA — React 19 + Vite 6 + TypeScript + TanStack Query + shadcn/ui;
+nginx pod + Helm Ingress path-based routing.
+
+3b is split into 3b.0~3b.7 sub-phases; this is just the scaffold.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+FILE: specs/008-frontend-scaffold/checklists/requirements.md
+STATUS: added
+ADDITIONS: 32
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,32 @@
++# Specification Quality Checklist: 階段 3b.0 — Frontend Scaffold
++
++**Purpose**: Validate specification completeness and quality
++**Created**: 2026-05-23
++**Feature**: [spec.md](../spec.md)
++
++## Content Quality
++- [x] No implementation details beyond agreed stack — framework / build tool / UI library 為前一輪需求對話中已確認的選擇，非 spec 自行決定
++- [x] Focused on user value and business needs
++- [x] Written for non-technical stakeholders
++- [x] All mandatory sections completed
++
++## Requirement Completeness
++- [x] No [NEEDS CLARIFICATION] markers remain
++- [x] Requirements are testable and unambiguous
++- [x] Success criteria are measurable
++- [x] Success criteria are technology-agnostic（除非該 stack 是 user 已選定，例如 `npm run build` 出 static bundle）
++- [x] All acceptance scenarios are defined
++- [x] Edge cases are identified
++- [x] Scope is clearly bounded
++- [x] Dependencies and assumptions identified
++
++## Feature Readiness
++- [x] All functional requirements have clear acceptance criteria
++- [x] User scenarios cover primary flows
++- [x] Feature meets measurable outcomes defined in Success Criteria
++- [x] No surprises — 業務頁面留 3b.1+ 已明列 NON-GOAL
++
++## Notes
++- 5 條 NON-GOAL（業務頁面 / E2E / 多語言 / RWD / 圖表）— 避免本階段邊界蔓延
++- spec 假設 `/auth/logout` 已存在；若沒有，plan 階段補實作（不算新功能）
++- Tailwind v3 vs v4 與 Node 20 vs 22 屬於穩定 vs 最新的選擇 — 寫進 assumptions
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/008-frontend-scaffold/contracts/routing.md
+STATUS: added
+ADDITIONS: 58
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,58 @@
++# Routing Contract — Phase 3b.0
++
++本階段的「契約」是 path-based routing 與 SPA fallback 行為。
++
++## Ingress 規則（生產環境）
++
++| Path 前綴 | 目的地 service | 備註 |
++|---|---|---|
++| `/health` | `ai-api` (backend) | health check |
++| `/auth/` | `ai-api` (backend) | login/logout/OIDC |
++| `/me/` | `ai-api` (backend) | member self-service |
++| `/admin/` | `ai-api` (backend) | admin APIs |
++| `/catalog/` | `ai-api` (backend) | model catalog |
++| `/v1/` | `ai-api` (backend) | proxy chat completions |
++| 其他 `/*` | `ai-api-frontend` (nginx) | SPA |
++
++Ingress controller：ingress-nginx；path type 用 `Prefix`。
++
++## nginx SPA fallback（frontend pod 內）
++
++| Path | 行為 |
++|---|---|
++| `/assets/<hash>.<ext>` | 直接服務 static asset；1 年 cache |
++| `/index.html` | 服務 SPA entry |
++| 其他 | `try_files $uri $uri/ /index.html` — 讓前端 router 接 |
++
++## Vite dev proxy（本機開發）
++
++SPA on `http://localhost:5173`，proxy 後端 prefix 到 `http://localhost:8000`：
++
++```ts
++"/auth": "http://localhost:8000",
++"/me": "http://localhost:8000",
++"/admin": "http://localhost:8000",
++"/catalog": "http://localhost:8000",
++"/v1": "http://localhost:8000",
++"/health": "http://localhost:8000",
++```
++
++## 安全 headers（nginx）
++
++| Header | Value | 理由 |
++|---|---|---|
++| `X-Content-Type-Options` | `nosniff` | 防 MIME sniff |
++| `X-Frame-Options` | `DENY` | 防 clickjacking |
++| `Referrer-Policy` | `strict-origin-when-cross-origin` | 隱私 |
++
++CSP 留 3b.1+ 細化（首版避免阻擋 dev 體驗）。
++
++## Frontend Router Manifest（React Router v7）
++
++| 路徑 | 元件 | 保護 |
++|---|---|---|
++| `/login` | `LoginPage` | 公開 |
++| `/` | `HomePage`（placeholder）| `ProtectedRoute` |
++| `*` | `NotFoundPage` | 公開 |
++
++`/` 是 placeholder；3b.1+ 才掛實際業務頁面。
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/008-frontend-scaffold/plan.md
+STATUS: added
+ADDITIONS: 152
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,152 @@
++# Implementation Plan: 階段 3b.0 — Frontend Scaffold
++
++**Branch**: `008-frontend-scaffold` | **Date**: 2026-05-23 | **Spec**: [spec.md](./spec.md)
++**Input**: Feature specification from `/specs/008-frontend-scaffold/spec.md`
++
++## Summary
++
++引入 monorepo 第二個子專案 `frontend/`（React 19 + Vite 6 + TypeScript），
++獨立 nginx pod 部署，Ingress 路徑路由。本階段只交付骨架 + login/logout，
++**不寫任何業務頁面**。
++
++## Technical Context
++
++**Language/Version**: TypeScript（strict） + Python 3.11+（既有，不變）
++**Primary Dependencies (frontend)**：
++- React 19 + React DOM
++- Vite 6（build tool）
++- TypeScript 5.x
++- React Router v7
++- TanStack Query v5
++- Tailwind v3 + `tailwindcss-animate`
++- shadcn/ui（CLI 安裝；不走 npm 套件）
++- ESLint + Prettier
++- Vitest + React Testing Library + jsdom
++**Primary Dependencies (deploy)**：nginx:1.27-alpine、node:20-alpine
++**Storage**: 無（前端不直接接 DB）
++**Testing**:
++- Vitest unit/integration：auth context、API client、ProtectedRoute、login form
++- Playwright E2E：**defer 到 3b.7**
++- 後端既有 194 tests 不動
++**Target Platform**: 桌面瀏覽器（Chrome/Firefox/Safari latest）；K8s deploy
++**Project Type**: monorepo（既有 Python service + 新前端 SPA）
++**Performance Goals**：
++- `npm run build` ≤ 60s（CI）
++- bundle size ≤ 500KB gzipped（含 React + Router + Query + shadcn 基礎組件）
++**Constraints**：
++- Node 20 LTS（CI matrix + .nvmrc）
++- 與後端共用 ingress host；CORS 在跨 host 時生效
++- nginx image 走既有 Trivy + SBOM gate（Phase 2.6 紀律）
++- Helm Ingress 預設 disabled（向下相容）
++**Scale/Scope**：~15 files (frontend src) + 3 deploy files + 1 CI workflow
++
++## Constitution Check
++
++| 原則 | 對應證據 | 通過？ |
++|---|---|---|
++| I. Test-First | 前端 Vitest 也採 TDD；SC-008 延續；auth context / API client / ProtectedRoute / login form / 404 fallback 五個 unit test 先寫 | ✅ |
++| II. Contract-First | path-based routing 規則寫進 `contracts/routing.md`；UI 沒 API 但有「routes manifest」作為契約 | ✅ |
++| III. 整合測試覆蓋外部依賴 | 前端對後端的整合 = manual dev-server test + 既有後端 contract tests 保證；E2E 留 3b.7 | ✅ |
++| IV. 可觀測性 | 前端 console error 是首要觀測；CI 跑 `npm run build --reportCompressedSize`；不引入額外 telemetry SDK | ✅ |
++| V. YAGNI | 5 條 NON-GOAL；無業務頁面、無 E2E、無 RWD、無 i18n、無圖表 | ✅ |
++
++**符合 experience.md 教訓**：
++- 「mutable tag」→ frontend image 也 pin SHA tag（不用 `:latest`）
++- 「Helm pre-install hook 順序」→ 本階段無 hook，frontend Deployment 可獨立啟動
++- 既有教訓無前端特化項目；本階段是「踩坑提取教訓」的初始累積期
++
++**初次評估通過**。無 Complexity Tracking（新引入 frontend stack 屬於 spec
++明示需求，不算違反原則）。
++
++## Project Structure
++
++### Documentation
++
++```text
++specs/008-frontend-scaffold/
++├── plan.md
++├── research.md
++├── quickstart.md
++├── contracts/
++│   └── routing.md
++├── checklists/
++│   └── requirements.md
++└── tasks.md
++```
++
++### Source Code
++
++```text
++frontend/                            # 新目錄
++├── .nvmrc                           # 20
++├── package.json
++├── package-lock.json
++├── tsconfig.json
++├── tsconfig.node.json
++├── vite.config.ts
++├── tailwind.config.ts
++├── postcss.config.js
++├── eslint.config.js
++├── components.json                  # shadcn config
++├── index.html
++├── public/
++│   └── (空：favicon 之類稍後加)
++└── src/
++    ├── main.tsx                     # entry
++    ├── App.tsx                      # router root
++    ├── index.css                    # tailwind base
++    ├── lib/
++    │   ├── api-client.ts            # fetch wrapper
++    │   └── utils.ts                 # shadcn helper (cn)
++    ├── contexts/
++    │   └── auth.tsx                 # AuthContext + useAuth
++    ├── components/
++    │   ├── protected-route.tsx
++    │   └── ui/                      # shadcn-generated (button, input, label, card, alert)
++    ├── routes/
++    │   ├── login.tsx
++    │   ├── home.tsx                 # placeholder protected
++    │   └── not-found.tsx
++    └── __tests__/
++        ├── api-client.test.ts
++        ├── auth-context.test.tsx
++        ├── protected-route.test.tsx
++        ├── login.test.tsx
++        └── not-found.test.tsx
++
++deploy/docker/
++└── Dockerfile.frontend              # 新；multi-stage
++
++deploy/nginx/
++└── default.conf                     # 新；SPA fallback
++
++deploy/helm/ai-api/
++├── values.yaml                      # 加 frontend + ingress 區段
++└── templates/
++    ├── frontend-deployment.yaml     # 新
++    ├── frontend-service.yaml        # 新
++    └── ingress.yaml                 # 新（預設 disabled）
++
++.github/workflows/
++├── frontend.yml                     # 新：lint + typecheck + build + test
++└── image.yml                        # 既有；加 matrix 同時 build frontend image
++```
++
++**Structure Decision**: monorepo — `frontend/` 與 `src/` 並列；CI 各自獨立
++job。Helm chart 維持單一（管兩個 image + 兩個 Deployment）。
++
++## Complexity Tracking
++
++無待說明的偏離。
++
++## Post-Design Re-check
++
++| 原則 | 重評 |
++|---|---|
++| Test-First | 5 個 Vitest unit test 先於 impl → ✅ |
++| Contract-First | `contracts/routing.md` 是本階段「契約」（Ingress 規則 + nginx fallback 規則） | ✅ |
++| 整合測試覆蓋外部依賴 | 前端與後端整合走 manual dev-server smoke；本階段不寫 Playwright | ✅ |
++| 可觀測性 | bundle size 報告於 CI；無新 audit | ✅ |
++| YAGNI | NON-GOAL 5 條已防擴張 → ✅ |
++
++通過，可進入 `/speckit.tasks`。
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/008-frontend-scaffold/quickstart.md
+STATUS: added
+ADDITIONS: 105
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,105 @@
++# Quickstart: 階段 3b.0 — Frontend Scaffold
++
++## 0. 先決條件
++
++- Node 20 LTS（用 `nvm use` 或 `fnm`）
++- 後端 dev server 在 `localhost:8000` 跑著
++- `.env` 設 `CORS_ORIGINS=["http://localhost:5173"]`（可選；vite proxy 已避開
++  CORS）
++
++## 1. 本機跑前端（US1）
++
++```bash
++cd frontend
++nvm use  # 讀 .nvmrc 切到 Node 20
++npm install
++npm run dev
++# 啟動於 http://localhost:5173
++```
++
++## 2. 本機建一個 local member 並登入（手動）
++
++```bash
++# Terminal A: backend
++uv run uvicorn ai_api.main:app --port 8000
++
++# Terminal B: 建 admin token + 建 member
++export ADMIN=local-dev-admin-only
++curl -X POST http://localhost:8000/admin/members \
++  -H "X-Admin-Token: $ADMIN" -H 'Content-Type: application/json' \
++  -d '{"email":"alice@x.com","provider":"local_password","initial_password":"VerySafePass123","send_invitation":false}'
++
++# Terminal C: 瀏覽器訪 http://localhost:5173
++# → 應該被導向 /login
++# → 填 alice@x.com + VerySafePass123
++# → 登入後看到「Hello, alice@x.com」+ Logout 按鈕
++```
++
++## 3. CI gates（自動跑）
++
++```bash
++cd frontend
++npm run lint       # eslint
++npm run typecheck  # tsc --noEmit
++npm run build      # vite build
++npm test -- --run  # vitest unit tests（5+ 個）
++```
++
++預期：4 個指令全綠。
++
++## 4. nginx image build（手動驗證）
++
++```bash
++# 從 repo root
++docker build -f deploy/docker/Dockerfile.frontend -t ai-api-frontend:dev .
++docker run --rm -p 8080:80 ai-api-frontend:dev
++# 訪 http://localhost:8080 → 看到 SPA login 頁
++```
++
++## 5. Helm template 驗證
++
++```bash
++# Ingress disabled 是預設；既有 install 不壞
++helm template deploy/helm/ai-api/ \
++  --set image.repository=ghcr.io/timcsy/ai-api \
++  --set image.tag=sha-deadbeef \
++  --set frontend.image.repository=ghcr.io/timcsy/ai-api-frontend \
++  --set frontend.image.tag=sha-deadbeef \
++  | head -100
++
++# 開啟 Ingress 驗證 path routing 規則
++helm template deploy/helm/ai-api/ \
++  --set ingress.enabled=true \
++  --set ingress.host=aiapi.example.com \
++  --set image.repository=ghcr.io/timcsy/ai-api \
++  --set image.tag=sha-deadbeef \
++  --set frontend.image.repository=ghcr.io/timcsy/ai-api-frontend \
++  --set frontend.image.tag=sha-deadbeef \
++  | grep -A 20 'kind: Ingress'
++```
++
++## 6. K8s 部署（叢集驗證，可選）
++
++```bash
++# 推 image（CI 處理；本地測試可手動）
++helm install ai-api deploy/helm/ai-api/ \
++  --set image.tag=sha-deadbeef \
++  --set frontend.image.tag=sha-deadbeef \
++  --set ingress.enabled=true \
++  --set ingress.host=aiapi.example.com
++
++# 訪 ingress host → 應看到 SPA；login 流程同 §2
++```
++
++## 7. SC 檢核
++
++| SC | 對應步驟 |
++|---|---|
++| SC-001 | §1 `npm run dev` 啟動成功 |
++| SC-002 | §2 local password 登入流程通過 |
++| SC-003 | 同 §2 + 點 Google login → redirect 流程通過 |
++| SC-004 | §3 typecheck + build 全綠 |
++| SC-005 | CI Trivy gate（fs + image + SBOM）對 frontend image 通過 |
++| SC-006 | §5 `helm template` 無誤；Ingress disabled 時無 Ingress object |
++| SC-007 | `uv run pytest -q` 既有 194 backend 全綠 + `npm test` ≥ 5 個前端 unit 全綠 |
++| SC-008 | `git log -- frontend/src/__tests__/ frontend/src/` 順序 test < impl |
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/008-frontend-scaffold/research.md
+STATUS: added
+ADDITIONS: 315
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,315 @@
++# Phase 0 Research: 階段 3b.0 — Frontend Scaffold
++
++---
++
++## 1. Backend route prefix 集合（FR-018 的 ⚠️）
++
++**驗證來源**：`src/ai_api/main.py:56-66`
++
++```
++/health（無 prefix）
++/auth/*
++/me/*
++/admin/*    (allocations, records, members, access, usage, quota-pool)
++/catalog/*
++/v1/*       (proxy)
++```
++
++**Ingress 路由規則**：
++
++| Path | 目的地 |
++|---|---|
++| `/health` | backend |
++| `/auth/` | backend |
++| `/me/` | backend |
++| `/admin/` | backend |
++| `/catalog/` | backend |
++| `/v1/` | backend |
++| `/` (其他) | frontend (nginx) |
++
++> **`/api/*` 不在後端 prefix 內**；spec 原本提到「/api/*」是慣例性概念，
++> 實際 backend 路由就是上述 6 個 prefix；spec 階段的 ⚠️ 已解析。
++
++---
++
++## 2. `/auth/logout` 已存在
++
++**驗證來源**：`src/ai_api/api/auth.py:1` docstring 明列
++「`/auth/oidc/*, /auth/local/login, /auth/logout, /auth/invitation/*`」。
++
++**結論**：本階段不需動後端；前端直接 POST `/auth/logout`。
++
++---
++
++## 3. shadcn/ui 安裝模式
++
++**決策**：用 CLI `npx shadcn@latest init` + `npx shadcn@latest add <component>`；
++生成的 .tsx 直接 commit。不裝 npm 套件，避免「整包升級壞掉」。
++
++**首版加的元件**（最小集合）：
++- `button` — login submit、logout
++- `input` — email/password input
++- `label` — form label
++- `card` — login form container
++- `alert` — error message 顯示
++
++**理由**：shadcn 的設計哲學就是「copy-paste」而非依賴；版本可控。
++
++---
++
++## 4. API client 設計
++
++**決策**：超薄 fetch wrapper（不引入 axios）：
++
++```ts
++// src/lib/api-client.ts
++export class ApiError extends Error {
++  constructor(public status: number, public code: string, message: string) {
++    super(message);
++  }
++}
++
++export async function api<T>(
++  path: string,
++  init: RequestInit = {}
++): Promise<T> {
++  const res = await fetch(path, {
++    credentials: "include",        // 帶 session cookie
++    headers: {
++      "Content-Type": "application/json",
++      ...(init.headers || {}),
++    },
++    ...init,
++  });
++  if (!res.ok) {
++    const body = await res.json().catch(() => ({}));
++    const err = body?.error || {};
++    if (res.status === 401) {
++      // 觸發 auth context 清狀態（透過 event 或 callback）
++      window.dispatchEvent(new Event("api:unauthorized"));
++    }
++    throw new ApiError(res.status, err.code || "unknown", err.message || res.statusText);
++  }
++  return res.json();
++}
++```
++
++**理由**：
++- fetch 原生足夠；axios 是負債
++- 401 事件解耦 — auth context 自己 listen，不必每個 API 呼叫都注入 context
++- TanStack Query 用 `api()` 當 fetcher 即可
++
++---
++
++## 5. AuthContext 設計
++
++**決策**：
++
++```tsx
++type Status = "loading" | "authenticated" | "unauthenticated";
++interface AuthCtx {
++  status: Status;
++  member: Member | null;
++  login(email: string, password: string): Promise<void>;
++  loginGoogle(): void;                       // redirect, 不回 Promise
++  logout(): Promise<void>;
++  refresh(): Promise<void>;                  // 重新呼叫 /me
++}
++```
++
++啟動時：
++1. status = "loading"
++2. fetch `/me` → 200 → status="authenticated"，set member
++3. 任何錯誤 → status="unauthenticated"
++
++`window.addEventListener("api:unauthorized")` → status="unauthenticated"，
++member=null，跳 `/login?next=<current>`。
++
++**理由**：把 401 處理收斂到一處；任何 API 呼叫只要 throw ApiError 就會自動觸發。
++
++---
++
++## 6. ProtectedRoute 設計
++
++```tsx
++export function ProtectedRoute({ children }: { children: React.ReactNode }) {
++  const { status } = useAuth();
++  const location = useLocation();
++  if (status === "loading") return <FullPageSpinner />;
++  if (status === "unauthenticated") {
++    const next = location.pathname + location.search;
++    return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
++  }
++  return <>{children}</>;
++}
++```
++
++**`next` 安全規則**：login 頁讀 `next` 時驗證
++- 必須以 `/` 開頭
++- 不能以 `//` 開頭（防 protocol-relative URL）
++- 不能含 `\` 或 control char
++
++不通過則 fallback 到 `/`。
++
++---
++
++## 7. Vite proxy（dev 環境）
++
++**決策**：`vite.config.ts` 設 proxy：
++
++```ts
++server: {
++  port: 5173,
++  proxy: {
++    "/auth": "http://localhost:8000",
++    "/me": "http://localhost:8000",
++    "/admin": "http://localhost:8000",
++    "/catalog": "http://localhost:8000",
++    "/v1": "http://localhost:8000",
++    "/health": "http://localhost:8000",
++  },
++},
++```
++
++**理由**：本機開發時 SPA 在 5173、backend 在 8000；vite proxy 讓 SPA 直接
++fetch `/auth/...` 而非 `http://localhost:8000/auth/...`，**避免本機 dev 必須
++打開 CORS**。生產走 Ingress 路由分流，跨 host 才走 CORS。
++
++---
++
++## 8. nginx 設定
++
++**決策**：`deploy/nginx/default.conf`：
++
++```nginx
++server {
++    listen 80;
++    server_name _;
++    root /usr/share/nginx/html;
++    index index.html;
++
++    # security headers
++    add_header X-Content-Type-Options "nosniff" always;
++    add_header X-Frame-Options "DENY" always;
++    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
++
++    # 靜態檔長期 cache
++    location /assets/ {
++        expires 1y;
++        add_header Cache-Control "public, immutable";
++    }
++
++    # 一切其他 path 都回 index.html，讓前端 router 接手
++    location / {
++        try_files $uri $uri/ /index.html;
++    }
++}
++```
++
++**理由**：標準 SPA fallback；`/assets/` 由 Vite build 出時有 hash 名稱，
++適合長期 cache；其他 path 走 SPA router。
++
++---
++
++## 9. Dockerfile.frontend (multi-stage)
++
++**決策**：
++
++```dockerfile
++# Build stage
++FROM node:20-alpine AS build
++WORKDIR /app
++COPY frontend/package*.json ./
++RUN npm ci
++COPY frontend/ ./
++RUN npm run build
++
++# Serve stage
++FROM nginx:1.27-alpine
++COPY --from=build /app/dist /usr/share/nginx/html
++COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
++EXPOSE 80
++```
++
++**已評估**：
++- 用 distroless：nginx 沒官方 distroless image；alpine 已夠輕量
++- 用 caddy：太多後端不需的功能；nginx 標準
++- node serve：增加 attack surface
++
++---
++
++## 10. CI workflow 結構
++
++**決策**：新 `.github/workflows/frontend.yml`：
++
++```yaml
++on:
++  push:
++    branches: [main]
++    paths: [frontend/**, .github/workflows/frontend.yml]
++  pull_request:
++    paths: [frontend/**, .github/workflows/frontend.yml]
++jobs:
++  frontend:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@<sha>
++      - uses: actions/setup-node@<sha>
++        with: { node-version-file: frontend/.nvmrc, cache: npm, cache-dependency-path: frontend/package-lock.json }
++      - run: npm ci
++        working-directory: frontend
++      - run: npm run lint
++        working-directory: frontend
++      - run: npm run typecheck
++        working-directory: frontend
++      - run: npm run build
++        working-directory: frontend
++      - run: npm test -- --run
++        working-directory: frontend
++```
++
++**理由**：path filter 讓 backend 改動不觸發；setup-node 內建 cache。
++
++**image.yml 擴展**：用 matrix build 兩個 image（backend + frontend），或加
++獨立 job。優先用 matrix 保持 workflow 簡潔。
++
++---
++
++## 11. Helm Ingress 預設 disabled
++
++**決策**：`values.yaml`：
++
++```yaml
++ingress:
++  enabled: false
++  className: nginx
++  host: aiapi.example.com
++  tls:
++    enabled: false
++    secretName: ""
++```
++
++`templates/ingress.yaml` 用 `{{- if .Values.ingress.enabled }}` 包住。
++**Production 必須手動 set `--set ingress.enabled=true --set ingress.host=...`**
++才會建立 Ingress。
++
++**理由**：FR-019 — 既有 install 不壞。Ingress controller 並非每個叢集都有。
++
++---
++
++## 12. 測試策略
++
++| 層次 | 工具 | 範圍 |
++|---|---|---|
++| Unit | Vitest + jsdom | api-client、auth-context、protected-route、login form |
++| Component | Vitest + RTL | 上述 + 404 fallback |
++| Integration | manual dev server | 登入流程端到端（手動） |
++| E2E | Playwright | **defer 3b.7** |
++
++5 個 unit test 對應 SC-007。
++
++---
++
++## 13. NEEDS CLARIFICATION
++
++無未決。spec 中 ⚠️ 已於 §1 解析。
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/008-frontend-scaffold/spec.md
+STATUS: added
+ADDITIONS: 190
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,190 @@
++# Feature Specification: 階段 3b.0 — Frontend Scaffold
++
++**Feature Branch**: `008-frontend-scaffold`
++**Created**: 2026-05-23
++**Status**: Draft
++**Input**: User description: "階段 3b.0 stack 決定與基礎建設 — React + Vite + TypeScript + TanStack Query + shadcn/ui；獨立 nginx pod + Ingress 路徑路由；含 Google OIDC + local password 登入頁；無業務頁面"
++
++## User Scenarios & Testing *(mandatory)*
++
++### User Story 1 - 維運者可以本機跑前端 dev server (Priority: P1)
++
++維運者 clone repo 後，在 `frontend/` 跑 `npm install && npm run dev`，
++SPA 跑在 `localhost:5173`，可登入既有後端（`localhost:8000`）。
++登入後看到 placeholder「Hello, $email」並能 logout。
++
++**Why this priority**：沒這個能力，後續所有業務頁面（3b.1~3b.6）都無從開工。
++
++**Independent Test**：手動 — `npm run dev` + 後端跑著 → 訪 `/login` →
++填表 → 登入後看到 placeholder → 點 logout → 回 `/login`。
++
++**Acceptance Scenarios**:
++
++1. **Given** 後端在 `localhost:8000` 跑著且 `CORS_ORIGINS=["http://localhost:5173"]`，
++   **When** SPA 在 `localhost:5173` 用 local password 登入，**Then** 成功設定
++   session cookie 並導向 protected route。
++2. **Given** 已登入，**When** 點 logout，**Then** session cookie 清除、
++   導回 `/login`。
++3. **Given** 未登入直接訪 `/`，**When** route guard 攔截，**Then** 導向 `/login`。
++4. **Given** 登入時填錯密碼，**When** 後端回 401，**Then** UI 顯示「invalid
++   credentials」並停留在 login 頁。
++
++---
++
++### User Story 2 - 部署後 admin/member 在瀏覽器都能登入 (Priority: P1)
++
++K8s 部署後，使用者在 `https://aiapi.example.com/` 看到 SPA、
++`/api/*`、`/auth/*`、`/admin/*`、`/me/*`、`/catalog/*`、`/v1/*` 路由到後端。
++Google OIDC + local password 兩種登入流程都可用。
++
++**Why this priority**：3b 階段最終目的就是「瀏覽器可用」。
++
++**Independent Test**：`helm install` 後 `kubectl port-forward` 到 ingress；
++瀏覽器訪 ingress 主機名 → 看到 login 頁 → 兩種登入皆可。
++
++**Acceptance Scenarios**:
++
++1. **Given** Helm chart 已 install，**When** 訪 ingress root，**Then** nginx
++   pod 回傳 SPA 的 `index.html`。
++2. **Given** SPA 呼叫 `/auth/local/login`，**When** Ingress 收到，**Then**
++   依路徑規則路由到 backend service。
++3. **Given** Google OIDC 點「使用 Google 登入」，**When** redirect 流程，
++   **Then** 回到 SPA 並登入成功。
++4. **Given** 用 disabled member 登入，**When** 看 `/me`，**Then** 401 觸發
++   auth context 清理 + 導回 login。
++
++---
++
++### User Story 3 - Smoke test 驗證骨架完整 (Priority: P2)
++
++至少一條自動化 smoke test：開瀏覽器 → 登入 → 看 placeholder → logout，
++全程不報錯。
++
++**Why this priority**：catch CI 上「build 出來但跑不起來」的情況。
++
++**Independent Test**：CI 跑前端 smoke test job → 全綠。
++
++**Acceptance Scenarios**:
++
++1. **Given** Vitest/RTL（unit）已配，**When** 跑 `npm test`，**Then**
++   至少 auth context 與 API client 的 unit test 全綠。
++2. **Given** 後端 + 前端 dev server 同時跑（用 docker compose 或腳本），
++   **When** 跑 Playwright smoke（**選擇性，可 defer 到 3b.7**），**Then**
++   登入→logout 場景通過。
++
++### Edge Cases
++
++- **CORS_ORIGINS 沒設或設錯**：登入時 OPTIONS preflight 失敗 → SPA 顯示
++  「無法連線後端」明確錯誤。
++- **session 過期**：API 回 401 → auth context 清理 local 狀態 + 跳 login。
++- **登入後立刻重新整理頁面**：cookie 應持續、auth context 從 `/me` 重新水合。
++- **使用者直接修改 URL 訪 admin 路由（未授權）**：路由 guard 攔；同時 API
++  仍會 401/403 兜底。
++
++## Requirements *(mandatory)*
++
++### Functional Requirements
++
++#### 專案結構
++- **FR-001**: 新建 `frontend/` 目錄為前端 source；獨立於 Python `src/`。
++- **FR-002**: 前端使用 **React 19 + Vite 6 + TypeScript（strict mode）**。
++- **FR-003**: 資料層使用 **TanStack Query v5**；UI 元件採 **shadcn/ui**
++  （Radix + Tailwind v3）；router 採 **React Router v7**。
++- **FR-004**: 套件管理使用 **npm**（lockfile commit）；Node 版本 **20 LTS**
++  以 `.nvmrc` 與 CI matrix 對齊。
++
++#### Auth + API client
++- **FR-005**: 提供 `apiClient` fetch wrapper：所有請求帶 `credentials: 'include'`；
++  401 回應觸發 auth context 清理 + 跳 login。
++- **FR-006**: 提供 `AuthContext`/`useAuth`：暴露 `member`、`status`
++  (`loading | authenticated | unauthenticated`)、`login(email, pw)`、`loginGoogle()`、
++  `logout()`；初始化時呼叫 `/me` 水合狀態。
++- **FR-007**: 路由 guard component (`ProtectedRoute`)：`status !== authenticated`
++  即導向 `/login`，帶 `?next=<原 URL>`。
++
++#### 頁面（最小骨架）
++- **FR-008**: `/login`：兩個入口 — local password 表單 + 「使用 Google 登入」
++  按鈕（後者 redirect 到 `/auth/google/login`）。
++- **FR-009**: `/`：登入後 placeholder「Hello, {email}」+ logout 按鈕。
++- **FR-010**: `/login?next=...`：登入後導回原 URL（防 open redirect — 只接受
++  以 `/` 開頭、且不含 `//` 的相對路徑）。
++- **FR-011**: 404 fallback：未匹配路由顯示 minimal 404 頁。
++- **FR-012**: **不**包含任何業務頁面（allocations、usage、quota-pool、catalog UI），
++  留 3b.1+。
++
++#### Build + 部署
++- **FR-013**: `npm run build` 產出 static bundle 至 `frontend/dist/`。
++- **FR-014**: 新增 `deploy/docker/Dockerfile.frontend`：multi-stage —
++  `node:20-alpine` build → `nginx:1.27-alpine` 服務 `dist/`。
++- **FR-015**: nginx 設定支援 SPA 路由 fallback（任何 unknown path → `index.html`），
++  排除 `/assets/*` 之類已存在的 static asset path。
++- **FR-016**: nginx image 走既有 image-build pipeline：另一個 workflow job
++  或同 workflow 加 matrix；ref 與 image tag 仍 pin commit SHA（Phase 2.6 紀律）。
++
++#### Helm
++- **FR-017**: Helm chart 新增 `frontend-deployment.yaml` + `frontend-service.yaml`。
++- **FR-018**: Ingress（新增 `ingress.yaml` 或更新既有）依 path-based 路由：
++  - `/api/*`、`/auth/*`、`/admin/*`、`/catalog/*`、`/me/*`、`/v1/*`、`/health/*` → backend
++  - `/*`（其他）→ frontend
++  ⚠️ 視既有路由實作而定；spec 階段確認準確 prefix 集合。
++- **FR-019**: Helm values 加 `frontend.image.{repository, tag}` 與
++  `ingress.{enabled, host, tls}`；預設 ingress 關閉以維持向下相容（既有
++  install 不會壞）。
++
++#### CI
++- **FR-020**: 新增 `.github/workflows/frontend.yml` 或擴 `ci.yml`：
++  `npm ci` → `npm run lint` (eslint) → `npm run typecheck` (tsc --noEmit)
++  → `npm run build` → `npm test` (Vitest)。
++- **FR-021**: 前端 lockfile 變動觸發 build；後端只變更不觸發前端 job。
++
++#### CORS / session
++- **FR-022**: 既有 `cors_origins` 設定需要在 deploy 時非空（dev: `["http://localhost:5173"]`；
++  prod: `["https://aiapi.example.com"]`）；spec 內標明依 Phase 3a 既有實作，
++  本階段不改後端，僅維護人需要設環境變數。
++
++#### 不在本階段範圍
++- **FR-023** (NON-GOAL): 任何業務頁面（allocations 列表、usage dashboard、
++  catalog browse、quota-pool monitor 等）— 留 3b.1+
++- **FR-024** (NON-GOAL): Playwright E2E 完整覆蓋 — 留 3b.7
++- **FR-025** (NON-GOAL): 多語言（首版只繁中）
++- **FR-026** (NON-GOAL): 響應式手機版（首版只 desktop ≥ 1024px）
++- **FR-027** (NON-GOAL): 視覺化圖表庫整合（Recharts/Chart.js 等留 3b.4）
++
++### Key Entities
++
++無新資料庫實體；本階段為前端 + 部署設定。
++
++## Success Criteria *(mandatory)*
++
++### Measurable Outcomes
++
++- **SC-001**: 本機 `cd frontend && npm install && npm run dev` 啟動成功，
++  跑在 `localhost:5173`；瀏覽器無 console error。
++- **SC-002**: 對既有後端（`localhost:8000`，`CORS_ORIGINS=["http://localhost:5173"]`），
++  local password 登入流程端到端通過。
++- **SC-003**: Google OIDC 登入流程端到端通過（已在 Phase 2 驗證後端 → 本階段
++  只需 redirect 觸發）。
++- **SC-004**: `npm run typecheck && npm run build` 在 Node 20 LTS 上零警告通過。
++- **SC-005**: nginx image 經 Trivy fs scan + image scan + SBOM 三個 gate 全通過
++  （延續 Phase 2.6 紀律）。
++- **SC-006**: Helm `helm template` 通過；新 Ingress 預設 disabled，既有
++  install 不壞。
++- **SC-007**: 既有 194 backend tests 不回歸；新前端 Vitest unit test
++  ≥ 5 個（auth context、API client wrapper、ProtectedRoute、login form
++  validation、404 fallback）全綠。
++- **SC-008**: 所有 FR 在 git 歷史可見「測試 commit 早於對應實作 commit」
++  （延續 TDD 紀律 / 前端 unit test 也適用）。
++
++## Assumptions
++
++- **Node 20 LTS 已是 CI runner 預設可用版本**（ubuntu-latest 預裝）
++- **shadcn/ui CLI 流程**：用 `npx shadcn@latest add <component>` 加元件，
++  生成的 .tsx 直接 commit；不走 npm install 的元件庫
++- **Tailwind v3 而非 v4**：v4 剛 GA，生態（shadcn 等）尚在追上；v3 更穩
++- **既有 ingress controller**：spec 假設叢集有 ingress-nginx 或等效；
++  Helm chart 預設 disabled 給未準備的環境
++- **nginx image 不放 secrets**：純 static serving，無需 envFrom
++- **路由 path 集合**會在 spec 階段確認 — 預期：`/api/`（如有）、`/auth/`、
++  `/admin/`、`/catalog/`、`/me/`、`/v1/`、`/health` → backend；其他 → frontend
++- **Logout 端點**：spec 假設 `/auth/logout` 既有；若無則本階段順手補（不
++  算新功能）
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/008-frontend-scaffold/tasks.md
+STATUS: added
+ADDITIONS: 250
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,250 @@
++# Tasks: 階段 3b.0 — Frontend Scaffold
++
++**Input**: Design documents from `/specs/008-frontend-scaffold/`
++**Prerequisites**: plan.md, spec.md, research.md, contracts/routing.md, quickstart.md
++
++**Tests**: TDD enforced — Vitest unit + RTL；E2E 留 3b.7。
++
++## Format
++`- [ ] T### [P?] [Story?] description with file path`
++
++路徑相對 repo root：`/Users/timcsy/Documents/Projects/CCSH/AzureAI/ai-api`
++
++---
++
++## Phase 1: Setup
++
++### Scaffold + tooling
++
++- [ ] T001 建立 `frontend/.nvmrc` 內容 `20`
++- [ ] T002 `cd frontend && npm init -y` 建立 `package.json`；填寫 name=`ai-api-frontend`、private=true、type=module
++- [ ] T003 `cd frontend && npm install` 主要依賴：`react@^19`、`react-dom@^19`、`react-router-dom@^7`、`@tanstack/react-query@^5`
++- [ ] T004 `cd frontend && npm install -D` 開發依賴：`typescript@^5`、`vite@^6`、`@vitejs/plugin-react@^4`、`@types/react`、`@types/react-dom`、`@types/node`、`tailwindcss@^3`、`postcss`、`autoprefixer`、`tailwindcss-animate`、`eslint@^9`、`@typescript-eslint/parser`、`@typescript-eslint/eslint-plugin`、`eslint-plugin-react-hooks`、`eslint-plugin-react-refresh`、`vitest@^2`、`@vitest/coverage-v8`、`@testing-library/react`、`@testing-library/jest-dom`、`@testing-library/user-event`、`jsdom`、`prettier`
++- [ ] T005 [P] 建立 `frontend/tsconfig.json` strict mode + bundler module；建立 `frontend/tsconfig.node.json`（給 vite.config）
++- [ ] T006 [P] 建立 `frontend/vite.config.ts` 含 React plugin + dev proxy（依 research.md §7 6 個 prefix）
++- [ ] T007 [P] 建立 `frontend/tailwind.config.ts` + `frontend/postcss.config.js` + `frontend/src/index.css`（tailwind base + components + utilities + shadcn CSS 變數）
++- [ ] T008 [P] 建立 `frontend/eslint.config.js`（flat config）+ `frontend/.prettierrc.json`
++- [ ] T009 [P] 在 `frontend/package.json` 加 scripts：`dev`、`build`、`preview`、`lint`、`typecheck` (`tsc --noEmit`)、`test`、`test:cov`
++- [ ] T010 [P] 建立 `frontend/index.html` 空殼指向 `src/main.tsx`
++- [ ] T011 [P] 建立 `frontend/.gitignore`（node_modules、dist、coverage、.vscode、.env*）
++- [ ] T012 確認 `cd frontend && npm install && npm run typecheck && npm run build` 跑得起來（空殼也要綠）
++
++### shadcn/ui
++
++- [ ] T013 `cd frontend && npx shadcn@latest init`：選 default + Slate；產生 `components.json`、`src/lib/utils.ts`、`src/components/ui/` 初始化
++- [ ] T014 `cd frontend && npx shadcn@latest add button input label card alert`：加 5 個基礎元件（commit 生成的 .tsx）
++
++### Vitest config
++
++- [ ] T015 [P] 建立 `frontend/vitest.config.ts` 與 vite.config 整合；jsdom 環境；setup file
++- [ ] T016 [P] 建立 `frontend/src/__tests__/setup.ts`：`import "@testing-library/jest-dom"`；export reset hooks
++
++**Checkpoint**：`npm run dev` 跑得起來（empty App）；`npm test` 無 fail（無測試）。
++
++---
++
++## Phase 2: Foundational
++
++### API client + Auth context
++
++- [ ] T017 建立 `frontend/src/lib/api-client.ts`：
++  - `ApiError` class
++  - `api<T>(path, init)` 帶 `credentials: 'include'`
++  - 401 → `window.dispatchEvent(new Event("api:unauthorized"))`
++  - 標準 error parse（`{error: {code, message}}`）
++
++- [ ] T018 建立 `frontend/src/contexts/auth.tsx`：
++  - `AuthProvider`：startup 呼叫 `GET /me` 水合；listen `api:unauthorized`
++  - `useAuth()` exposing `{status, member, login, loginGoogle, logout, refresh}`
++  - `login(email, pw)` → `POST /auth/local/login` → `refresh()`
++  - `loginGoogle()` → `window.location.href = "/auth/oidc/start"` 之類（看實際 endpoint）
++  - `logout()` → `POST /auth/logout` → set unauthenticated
++
++### ProtectedRoute
++
++- [ ] T019 建立 `frontend/src/components/protected-route.tsx`：
++  - loading → spinner
++  - unauthenticated → `<Navigate to={"/login?next=" + encoded path}>`
++  - authenticated → `{children}`
++
++### Router
++
++- [ ] T020 建立 `frontend/src/App.tsx`：React Router v7 + AuthProvider + QueryClientProvider；3 個 routes（`/login`、`/`、`*`）
++
++- [ ] T021 建立 `frontend/src/main.tsx`：mount App；StrictMode
++
++**Checkpoint**：T017-T021 完成後 `npm run build` 仍要綠；尚無頁面。
++
++---
++
++## Phase 3: US1 — 本機可登入 (P1)
++
++**Goal**：login / home / 404 三頁可運作；端到端 manual 跑得通。
++**Independent Test**：手動 — `npm run dev` + 後端跑著 → login → 看 placeholder → logout。
++
++### Tests First
++
++- [ ] T022 [US1] 建立 `frontend/src/__tests__/api-client.test.ts`：
++  - 200 → return body
++  - 401 → throw ApiError 且觸發 `api:unauthorized` event
++  - 5xx → throw ApiError 含 code 與 message
++- [ ] T023 [US1] 建立 `frontend/src/__tests__/auth-context.test.tsx`：
++  - initial `/me` 200 → status=authenticated
++  - initial `/me` 401 → status=unauthenticated
++  - login 成功 → refresh → status=authenticated
++  - logout → status=unauthenticated
++  - `api:unauthenticated` 事件 → status 自動 reset
++- [ ] T024 [US1] 建立 `frontend/src/__tests__/protected-route.test.tsx`：
++  - loading → 顯示 spinner
++  - unauthenticated → 觸發 `<Navigate to=/login?next=...>`
++  - authenticated → render children
++- [ ] T025 [US1] 建立 `frontend/src/__tests__/login.test.tsx`：
++  - submit 觸發 `login()`
++  - 顯示 backend 回傳的錯誤訊息
++  - `next` URL 安全驗證：拒絕 `//evil`、`http://evil`、`\evil`
++- [ ] T026 [US1] 建立 `frontend/src/__tests__/not-found.test.tsx`：404 fallback 顯示「找不到頁面」+ 回首頁連結
++
++### Impl
++
++- [ ] T027 [US1] 建立 `frontend/src/routes/login.tsx`：
++  - shadcn Card 包 form（email + password input + submit button）
++  - Google login button → `loginGoogle()`
++  - 錯誤訊息走 shadcn Alert
++  - `next` query 參數安全驗證後 redirect
++- [ ] T028 [US1] 建立 `frontend/src/routes/home.tsx`：
++  - 「Hello, {member.email}」+ Logout button
++  - 包在 `<ProtectedRoute>`
++- [ ] T029 [US1] 建立 `frontend/src/routes/not-found.tsx`：minimal 404
++
++**Checkpoint**：T022-T026 全綠 → T027-T029 實作 → 全綠。手動 `npm run dev`
++跑端到端登入流程。
++
++---
++
++## Phase 4: US2 — K8s 部署可登入 (P1)
++
++**Goal**：nginx image + Helm Ingress 路徑路由；deploy 後瀏覽器可登入。
++**Independent Test**：`helm install` 後訪 ingress host → login → 兩種 provider 都通。
++
++### nginx + Dockerfile
++
++- [ ] T030 [US2] 建立 `deploy/nginx/default.conf` 依 research.md §8（SPA fallback + 安全 headers + assets 1y cache）
++- [ ] T031 [US2] 建立 `deploy/docker/Dockerfile.frontend` multi-stage（research.md §9）
++
++### Helm
++
++- [ ] T032 [US2] 建立 `deploy/helm/ai-api/templates/frontend-deployment.yaml`：
++  - 用 `.Values.frontend.image.{repository, tag}`
++  - 安全 context: nonroot + readOnlyRootFilesystem + tmp emptyDir（沿用既有 backend pattern）
++- [ ] T033 [US2] 建立 `deploy/helm/ai-api/templates/frontend-service.yaml`：ClusterIP port 80
++- [ ] T034 [US2] 建立 `deploy/helm/ai-api/templates/ingress.yaml`：包 `{{ if .Values.ingress.enabled }}`；7 條 path-based rule（依 contracts/routing.md）
++- [ ] T035 [US2] 更新 `deploy/helm/ai-api/values.yaml`：加 `frontend:` 與 `ingress:` 區段（後者預設 disabled）
++
++### CI
++
++- [ ] T036 [US2] 建立 `.github/workflows/frontend.yml` 依 research.md §10；所有 `uses:` pin commit SHA + 註解標 semver
++- [ ] T037 [US2] 修改 `.github/workflows/image.yml`：加 frontend image build job（matrix 或獨立 job；Trivy fs + image + SBOM 三 gate 都跑）
++
++**Checkpoint**：
++- `helm template` 通過（兩種模式：ingress disabled / enabled）
++- frontend image 通過 Trivy
++- 可手動 `kubectl port-forward` 訪 SPA 並登入
++
++---
++
++## Phase 5: US3 — Smoke test (P2)
++
++**Goal**：CI 跑 ≥ 5 個 Vitest 確保骨架完整。
++
++說明：T022-T026 已涵蓋 5 個 unit test；本階段是 polish — 確保 CI 跑通 +
++coverage 報告。
++
++- [ ] T038 [US3] 確認 `frontend.yml` 跑 `npm test -- --run` 且 `≥ 5 passed`；失敗即 CI fail
++- [ ] T039 [US3] 加 coverage：`npm run test:cov`（vitest --coverage）；CI 上傳 artifact，門檻不嚴格（覆蓋率報告供觀察）
++
++---
++
++## Phase 6: Polish
++
++- [ ] T040 [P] `frontend/README.md`：本機跑、build、test、與後端整合說明
++- [ ] T041 [P] `docs/frontend.md`：架構 + Ingress 規則 + nginx fallback 邏輯（人類閱讀）
++- [ ] T042 [P] 跑既有 backend `uv run pytest -q` 確認 194 tests 不回歸
++- [ ] T043 [P] 跑前端 `cd frontend && npm run lint && npm run typecheck && npm test && npm run build` 四綠
++- [ ] T044 [P] 更新 `knowledge/vision.md`：階段 3b 拆成 3b.0~3b.7；標 3b.0 完成
++- [ ] T045 PR 描述附 quickstart §1+§2+§3 執行紀錄
++
++---
++
++## Dependencies
++
++```
++Phase 1 (Setup: scaffold + shadcn + vitest config)
++   │
++   ▼
++Phase 2 (Foundational: api-client + auth-context + ProtectedRoute + router)
++   │
++   ├─→ Phase 3 (US1 — login/home/404 unit tests + impl)
++   │
++   └─→ Phase 4 (US2 — nginx + Dockerfile + Helm + CI；不依賴 US1 內容，可並行)
++        │
++        ▼
++   Phase 5 (US3 — smoke / coverage：依賴 US1 測試已存在 + US2 CI workflow)
++        │
++        ▼
++   Phase 6 Polish
++```
++
++**Story dependencies**：
++- US1 依賴 Phase 2 完整（auth context + ProtectedRoute）
++- US2 可與 US1 並行（image + Helm 不需要 page 實作；但 image 內容會包 build 出來的 dist，所以實際合 PR 時 US1 要先完成）
++- US3 依賴 US1 測試 + US2 CI workflow 已存在
++
++---
++
++## Parallel Execution Opportunities
++
++- **Phase 1**：T001-T011 多檔互不依賴可並行；T012 為 gate
++- **Phase 1 shadcn**：T013 必先；T014 依賴 T013
++- **Phase 2**：T017-T021 順序：T017 → T018 → T019 → T020 → T021（互相依賴）
++- **Phase 3 (US1)**：5 個 test (T022-T026) 可並行寫；3 個 impl (T027-T029) 可並行
++- **Phase 4 (US2)**：T030-T037 大致並行（不同檔）；T032-T035 同 helm 目錄可循序 commit
++- **Phase 6 Polish**：T040-T044 全部並行
++
++---
++
++## Implementation Strategy
++
++### MVP
++
++**Phase 1+2+3 = MVP**（local password 登入端到端可跑）。
++**+ Phase 4+5 = 上線就緒**。
++
++### TDD Discipline
++
++每個 user story：unit test commit → impl commit。git log -- frontend/ 必須
++顯示 test < impl 順序。
++
++### Risk Hot Spots
++
++1. **Tailwind v3 + shadcn CLI 相容性**：v4 剛 GA，shadcn 還在追；T013 init
++   時若 CLI 自動選 v4，要回退到 v3（components.json 內含版本資訊）
++2. **Vite proxy 對 cookie 處理**：dev 環境 proxy 必須轉發 cookie；
++   `changeOrigin: false` + `cookieDomainRewrite` 可能需要調
++3. **shadcn 生成 .tsx 含 absolute import alias (`@/components/...`)**：
++   `vite.config.ts` + `tsconfig.json` 必須設 path alias，否則 build fail
++4. **Helm Ingress path-type**：必須 `Prefix` 而非 `Exact`，否則 `/auth/oidc/callback`
++   這種子路徑不會 match
++5. **TanStack Query 與 401 互動**：query 失敗 401 應該 trigger event 然後
++   query 不要 retry（預設 retry 3 次會打爆）→ QueryClient 設 `retry: false`
++   for 401，或 wrapper 內判斷
++6. **Node 版本不一致**：本機可能跑 node 22，CI 跑 node 20；package-lock 走
++   ci 模式 + .nvmrc 對齊
++
++---
++
++## Format Validation
++
++✅ 全部 45 任務符合 `- [ ] T### [P?] [USx?] 描述 + 檔案路徑`
++✅ Setup / Foundational / Polish 無 [US] 標籤
++✅ Phase 3-5 任務皆帶對應 [USx] 標籤
++✅ 所有任務含明確檔案路徑
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+[No commits in between]
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: cd9e6c92d8b8ecb0aae677d7242125f990a4d8a0
+
+COMMIT MESSAGE:
+test(frontend): 5 unit test files for api-client / auth-context / protected-route / login / not-found (TDD red)
+
+21 tests total:
+- api-client: 5 (200/204/401-event/5xx/credentials)
+- auth-context: 5 (hydrate-200/hydrate-401/login/event-reset/logout)
+- protected-route: 3 (loading/redirect/render)
+- login: 7 (sanitizeNext × 5 + submit-success + submit-error)
+- not-found: 1
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+IMPLEMENTATION FILES:
+FILE: frontend/src/__tests__/api-client.test.ts
+STATUS: added
+ADDITIONS: 70
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,70 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++
++import { ApiError, UNAUTHORIZED_EVENT, api } from "@/lib/api-client";
++
++function jsonResponse(status: number, body: unknown): Response {
++  return new Response(JSON.stringify(body), {
++    status,
++    headers: { "Content-Type": "application/json" },
++  });
++}
++
++describe("api()", () => {
++  beforeEach(() => {
++    vi.restoreAllMocks();
++  });
++
++  it("returns parsed body on 200", async () => {
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      jsonResponse(200, { id: "abc" }),
++    );
++    const result = await api<{ id: string }>("/me");
++    expect(result).toEqual({ id: "abc" });
++  });
++
++  it("returns undefined on 204 No Content", async () => {
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      new Response(null, { status: 204 }),
++    );
++    const result = await api<undefined>("/auth/logout", { method: "POST" });
++    expect(result).toBeUndefined();
++  });
++
++  it("throws ApiError on 401 and dispatches the unauthorized event", async () => {
++    const listener = vi.fn();
++    window.addEventListener(UNAUTHORIZED_EVENT, listener);
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      jsonResponse(401, { error: { code: "unauthorized", message: "session required" } }),
++    );
++
++    await expect(api("/me")).rejects.toBeInstanceOf(ApiError);
++    expect(listener).toHaveBeenCalledOnce();
++    window.removeEventListener(UNAUTHORIZED_EVENT, listener);
++  });
++
++  it("throws ApiError with parsed code+message on 5xx", async () => {
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      jsonResponse(500, { error: { code: "upstream_error", message: "boom" } }),
++    );
++    try {
++      await api("/v1/chat/completions", { method: "POST", body: "{}" });
++      throw new Error("should have thrown");
++    } catch (e) {
++      expect(e).toBeInstanceOf(ApiError);
++      const err = e as ApiError;
++      expect(err.status).toBe(500);
++      expect(err.code).toBe("upstream_error");
++      expect(err.message).toBe("boom");
++    }
++  });
++
++  it("sends credentials include + JSON content-type by default", async () => {
++    const spy = vi
++      .spyOn(globalThis, "fetch")
++      .mockResolvedValueOnce(jsonResponse(200, {}));
++    await api("/me");
++    const init = spy.mock.calls[0]?.[1] as RequestInit;
++    expect(init.credentials).toBe("include");
++    expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
++  });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/__tests__/auth-context.test.tsx
+STATUS: added
+ADDITIONS: 99
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,99 @@
++import { act, renderHook, waitFor } from "@testing-library/react";
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++
++import { AuthProvider, useAuth } from "@/contexts/auth";
++import { UNAUTHORIZED_EVENT } from "@/lib/api-client";
++
++function jsonResponse(status: number, body: unknown): Response {
++  return new Response(JSON.stringify(body), {
++    status,
++    headers: { "Content-Type": "application/json" },
++  });
++}
++
++const wrapper = ({ children }: { children: React.ReactNode }) => (
++  <AuthProvider>{children}</AuthProvider>
++);
++
++describe("AuthContext", () => {
++  beforeEach(() => {
++    vi.restoreAllMocks();
++  });
++
++  afterEach(() => {
++    vi.restoreAllMocks();
++  });
++
++  it("hydrates to authenticated when /me returns 200", async () => {
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      jsonResponse(200, { id: "m1", email: "a@x.com" }),
++    );
++    const { result } = renderHook(() => useAuth(), { wrapper });
++    await waitFor(() => expect(result.current.status).toBe("authenticated"));
++    expect(result.current.member?.email).toBe("a@x.com");
++  });
++
++  it("hydrates to unauthenticated when /me returns 401", async () => {
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      jsonResponse(401, { error: { code: "unauthorized", message: "no" } }),
++    );
++    const { result } = renderHook(() => useAuth(), { wrapper });
++    await waitFor(() => expect(result.current.status).toBe("unauthenticated"));
++    expect(result.current.member).toBeNull();
++  });
++
++  it("login() refreshes member from /me", async () => {
++    const fetchMock = vi
++      .spyOn(globalThis, "fetch")
++      // initial /me -> 401
++      .mockResolvedValueOnce(jsonResponse(401, { error: {} }))
++      // POST /auth/local/login -> 200
++      .mockResolvedValueOnce(jsonResponse(200, {}))
++      // refresh /me -> 200
++      .mockResolvedValueOnce(jsonResponse(200, { id: "m2", email: "alice@x.com" }));
++
++    const { result } = renderHook(() => useAuth(), { wrapper });
++    await waitFor(() => expect(result.current.status).toBe("unauthenticated"));
++
++    await act(async () => {
++      await result.current.login("alice@x.com", "pw");
++    });
++    expect(result.current.status).toBe("authenticated");
++    expect(result.current.member?.email).toBe("alice@x.com");
++
++    const loginCall = fetchMock.mock.calls[1];
++    expect(loginCall?.[0]).toBe("/auth/local/login");
++  });
++
++  it("api:unauthorized event resets state", async () => {
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      jsonResponse(200, { id: "m1", email: "a@x.com" }),
++    );
++    const { result } = renderHook(() => useAuth(), { wrapper });
++    await waitFor(() => expect(result.current.status).toBe("authenticated"));
++
++    act(() => {
++      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
++    });
++    expect(result.current.status).toBe("unauthenticated");
++    expect(result.current.member).toBeNull();
++  });
++
++  it("logout() POSTs /auth/logout and clears state", async () => {
++    const fetchMock = vi
++      .spyOn(globalThis, "fetch")
++      .mockResolvedValueOnce(jsonResponse(200, { id: "m1", email: "a@x.com" }))
++      .mockResolvedValueOnce(new Response(null, { status: 204 }));
++
++    const { result } = renderHook(() => useAuth(), { wrapper });
++    await waitFor(() => expect(result.current.status).toBe("authenticated"));
++
++    await act(async () => {
++      await result.current.logout();
++    });
++    expect(result.current.status).toBe("unauthenticated");
++    const logoutCall = fetchMock.mock.calls[1];
++    expect(logoutCall?.[0]).toBe("/auth/logout");
++    expect((logoutCall?.[1] as RequestInit).method).toBe("POST");
++  });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/__tests__/login.test.tsx
+STATUS: added
+ADDITIONS: 91
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,91 @@
++import { render, screen, waitFor } from "@testing-library/react";
++import userEvent from "@testing-library/user-event";
++import { MemoryRouter, Route, Routes } from "react-router-dom";
++import { describe, expect, it, vi } from "vitest";
++
++import { AuthProvider } from "@/contexts/auth";
++import { LoginPage, sanitizeNext } from "@/routes/login";
++
++function jsonResponse(status: number, body: unknown): Response {
++  return new Response(JSON.stringify(body), {
++    status,
++    headers: { "Content-Type": "application/json" },
++  });
++}
++
++function renderLogin(initialEntry = "/login") {
++  return render(
++    <MemoryRouter initialEntries={[initialEntry]}>
++      <AuthProvider>
++        <Routes>
++          <Route path="/login" element={<LoginPage />} />
++          <Route path="/" element={<div data-testid="home">home</div>} />
++        </Routes>
++      </AuthProvider>
++    </MemoryRouter>,
++  );
++}
++
++describe("sanitizeNext()", () => {
++  it("returns '/' for null / empty", () => {
++    expect(sanitizeNext(null)).toBe("/");
++    expect(sanitizeNext("")).toBe("/");
++  });
++  it("returns '/' for protocol-relative URLs (//evil)", () => {
++    expect(sanitizeNext("//evil.com/x")).toBe("/");
++  });
++  it("returns '/' for absolute URLs", () => {
++    expect(sanitizeNext("http://evil.com")).toBe("/");
++    expect(sanitizeNext("https://evil.com")).toBe("/");
++  });
++  it("returns '/' for backslash-containing paths", () => {
++    expect(sanitizeNext("/\\evil")).toBe("/");
++  });
++  it("returns the input for legitimate relative paths", () => {
++    expect(sanitizeNext("/admin/usage")).toBe("/admin/usage");
++    expect(sanitizeNext("/?q=1")).toBe("/?q=1");
++  });
++});
++
++describe("<LoginPage />", () => {
++  it("submits credentials and navigates to next on success", async () => {
++    const fetchMock = vi
++      .spyOn(globalThis, "fetch")
++      .mockResolvedValueOnce(jsonResponse(401, { error: {} })) // initial /me
++      .mockResolvedValueOnce(jsonResponse(200, {})) // POST /auth/local/login
++      .mockResolvedValueOnce(
++        jsonResponse(200, { id: "m1", email: "alice@x.com" }), // refresh /me
++      );
++
++    renderLogin("/login");
++    const user = userEvent.setup();
++
++    await user.type(screen.getByLabelText("Email"), "alice@x.com");
++    await user.type(screen.getByLabelText("密碼"), "pw");
++    await user.click(screen.getByRole("button", { name: "登入" }));
++
++    await waitFor(() => expect(screen.getByTestId("home")).toBeInTheDocument());
++    expect(fetchMock).toHaveBeenCalledTimes(3);
++  });
++
++  it("shows backend error message when login fails", async () => {
++    vi.spyOn(globalThis, "fetch")
++      .mockResolvedValueOnce(jsonResponse(401, { error: {} })) // initial /me
++      .mockResolvedValueOnce(
++        jsonResponse(401, {
++          error: { code: "invalid_credentials", message: "auth failed" },
++        }),
++      );
++
++    renderLogin("/login");
++    const user = userEvent.setup();
++
++    await user.type(screen.getByLabelText("Email"), "bad@x.com");
++    await user.type(screen.getByLabelText("密碼"), "wrong");
++    await user.click(screen.getByRole("button", { name: "登入" }));
++
++    await waitFor(() =>
++      expect(screen.getByTestId("login-error")).toHaveTextContent("auth failed"),
++    );
++  });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/__tests__/not-found.test.tsx
+STATUS: added
+ADDITIONS: 18
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,18 @@
++import { render, screen } from "@testing-library/react";
++import { MemoryRouter } from "react-router-dom";
++import { describe, expect, it } from "vitest";
++
++import { NotFoundPage } from "@/routes/not-found";
++
++describe("<NotFoundPage />", () => {
++  it("renders 404 + link back to home", () => {
++    render(
++      <MemoryRouter>
++        <NotFoundPage />
++      </MemoryRouter>,
++    );
++    expect(screen.getByText("404")).toBeInTheDocument();
++    expect(screen.getByText("找不到頁面")).toBeInTheDocument();
++    expect(screen.getByRole("link", { name: "回首頁" })).toHaveAttribute("href", "/");
++  });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/__tests__/protected-route.test.tsx
+STATUS: added
+ADDITIONS: 57
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,57 @@
++import { render, screen, waitFor } from "@testing-library/react";
++import { MemoryRouter, Route, Routes } from "react-router-dom";
++import { describe, expect, it, vi } from "vitest";
++
++import { ProtectedRoute } from "@/components/protected-route";
++import { AuthProvider } from "@/contexts/auth";
++
++function jsonResponse(status: number, body: unknown): Response {
++  return new Response(JSON.stringify(body), {
++    status,
++    headers: { "Content-Type": "application/json" },
++  });
++}
++
++function renderWithRoute(initialEntry: string) {
++  return render(
++    <MemoryRouter initialEntries={[initialEntry]}>
++      <AuthProvider>
++        <Routes>
++          <Route
++            path="/protected"
++            element={
++              <ProtectedRoute>
++                <div>secret</div>
++              </ProtectedRoute>
++            }
++          />
++          <Route path="/login" element={<div data-testid="login-redirected">login</div>} />
++        </Routes>
++      </AuthProvider>
++    </MemoryRouter>,
++  );
++}
++
++describe("<ProtectedRoute />", () => {
++  it("renders loading state while AuthProvider hydrates", () => {
++    vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise(() => {}));
++    renderWithRoute("/protected");
++    expect(screen.getByText(/載入中/)).toBeInTheDocument();
++  });
++
++  it("redirects to /login when unauthenticated", async () => {
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      jsonResponse(401, { error: {} }),
++    );
++    renderWithRoute("/protected");
++    await waitFor(() => expect(screen.getByTestId("login-redirected")).toBeInTheDocument());
++  });
++
++  it("renders children when authenticated", async () => {
++    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
++      jsonResponse(200, { id: "m1", email: "a@x.com" }),
++    );
++    renderWithRoute("/protected");
++    await waitFor(() => expect(screen.getByText("secret")).toBeInTheDocument());
++  });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: frontend/src/__tests__/setup.ts
+STATUS: added
+ADDITIONS: 8
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,8 @@
++import "@testing-library/jest-dom";
++import { afterEach, vi } from "vitest";
++import { cleanup } from "@testing-library/react";
++
++afterEach(() => {
++  cleanup();
++  vi.restoreAllMocks();
++});
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

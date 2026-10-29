@@ -1,0 +1,1278 @@
+{
+  "repo_name": "smart-mcp-proxy/mcpproxy-go",
+  "pr_number": 559,
+  "pr_status": "ok",
+  "pr": {
+    "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls/559",
+    "id": 3779888648,
+    "node_id": "PR_kwDOO9ixUs7hTIYI",
+    "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/pull/559",
+    "diff_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/pull/559.diff",
+    "patch_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/pull/559.patch",
+    "issue_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues/559",
+    "number": 559,
+    "state": "closed",
+    "locked": false,
+    "title": "test(070): Phase-8 finalization — cross-surface consistency regression + O3 amendment (Related MCP-746)",
+    "user": {
+      "login": "Dumbris",
+      "id": 1362215,
+      "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/Dumbris",
+      "html_url": "https://github.com/Dumbris",
+      "followers_url": "https://api.github.com/users/Dumbris/followers",
+      "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+      "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+      "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+      "repos_url": "https://api.github.com/users/Dumbris/repos",
+      "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Spec 070 — Registry easy upstream-add: Phase-8 finalization\n\nConsolidated finalization PR for spec 070. `Related MCP-746`.\n\n### Reconciliation finding (the key surprise)\nThe Phase-8 issue (MCP-808) expected a ~58-file consolidated diff to rebase onto `main`. On reconciliation, **PR #555 (`354580f4`) turned out to have squash-landed the *entire* 070 surface** — not just US2 as its title suggested. That squash is **46 files / +4343 / −169** and already contains:\n\n- **US1** — Web UI one-flow registry search→add (`frontend/.../registry-add.spec.ts` + components)\n- **US3** — MCP `add_from_registry` operation (`internal/server/mcp.go`, 11 refs)\n- **US4** — registry cache freshness + refresh/invalidate (`internal/cache/manager.go`, freshness tests)\n- the spec, plan, tasks, and docs\n\nSo after merging current `origin/main`, the **only** net-new content left from the branch is the Phase-7 consistency regression (committed *after* #555's branch point) plus the O3 decision artifact. This PR is therefore intentionally small.\n\n### What this PR adds\n1. **`internal/server/consistency_crosssurface_test.go`** (T021 / CN-004 / SC-004) — cross-surface regression that guards all three add surfaces (Web UI, CLI, MCP) routing through the single `AddServerFromRegistry` keystone op with quarantine-by-default preserved.\n2. **`specs/070-registry-easy-upstream-add/spec.md`** — O3 amendment recording that the US1/US2 \"gaps\" were partly stale (Web UI already had an \"Add to MCP\" path; CLI already listed/searched). The real work was de-duplicating every surface onto the one keystone op.\n\n**Zero production code changed** vs `origin/main` (only one `_test.go` + one spec doc).\n\n### Verification\n- `go build ./...` — clean\n- `gofmt` — clean; `golangci-lint` server pkg — 0 issues\n- `go test ./internal/server/ -race` — **ok, 392s (EXIT 0)**; targeted `TestCrossSurfaceConsistency_RegistryAdd -race` — ok 3.1s\n- `./scripts/test-api-e2e.sh` — one failing assertion: `GET /api/v1/registries/pulse/servers` (unfiltered) expects a populated `servers[]` from the **live pulse registry API** (`--max-time 10`). This is an external-network flake; the `?q=github` structural variant passes, and this PR changes no production code, so it is not a regression from this change.\n\nGate 3: do **not** self-merge — admin/@Algis merges after Critic (Codex + Kimi) accept.\n",
+    "created_at": "2026-06-01T09:21:36Z",
+    "updated_at": "2026-06-01T11:37:01Z",
+    "closed_at": "2026-06-01T11:36:56Z",
+    "merged_at": "2026-06-01T11:36:56Z",
+    "assignees": [],
+    "requested_reviewers": [],
+    "requested_teams": [],
+    "labels": [],
+    "milestone": null,
+    "draft": false,
+    "commits_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls/559/commits",
+    "review_comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls/559/comments",
+    "review_comment_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls/comments{/number}",
+    "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues/559/comments",
+    "statuses_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/statuses/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+    "head": {
+      "label": "smart-mcp-proxy:070-phase8-finalize",
+      "ref": "070-phase8-finalize",
+      "sha": "fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "user": {
+        "login": "smart-mcp-proxy",
+        "id": 216428285,
+        "node_id": "O_kgDODOZu_Q",
+        "avatar_url": "https://avatars.githubusercontent.com/u/216428285?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/smart-mcp-proxy",
+        "html_url": "https://github.com/smart-mcp-proxy",
+        "followers_url": "https://api.github.com/users/smart-mcp-proxy/followers",
+        "following_url": "https://api.github.com/users/smart-mcp-proxy/following{/other_user}",
+        "gists_url": "https://api.github.com/users/smart-mcp-proxy/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/smart-mcp-proxy/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/smart-mcp-proxy/subscriptions",
+        "organizations_url": "https://api.github.com/users/smart-mcp-proxy/orgs",
+        "repos_url": "https://api.github.com/users/smart-mcp-proxy/repos",
+        "events_url": "https://api.github.com/users/smart-mcp-proxy/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/smart-mcp-proxy/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "repo": {
+        "id": 1004056914,
+        "node_id": "R_kgDOO9ixUg",
+        "name": "mcpproxy-go",
+        "full_name": "smart-mcp-proxy/mcpproxy-go",
+        "private": false,
+        "owner": {
+          "login": "smart-mcp-proxy",
+          "id": 216428285,
+          "node_id": "O_kgDODOZu_Q",
+          "avatar_url": "https://avatars.githubusercontent.com/u/216428285?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/smart-mcp-proxy",
+          "html_url": "https://github.com/smart-mcp-proxy",
+          "followers_url": "https://api.github.com/users/smart-mcp-proxy/followers",
+          "following_url": "https://api.github.com/users/smart-mcp-proxy/following{/other_user}",
+          "gists_url": "https://api.github.com/users/smart-mcp-proxy/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/smart-mcp-proxy/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/smart-mcp-proxy/subscriptions",
+          "organizations_url": "https://api.github.com/users/smart-mcp-proxy/orgs",
+          "repos_url": "https://api.github.com/users/smart-mcp-proxy/repos",
+          "events_url": "https://api.github.com/users/smart-mcp-proxy/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/smart-mcp-proxy/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go",
+        "description": "Supercharge AI Agents, Safely",
+        "fork": false,
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go",
+        "forks_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/forks",
+        "keys_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/teams",
+        "hooks_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/hooks",
+        "issue_events_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/events",
+        "assignees_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/tags",
+        "blobs_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/languages",
+        "stargazers_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/stargazers",
+        "contributors_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contributors",
+        "subscribers_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/subscribers",
+        "subscription_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/subscription",
+        "commits_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/merges",
+        "archive_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/downloads",
+        "issues_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/labels{/name}",
+        "releases_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/deployments",
+        "created_at": "2025-06-18T03:59:17Z",
+        "updated_at": "2026-10-07T12:03:49Z",
+        "pushed_at": "2026-10-07T12:03:43Z",
+        "git_url": "git://github.com/smart-mcp-proxy/mcpproxy-go.git",
+        "ssh_url": "git@github.com:smart-mcp-proxy/mcpproxy-go.git",
+        "clone_url": "https://github.com/smart-mcp-proxy/mcpproxy-go.git",
+        "svn_url": "https://github.com/smart-mcp-proxy/mcpproxy-go",
+        "homepage": "https://mcpproxy.app",
+        "size": 259172,
+        "stargazers_count": 387,
+        "watchers_count": 387,
+        "language": "Go",
+        "has_issues": true,
+        "has_projects": true,
+        "has_wiki": true,
+        "has_pages": false,
+        "has_discussions": true,
+        "forks_count": 58,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 14,
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [
+          "ai",
+          "ai-agents",
+          "audit-logging",
+          "bm25",
+          "cli",
+          "context-window",
+          "developer-tools",
+          "docker",
+          "golang",
+          "llm",
+          "llm-tools",
+          "local-first",
+          "mcp",
+          "mcp-proxy",
+          "mcp-server",
+          "model-context-protocol",
+          "proxy-server",
+          "security",
+          "tool-routing",
+          "web-ui"
+        ],
+        "visibility": "public",
+        "forks": 58,
+        "open_issues": 14,
+        "watchers": 387,
+        "default_branch": "main"
+      }
+    },
+    "base": {
+      "label": "smart-mcp-proxy:main",
+      "ref": "main",
+      "sha": "c17f262dfc4c3c3bdb35c7deb0a7847bf381f8c0",
+      "user": {
+        "login": "smart-mcp-proxy",
+        "id": 216428285,
+        "node_id": "O_kgDODOZu_Q",
+        "avatar_url": "https://avatars.githubusercontent.com/u/216428285?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/smart-mcp-proxy",
+        "html_url": "https://github.com/smart-mcp-proxy",
+        "followers_url": "https://api.github.com/users/smart-mcp-proxy/followers",
+        "following_url": "https://api.github.com/users/smart-mcp-proxy/following{/other_user}",
+        "gists_url": "https://api.github.com/users/smart-mcp-proxy/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/smart-mcp-proxy/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/smart-mcp-proxy/subscriptions",
+        "organizations_url": "https://api.github.com/users/smart-mcp-proxy/orgs",
+        "repos_url": "https://api.github.com/users/smart-mcp-proxy/repos",
+        "events_url": "https://api.github.com/users/smart-mcp-proxy/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/smart-mcp-proxy/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "repo": {
+        "id": 1004056914,
+        "node_id": "R_kgDOO9ixUg",
+        "name": "mcpproxy-go",
+        "full_name": "smart-mcp-proxy/mcpproxy-go",
+        "private": false,
+        "owner": {
+          "login": "smart-mcp-proxy",
+          "id": 216428285,
+          "node_id": "O_kgDODOZu_Q",
+          "avatar_url": "https://avatars.githubusercontent.com/u/216428285?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/smart-mcp-proxy",
+          "html_url": "https://github.com/smart-mcp-proxy",
+          "followers_url": "https://api.github.com/users/smart-mcp-proxy/followers",
+          "following_url": "https://api.github.com/users/smart-mcp-proxy/following{/other_user}",
+          "gists_url": "https://api.github.com/users/smart-mcp-proxy/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/smart-mcp-proxy/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/smart-mcp-proxy/subscriptions",
+          "organizations_url": "https://api.github.com/users/smart-mcp-proxy/orgs",
+          "repos_url": "https://api.github.com/users/smart-mcp-proxy/repos",
+          "events_url": "https://api.github.com/users/smart-mcp-proxy/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/smart-mcp-proxy/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go",
+        "description": "Supercharge AI Agents, Safely",
+        "fork": false,
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go",
+        "forks_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/forks",
+        "keys_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/teams",
+        "hooks_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/hooks",
+        "issue_events_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/events",
+        "assignees_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/tags",
+        "blobs_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/languages",
+        "stargazers_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/stargazers",
+        "contributors_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contributors",
+        "subscribers_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/subscribers",
+        "subscription_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/subscription",
+        "commits_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/merges",
+        "archive_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/downloads",
+        "issues_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/labels{/name}",
+        "releases_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/deployments",
+        "created_at": "2025-06-18T03:59:17Z",
+        "updated_at": "2026-10-07T12:03:49Z",
+        "pushed_at": "2026-10-07T12:03:43Z",
+        "git_url": "git://github.com/smart-mcp-proxy/mcpproxy-go.git",
+        "ssh_url": "git@github.com:smart-mcp-proxy/mcpproxy-go.git",
+        "clone_url": "https://github.com/smart-mcp-proxy/mcpproxy-go.git",
+        "svn_url": "https://github.com/smart-mcp-proxy/mcpproxy-go",
+        "homepage": "https://mcpproxy.app",
+        "size": 259172,
+        "stargazers_count": 387,
+        "watchers_count": 387,
+        "language": "Go",
+        "has_issues": true,
+        "has_projects": true,
+        "has_wiki": true,
+        "has_pages": false,
+        "has_discussions": true,
+        "forks_count": 58,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 14,
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [
+          "ai",
+          "ai-agents",
+          "audit-logging",
+          "bm25",
+          "cli",
+          "context-window",
+          "developer-tools",
+          "docker",
+          "golang",
+          "llm",
+          "llm-tools",
+          "local-first",
+          "mcp",
+          "mcp-proxy",
+          "mcp-server",
+          "model-context-protocol",
+          "proxy-server",
+          "security",
+          "tool-routing",
+          "web-ui"
+        ],
+        "visibility": "public",
+        "forks": 58,
+        "open_issues": 14,
+        "watchers": 387,
+        "default_branch": "main"
+      }
+    },
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls/559"
+      },
+      "html": {
+        "href": "https://github.com/smart-mcp-proxy/mcpproxy-go/pull/559"
+      },
+      "issue": {
+        "href": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues/559"
+      },
+      "comments": {
+        "href": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/issues/559/comments"
+      },
+      "review_comments": {
+        "href": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls/559/comments"
+      },
+      "review_comment": {
+        "href": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls/comments{/number}"
+      },
+      "commits": {
+        "href": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/pulls/559/commits"
+      },
+      "statuses": {
+        "href": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/statuses/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3"
+      }
+    },
+    "author_association": "MEMBER",
+    "auto_merge": null,
+    "active_lock_reason": null,
+    "merged": true,
+    "mergeable": null,
+    "rebaseable": null,
+    "mergeable_state": "unknown",
+    "merged_by": {
+      "login": "Dumbris",
+      "id": 1362215,
+      "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/Dumbris",
+      "html_url": "https://github.com/Dumbris",
+      "followers_url": "https://api.github.com/users/Dumbris/followers",
+      "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+      "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+      "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+      "repos_url": "https://api.github.com/users/Dumbris/repos",
+      "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "comments": 5,
+    "review_comments": 0,
+    "maintainer_can_modify": false,
+    "commits": 4,
+    "additions": 292,
+    "deletions": 9,
+    "changed_files": 6
+  },
+  "commits_status": "ok",
+  "commits": [
+    {
+      "sha": "e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+      "node_id": "C_kwDOO9ixUtoAKGU3NDMzNWRmMmQxY2VkMWZmN2E3NmEwNWM1OWU3YWNiNDk1MWY3MTY",
+      "commit": {
+        "author": {
+          "name": "Algis Dumbris",
+          "email": "a.dumbris@gmail.com",
+          "date": "2026-06-01T09:11:54Z"
+        },
+        "committer": {
+          "name": "Algis Dumbris",
+          "email": "a.dumbris@gmail.com",
+          "date": "2026-06-01T10:01:22Z"
+        },
+        "message": "test(070): cross-surface registry-add consistency regression (T021, CN-004/SC-004)\n\nGuards that all three add surfaces (Web UI, CLI, MCP) route through the\nsingle AddServerFromRegistry keystone op with quarantine-by-default\npreserved. The production code landed via PR #555; this is the Phase-7\nregression that was cut after #555's branch point.\n\nRelated MCP-746",
+        "tree": {
+          "sha": "c61ba2e0bdd426bcc6b531413bc7c48d5340a1ea",
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees/c61ba2e0bdd426bcc6b531413bc7c48d5340a1ea"
+        },
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits/e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+        "comment_count": 0,
+        "verification": {
+          "verified": false,
+          "reason": "unsigned",
+          "signature": null,
+          "payload": null,
+          "verified_at": null
+        }
+      },
+      "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+      "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+      "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/e74335df2d1ced1ff7a76a05c59e7acb4951f716/comments",
+      "author": {
+        "login": "Dumbris",
+        "id": 1362215,
+        "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Dumbris",
+        "html_url": "https://github.com/Dumbris",
+        "followers_url": "https://api.github.com/users/Dumbris/followers",
+        "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+        "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+        "repos_url": "https://api.github.com/users/Dumbris/repos",
+        "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "Dumbris",
+        "id": 1362215,
+        "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Dumbris",
+        "html_url": "https://github.com/Dumbris",
+        "followers_url": "https://api.github.com/users/Dumbris/followers",
+        "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+        "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+        "repos_url": "https://api.github.com/users/Dumbris/repos",
+        "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "c17f262dfc4c3c3bdb35c7deb0a7847bf381f8c0",
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/c17f262dfc4c3c3bdb35c7deb0a7847bf381f8c0",
+          "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/c17f262dfc4c3c3bdb35c7deb0a7847bf381f8c0"
+        }
+      ]
+    },
+    {
+      "sha": "746f95ef5ead283fc597c5170335591df5a49dfd",
+      "node_id": "C_kwDOO9ixUtoAKDc0NmY5NWVmNWVhZDI4M2ZjNTk3YzUxNzAzMzU1OTFkZjVhNDlkZmQ",
+      "commit": {
+        "author": {
+          "name": "Algis Dumbris",
+          "email": "a.dumbris@gmail.com",
+          "date": "2026-06-01T09:11:54Z"
+        },
+        "committer": {
+          "name": "Algis Dumbris",
+          "email": "a.dumbris@gmail.com",
+          "date": "2026-06-01T10:01:22Z"
+        },
+        "message": "docs(070): O3 spec amendment — record stale US1/US2 gap premise\n\nThe US1/US2 gaps recorded 2026-05-31 were partly stale: Web UI already\nhad an 'Add to MCP' path and the CLI already listed/searched registries.\nReal work was de-duplicating every surface onto the single\nAddServerFromRegistry keystone op (PR #555 / 354580f4).\n\nRelated MCP-746",
+        "tree": {
+          "sha": "fd8c97c9f728afe0b02beb71fc4e89584e2f6038",
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees/fd8c97c9f728afe0b02beb71fc4e89584e2f6038"
+        },
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits/746f95ef5ead283fc597c5170335591df5a49dfd",
+        "comment_count": 0,
+        "verification": {
+          "verified": false,
+          "reason": "unsigned",
+          "signature": null,
+          "payload": null,
+          "verified_at": null
+        }
+      },
+      "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/746f95ef5ead283fc597c5170335591df5a49dfd",
+      "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/746f95ef5ead283fc597c5170335591df5a49dfd",
+      "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/746f95ef5ead283fc597c5170335591df5a49dfd/comments",
+      "author": {
+        "login": "Dumbris",
+        "id": 1362215,
+        "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Dumbris",
+        "html_url": "https://github.com/Dumbris",
+        "followers_url": "https://api.github.com/users/Dumbris/followers",
+        "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+        "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+        "repos_url": "https://api.github.com/users/Dumbris/repos",
+        "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "Dumbris",
+        "id": 1362215,
+        "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Dumbris",
+        "html_url": "https://github.com/Dumbris",
+        "followers_url": "https://api.github.com/users/Dumbris/followers",
+        "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+        "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+        "repos_url": "https://api.github.com/users/Dumbris/repos",
+        "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+          "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/e74335df2d1ced1ff7a76a05c59e7acb4951f716"
+        }
+      ]
+    },
+    {
+      "sha": "b5aac02165bcae107674e56783f1079ffa72a1ce",
+      "node_id": "C_kwDOO9ixUtoAKGI1YWFjMDIxNjViY2FlMTA3Njc0ZTU2NzgzZjEwNzlmZmE3MmExY2U",
+      "commit": {
+        "author": {
+          "name": "Algis Dumbris",
+          "email": "a.dumbris@gmail.com",
+          "date": "2026-06-01T10:07:42Z"
+        },
+        "committer": {
+          "name": "Algis Dumbris",
+          "email": "a.dumbris@gmail.com",
+          "date": "2026-06-01T10:07:42Z"
+        },
+        "message": "fix(upstream): resolve connectStdio↔monitorStderr data race on c.stderr\n\nTestCrossSurfaceConsistency_RegistryAdd is the first unit test to drive the\nreal supervisor connect loop under -race and it surfaced a genuine production\ndata race: connectStdio reassigns the shared c.stderr field on every\n(re)connect (connection_stdio.go:217) while the monitorStderr goroutine read\nthat same field to build its scanner (monitoring.go:170). A reconnect's write\nraced a lingering monitor's read.\n\nCapture the stderr reader as a local under monitoringMu in\nStartStderrMonitoring and pass it to monitorStderr as an argument, completing\nthe existing \"abandoned goroutine touches only its locals\" design — the\nmonitor no longer reads the shared field, so the write can never race it.\n\nAdd TestStderrMonitoring_ReassignDuringMonitorNoRace, which reproduces the\nexact write@217/read@170 pair under -race (red before this change, green\nafter).\n\nRelated #559",
+        "tree": {
+          "sha": "87f411342dda446b41b45b3a8d06265e33535d5d",
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees/87f411342dda446b41b45b3a8d06265e33535d5d"
+        },
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits/b5aac02165bcae107674e56783f1079ffa72a1ce",
+        "comment_count": 0,
+        "verification": {
+          "verified": false,
+          "reason": "unsigned",
+          "signature": null,
+          "payload": null,
+          "verified_at": null
+        }
+      },
+      "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/b5aac02165bcae107674e56783f1079ffa72a1ce",
+      "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/b5aac02165bcae107674e56783f1079ffa72a1ce",
+      "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/b5aac02165bcae107674e56783f1079ffa72a1ce/comments",
+      "author": {
+        "login": "Dumbris",
+        "id": 1362215,
+        "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Dumbris",
+        "html_url": "https://github.com/Dumbris",
+        "followers_url": "https://api.github.com/users/Dumbris/followers",
+        "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+        "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+        "repos_url": "https://api.github.com/users/Dumbris/repos",
+        "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "Dumbris",
+        "id": 1362215,
+        "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Dumbris",
+        "html_url": "https://github.com/Dumbris",
+        "followers_url": "https://api.github.com/users/Dumbris/followers",
+        "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+        "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+        "repos_url": "https://api.github.com/users/Dumbris/repos",
+        "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "746f95ef5ead283fc597c5170335591df5a49dfd",
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/746f95ef5ead283fc597c5170335591df5a49dfd",
+          "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/746f95ef5ead283fc597c5170335591df5a49dfd"
+        }
+      ]
+    },
+    {
+      "sha": "fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "node_id": "C_kwDOO9ixUtoAKGZiMWI2NGI5MTZhNGQxZjNmMGMwNzY1Y2FlYmQyN2UwZjE4MmZhZTM",
+      "commit": {
+        "author": {
+          "name": "Algis Dumbris",
+          "email": "a.dumbris@gmail.com",
+          "date": "2026-06-01T10:36:32Z"
+        },
+        "committer": {
+          "name": "Algis Dumbris",
+          "email": "a.dumbris@gmail.com",
+          "date": "2026-06-01T10:36:32Z"
+        },
+        "message": "fix(configsvc): guard Subscribe init-send against concurrent Close (send-on-closed)\n\nThe registry-add unit tests added in this PR drive a full Runtime + configsvc\nunder -race and surfaced a second production data race (distinct from the\nconnectStdio↔monitorStderr fix): Subscribe spawns a goroutine that sends the\ninitial snapshot on the subscriber channel (service.go:206) holding no lock,\nwhile Close (service.go:261) and Unsubscribe close that same channel under\nsubMu. The send racing the close both data-races and panics with\n\"send on closed channel\".\n\nDeliver the initial snapshot under subMu(R) after confirming the channel is\nstill a live subscriber (isSubscribedLocked), so the close paths — which run\nunder the subMu write lock — are mutually exclusive with the send. The send is\nnon-blocking (the cap-10 buffer is empty at subscribe time) so the lock is\nnever held across a blocking send. Preserve the ctx-canceled early-out.\n\nAdd TestService_SubscribeCloseRace, which reproduces the panic/race under\n-race (red before this change, green after).\n\nRelated #559",
+        "tree": {
+          "sha": "e8f3f984d7c3c755395fdc7d76166433055b6422",
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees/e8f3f984d7c3c755395fdc7d76166433055b6422"
+        },
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+        "comment_count": 0,
+        "verification": {
+          "verified": false,
+          "reason": "unsigned",
+          "signature": null,
+          "payload": null,
+          "verified_at": null
+        }
+      },
+      "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/comments",
+      "author": {
+        "login": "Dumbris",
+        "id": 1362215,
+        "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Dumbris",
+        "html_url": "https://github.com/Dumbris",
+        "followers_url": "https://api.github.com/users/Dumbris/followers",
+        "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+        "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+        "repos_url": "https://api.github.com/users/Dumbris/repos",
+        "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "Dumbris",
+        "id": 1362215,
+        "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Dumbris",
+        "html_url": "https://github.com/Dumbris",
+        "followers_url": "https://api.github.com/users/Dumbris/followers",
+        "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+        "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+        "repos_url": "https://api.github.com/users/Dumbris/repos",
+        "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "b5aac02165bcae107674e56783f1079ffa72a1ce",
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/b5aac02165bcae107674e56783f1079ffa72a1ce",
+          "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/b5aac02165bcae107674e56783f1079ffa72a1ce"
+        }
+      ]
+    }
+  ],
+  "files_status": "ok",
+  "pr_files": [
+    {
+      "sha": "0a189a26abb04fe9259bad38fbd2bec5e2b3e0d6",
+      "filename": "internal/runtime/configsvc/service.go",
+      "status": "modified",
+      "additions": 33,
+      "deletions": 3,
+      "changes": 36,
+      "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fruntime%2Fconfigsvc%2Fservice.go",
+      "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fruntime%2Fconfigsvc%2Fservice.go",
+      "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fruntime%2Fconfigsvc%2Fservice.go?ref=fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "patch": "@@ -200,23 +200,53 @@ func (s *Service) Subscribe(ctx context.Context) <-chan Update {\n \ts.logger.Debug(\"New configuration subscriber\",\n \t\tzap.Int(\"total_subscribers\", len(s.subscribers)))\n \n-\t// Send initial snapshot to new subscriber\n+\t// Send initial snapshot to new subscriber.\n \tgo func() {\n+\t\t// Best-effort early-out if the subscriber canceled before we ran.\n+\t\tselect {\n+\t\tcase <-ctx.Done():\n+\t\t\ts.Unsubscribe(ch)\n+\t\t\treturn\n+\t\tdefault:\n+\t\t}\n+\n+\t\t// Deliver the initial snapshot under subMu(R) so Close()/Unsubscribe()\n+\t\t// (which close ch under the subMu write lock) cannot race or panic this\n+\t\t// send — a send on a closed channel both data-races and panics. The\n+\t\t// membership check covers both teardown paths: Close() nils the slice and\n+\t\t// Unsubscribe() removes this ch. The buffer (cap 10) is empty at subscribe\n+\t\t// time, so a non-blocking send always reaches a still-live subscriber;\n+\t\t// staying non-blocking avoids holding the lock across a blocking send.\n+\t\ts.subMu.RLock()\n+\t\tdefer s.subMu.RUnlock()\n+\t\tif !s.isSubscribedLocked(ch) {\n+\t\t\treturn\n+\t\t}\n \t\tselect {\n \t\tcase ch <- Update{\n \t\t\tSnapshot:  s.Current(),\n \t\t\tType:      UpdateTypeInit,\n \t\t\tChangedAt: time.Now(),\n \t\t\tSource:    \"subscription\",\n \t\t}:\n-\t\tcase <-ctx.Done():\n-\t\t\ts.Unsubscribe(ch)\n+\t\tdefault:\n \t\t}\n \t}()\n \n \treturn ch\n }\n \n+// isSubscribedLocked reports whether ch is still a live subscriber. Callers must\n+// hold subMu (read or write).\n+func (s *Service) isSubscribedLocked(ch chan Update) bool {\n+\tfor _, sub := range s.subscribers {\n+\t\tif sub == ch {\n+\t\t\treturn true\n+\t\t}\n+\t}\n+\treturn false\n+}\n+\n // Unsubscribe removes a subscriber channel and closes it.\n func (s *Service) Unsubscribe(ch <-chan Update) {\n \ts.subMu.Lock()"
+    },
+    {
+      "sha": "5be731ebc3a0644d703766464d60a99106fae8cd",
+      "filename": "internal/runtime/configsvc/service_test.go",
+      "status": "modified",
+      "additions": 29,
+      "deletions": 0,
+      "changes": 29,
+      "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fruntime%2Fconfigsvc%2Fservice_test.go",
+      "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fruntime%2Fconfigsvc%2Fservice_test.go",
+      "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fruntime%2Fconfigsvc%2Fservice_test.go?ref=fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "patch": "@@ -2,6 +2,7 @@ package configsvc\n \n import (\n \t\"context\"\n+\t\"sync\"\n \t\"testing\"\n \t\"time\"\n \n@@ -328,6 +329,34 @@ func TestSnapshot_ServerNames(t *testing.T) {\n \t}\n }\n \n+// TestService_SubscribeCloseRace reproduces the close-vs-send data race surfaced\n+// by TestHandleUpstreamServers_AddFromRegistry_* under -race (MCP-816 / MCP-809\n+// RV-3). Subscribe spawns a goroutine that sends the initial snapshot on the\n+// subscriber channel (service.go:206) while holding no lock; Close (service.go:261)\n+// closes that same channel under subMu. A send racing the close both data-races\n+// and can panic (\"send on closed channel\"). Run under `go test -race`: trips\n+// before the lock+membership-guarded send, green after. Run with high parallelism\n+// so a Subscribe-init send overlaps the Close in most iterations.\n+func TestService_SubscribeCloseRace(t *testing.T) {\n+\tconst iterations = 200\n+\n+\tvar wg sync.WaitGroup\n+\tfor i := 0; i < iterations; i++ {\n+\t\twg.Add(1)\n+\t\tgo func() {\n+\t\t\tdefer wg.Done()\n+\t\t\tsvc := NewService(&config.Config{Listen: \"127.0.0.1:8080\"}, \"/tmp/config.json\", zap.NewNop())\n+\t\t\tctx, cancel := context.WithCancel(context.Background())\n+\t\t\tdefer cancel()\n+\n+\t\t\t// Subscribe schedules the init-snapshot send goroutine; Close races it.\n+\t\t\t_ = svc.Subscribe(ctx)\n+\t\t\tsvc.Close()\n+\t\t}()\n+\t}\n+\twg.Wait()\n+}\n+\n func TestService_Close(t *testing.T) {\n \tcfg := &config.Config{\n \t\tListen: \"127.0.0.1:8080\","
+    },
+    {
+      "sha": "5253c4be29c5b232b03b1f41c7d237034dc6ac32",
+      "filename": "internal/server/consistency_crosssurface_test.go",
+      "status": "added",
+      "additions": 165,
+      "deletions": 0,
+      "changes": 165,
+      "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fserver%2Fconsistency_crosssurface_test.go",
+      "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fserver%2Fconsistency_crosssurface_test.go",
+      "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fserver%2Fconsistency_crosssurface_test.go?ref=fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "patch": "@@ -0,0 +1,165 @@\n+package server\n+\n+import (\n+\t\"bytes\"\n+\t\"context\"\n+\t\"encoding/json\"\n+\t\"net/http\"\n+\t\"net/http/httptest\"\n+\t\"testing\"\n+\t\"time\"\n+\n+\t\"github.com/stretchr/testify/assert\"\n+\t\"github.com/stretchr/testify/require\"\n+\t\"go.uber.org/zap\"\n+\n+\t\"github.com/smart-mcp-proxy/mcpproxy-go/internal/config\"\n+\t\"github.com/smart-mcp-proxy/mcpproxy-go/internal/contracts\"\n+\t\"github.com/smart-mcp-proxy/mcpproxy-go/internal/httpapi\"\n+)\n+\n+// Spec 070 keystone regression (T021 / CN-004 / FR-010 / SC-004).\n+//\n+// Every add surface (REST, MCP, CLI) funnels through the single keystone\n+// AddServerFromRegistryRef, so the registry-result -> config.ServerConfig\n+// normalization lives in exactly one place. This test is the guard that keeps\n+// it that way: it drives the SAME logical add — same (registry, serverId, name,\n+// env) — through each surface against its own isolated server, then asserts the\n+// PERSISTED config.ServerConfig is byte-identical across all three (modulo the\n+// Created/Updated timestamps) and that every one is quarantined (SC-004).\n+//\n+// If a future change lets one surface bypass the keystone (e.g. the Web UI's\n+// old client-side install_cmd parsing, or a surface that forgets the quarantine\n+// default), the persisted configs diverge and this test fails.\n+//\n+// Surfaces exercised in-process:\n+//   - MCP: the real upstream_servers handler (operation=add_from_registry),\n+//     which extracts args from the MCP request (note: env arrives as env_json).\n+//   - REST: a real HTTP POST to the actual chi router handler\n+//     (POST /api/v1/registries/{id}/servers/{serverId}/add), exercising JSON\n+//     body decode + URL param extraction + auth.\n+//   - CLI add path: the CLI is a thin HTTP client of the REST route, so its\n+//     config-derivation contribution bottoms out at the same controller method\n+//     (AddServerFromRegistryRef). The full CLI binary->daemon path is separately\n+//     covered end-to-end by TestRegistryAddCLIE2E.\n+func TestCrossSurfaceConsistency_RegistryAdd(t *testing.T) {\n+\t// One stdio entry whose install command declares a required input\n+\t// (${API_KEY}); supplying it via env exercises required-input satisfaction\n+\t// AND env carry-through on the persisted config.\n+\tservers := []map[string]interface{}{\n+\t\t{\"id\": \"everything\", \"name\": \"everything\", \"installCmd\": \"npx -y srv --key ${API_KEY}\"},\n+\t}\n+\tstartTestRegistry(t, servers) // registers id=\"testreg\" against a local httptest server\n+\n+\tconst (\n+\t\tregID    = \"testreg\"\n+\t\tserverID = \"everything\"\n+\t\taddName  = \"consistency-srv\"\n+\t)\n+\tenv := map[string]string{\"API_KEY\": \"secret-123\"}\n+\n+\t// --- Surface 1: MCP -------------------------------------------------------\n+\tsrvMCP := newConsistencyServer(t)\n+\tproxy := createTestMCPProxyServer(t)\n+\tproxy.mainServer = srvMCP\n+\n+\tenvJSON, err := json.Marshal(env)\n+\trequire.NoError(t, err)\n+\tmcpResult := callAddFromRegistry(t, proxy, map[string]interface{}{\n+\t\t\"operation\": \"add_from_registry\",\n+\t\t\"registry\":  regID,\n+\t\t\"id\":        serverID,\n+\t\t\"name\":      addName,\n+\t\t\"env_json\":  string(envJSON),\n+\t})\n+\trequire.False(t, mcpResult.IsError, \"MCP add must succeed: %v\", mcpResult.Content)\n+\tmcpCfg := persistedServer(t, srvMCP, addName)\n+\n+\t// --- Surface 2: REST (real HTTP through the chi router) -------------------\n+\tsrvREST := newConsistencyServer(t)\n+\tapi := httpapi.NewServer(srvREST, zap.NewNop().Sugar(), nil)\n+\n+\tbody, err := json.Marshal(contracts.AddFromRegistryRequest{Name: addName, Env: env})\n+\trequire.NoError(t, err)\n+\treq := httptest.NewRequest(http.MethodPost,\n+\t\t\"/api/v1/registries/\"+regID+\"/servers/\"+serverID+\"/add\", bytes.NewReader(body))\n+\treq.Header.Set(\"Content-Type\", \"application/json\")\n+\treq.Header.Set(\"X-API-Key\", consistencyAPIKey)\n+\trec := httptest.NewRecorder()\n+\tapi.Router().ServeHTTP(rec, req)\n+\trequire.Equal(t, http.StatusOK, rec.Code, \"REST add must succeed: %s\", rec.Body.String())\n+\trestCfg := persistedServer(t, srvREST, addName)\n+\n+\t// --- Surface 3: CLI add path (shared controller bottom) -------------------\n+\tsrvCLI := newConsistencyServer(t)\n+\tcliCfg, rerr, err := srvCLI.AddServerFromRegistryRef(context.Background(), regID, serverID, addName, env, nil)\n+\trequire.NoError(t, err)\n+\trequire.Nil(t, rerr)\n+\trequire.NotNil(t, cliCfg)\n+\tcliPersisted := persistedServer(t, srvCLI, addName)\n+\n+\t// --- Cross-surface byte-identity (CN-004) ---------------------------------\n+\tmcpJSON := canonicalServerJSON(t, mcpCfg)\n+\trestJSON := canonicalServerJSON(t, restCfg)\n+\tcliJSON := canonicalServerJSON(t, cliPersisted)\n+\n+\tassert.Equal(t, mcpJSON, restJSON, \"REST add must persist a byte-identical config to MCP add\")\n+\tassert.Equal(t, mcpJSON, cliJSON, \"CLI add path must persist a byte-identical config to MCP add\")\n+\n+\t// --- Quarantine invariant (SC-004 / CN-002) -------------------------------\n+\tassert.True(t, mcpCfg.Quarantined, \"MCP-added server must be quarantined\")\n+\tassert.True(t, restCfg.Quarantined, \"REST-added server must be quarantined\")\n+\tassert.True(t, cliPersisted.Quarantined, \"CLI-added server must be quarantined\")\n+\n+\t// --- Sanity on the shared derivation -------------------------------------\n+\tassert.Equal(t, \"stdio\", mcpCfg.Protocol)\n+\tassert.Equal(t, \"npx\", mcpCfg.Command)\n+\tassert.Equal(t, []string{\"-y\", \"srv\", \"--key\", \"${API_KEY}\"}, mcpCfg.Args)\n+\tassert.Equal(t, \"secret-123\", mcpCfg.Env[\"API_KEY\"])\n+\tassert.True(t, mcpCfg.Enabled)\n+}\n+\n+const consistencyAPIKey = \"t021-consistency-key\"\n+\n+// newConsistencyServer builds an isolated *Server (own data dir + storage) with\n+// a known API key so the REST surface can authenticate. The storage handle is\n+// closed on cleanup so the temp-dir removal succeeds on Windows.\n+func newConsistencyServer(t *testing.T) *Server {\n+\tt.Helper()\n+\tcfg := config.DefaultConfig()\n+\tcfg.DataDir = t.TempDir()\n+\tcfg.Listen = \"127.0.0.1:0\"\n+\tcfg.APIKey = consistencyAPIKey\n+\tsrv, err := NewServer(cfg, zap.NewNop())\n+\trequire.NoError(t, err)\n+\tt.Cleanup(func() { _ = srv.Shutdown() })\n+\treturn srv\n+}\n+\n+// persistedServer reads the actually-persisted ServerConfig back from the\n+// server's live config snapshot (not the function return value), so the\n+// comparison reflects what reached storage.\n+func persistedServer(t *testing.T, srv *Server, name string) *config.ServerConfig {\n+\tt.Helper()\n+\tcfg := srv.runtime.Config()\n+\trequire.NotNil(t, cfg, \"runtime config must be available\")\n+\tfor _, sc := range cfg.Servers {\n+\t\tif sc != nil && sc.Name == name {\n+\t\t\treturn sc\n+\t\t}\n+\t}\n+\tt.Fatalf(\"server %q not found in persisted config\", name)\n+\treturn nil\n+}\n+\n+// canonicalServerJSON serializes a ServerConfig with the per-add timestamps\n+// zeroed, so byte-comparison reflects only the derived/persisted fields.\n+func canonicalServerJSON(t *testing.T, sc *config.ServerConfig) string {\n+\tt.Helper()\n+\tclone := *sc\n+\tclone.Created = time.Time{}\n+\tclone.Updated = time.Time{}\n+\tb, err := json.Marshal(&clone)\n+\trequire.NoError(t, err)\n+\treturn string(b)\n+}"
+    },
+    {
+      "sha": "0e743cae5e5070e524da3258c1fcbd4a98a8ae7f",
+      "filename": "internal/upstream/core/monitoring.go",
+      "status": "modified",
+      "additions": 18,
+      "deletions": 6,
+      "changes": 24,
+      "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fupstream%2Fcore%2Fmonitoring.go",
+      "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fupstream%2Fcore%2Fmonitoring.go",
+      "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fupstream%2Fcore%2Fmonitoring.go?ref=fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "patch": "@@ -4,6 +4,7 @@ import (\n \t\"bufio\"\n \t\"context\"\n \t\"fmt\"\n+\t\"io\"\n \t\"os\"\n \t\"strings\"\n \t\"time\"\n@@ -31,17 +32,25 @@ func (c *Client) StartStderrMonitoring() {\n \t\treturn\n \t}\n \n+\t// Capture the stderr reader as a local under monitoringMu. connectStdio\n+\t// reassigns c.stderr on every (re)connect (connection_stdio.go:217); passing\n+\t// the reader as a goroutine arg keeps monitorStderr from reading the shared\n+\t// field, so a later reconnect's write never races a lingering monitor's read\n+\t// (the connectStdio↔monitorStderr data race, MCP-816).\n+\tstderr := c.stderr\n+\n \t// Create context for stderr monitoring. The monitor goroutine receives the\n-\t// context and its done channel as locals so an abandoned (timed-out)\n-\t// goroutine never reads the shared fields a later Start may overwrite.\n+\t// context, stderr reader, and its done channel as locals so an abandoned\n+\t// (timed-out) goroutine never reads the shared fields a later Start may\n+\t// overwrite.\n \tctx, cancel := context.WithCancel(context.Background())\n \tdone := make(chan struct{})\n \tc.stderrMonitoringCtx, c.stderrMonitoringCancel = ctx, cancel\n \tc.stderrMonitoringDone = done\n \n \tgo func() {\n \t\tdefer close(done)\n-\t\tc.monitorStderr(ctx)\n+\t\tc.monitorStderr(ctx, stderr)\n \t}()\n \n \tc.logger.Debug(\"Started stderr monitoring\",\n@@ -165,9 +174,12 @@ func (c *Client) monitorProcess(ctx context.Context) {\n \t}\n }\n \n-// monitorStderr monitors stderr output and logs it to both main and server-specific logs\n-func (c *Client) monitorStderr(ctx context.Context) {\n-\tscanner := bufio.NewScanner(c.stderr)\n+// monitorStderr monitors stderr output and logs it to both main and server-specific logs.\n+// The stderr reader is passed as an argument (captured under monitoringMu by the\n+// caller) rather than read from c.stderr, so a concurrent connectStdio reassigning\n+// the shared field cannot race this goroutine's read (MCP-816).\n+func (c *Client) monitorStderr(ctx context.Context, stderr io.Reader) {\n+\tscanner := bufio.NewScanner(stderr)\n \tfor scanner.Scan() {\n \t\tselect {\n \t\tcase <-ctx.Done():"
+    },
+    {
+      "sha": "20618f7d892ed27d46643f8117f2bf8345e38cb0",
+      "filename": "internal/upstream/core/monitoring_race_test.go",
+      "status": "modified",
+      "additions": 43,
+      "deletions": 0,
+      "changes": 43,
+      "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fupstream%2Fcore%2Fmonitoring_race_test.go",
+      "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fupstream%2Fcore%2Fmonitoring_race_test.go",
+      "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fupstream%2Fcore%2Fmonitoring_race_test.go?ref=fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "patch": "@@ -48,6 +48,49 @@ func TestStderrMonitoring_StartStopRace(t *testing.T) {\n \tc.StopStderrMonitoring()\n }\n \n+// TestStderrMonitoring_ReassignDuringMonitorNoRace reproduces the\n+// connectStdio(connection_stdio.go:217)-write vs monitorStderr(monitoring.go:170)-read\n+// data race on the shared c.stderr field, surfaced by TestCrossSurfaceConsistency_RegistryAdd\n+// in CI (MCP-816 / MCP-809 RV-3). connectStdio reassigns c.stderr on every\n+// (re)connect, then starts the monitor; the monitor goroutine built its scanner\n+// from the shared c.stderr field instead of a captured local, so a reconnect's\n+// field write raced the lingering goroutine's read. Run under `go test -race`:\n+// trips before the capture-local fix, green after. Empty readers EOF immediately\n+// so each monitor goroutine exits at once and the loop stays fast.\n+func TestStderrMonitoring_ReassignDuringMonitorNoRace(t *testing.T) {\n+\tc := &Client{\n+\t\ttransportType: transportStdio,\n+\t\tstderr:        strings.NewReader(\"\"),\n+\t\tlogger:        zap.NewNop(),\n+\t\tconfig:        &config.ServerConfig{Name: \"race\"},\n+\t}\n+\n+\tconst iterations = 500\n+\tvar wg sync.WaitGroup\n+\twg.Add(2)\n+\n+\t// Mimics connectStdio: reassign c.stderr on each reconnect, then (re)start\n+\t// the monitor. The reassignment is the field write the detector flagged at\n+\t// connection_stdio.go:217; the monitor goroutine spawned by the previous\n+\t// iteration reads c.stderr at monitoring.go:170 concurrently.\n+\tgo func() {\n+\t\tdefer wg.Done()\n+\t\tfor i := 0; i < iterations; i++ {\n+\t\t\tc.stderr = strings.NewReader(\"\")\n+\t\t\tc.StartStderrMonitoring()\n+\t\t}\n+\t}()\n+\tgo func() {\n+\t\tdefer wg.Done()\n+\t\tfor i := 0; i < iterations; i++ {\n+\t\t\tc.StopStderrMonitoring()\n+\t\t}\n+\t}()\n+\n+\twg.Wait()\n+\tc.StopStderrMonitoring()\n+}\n+\n // TestStderrMonitoring_AbandonedMonitorNoRace models the round-5 escape: the\n // monitor goroutine is still alive when Stop is called (its stderr Read blocks),\n // so Stop hits the 500ms timeout and abandons it. With the old reused-WaitGroup"
+    },
+    {
+      "sha": "8cf90f6df9288a9cc83bcb19b80c7210a1773b28",
+      "filename": "specs/070-registry-easy-upstream-add/spec.md",
+      "status": "modified",
+      "additions": 4,
+      "deletions": 0,
+      "changes": 4,
+      "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/specs%2F070-registry-easy-upstream-add%2Fspec.md",
+      "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/specs%2F070-registry-easy-upstream-add%2Fspec.md",
+      "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/specs%2F070-registry-easy-upstream-add%2Fspec.md?ref=fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "patch": "@@ -15,6 +15,10 @@\n - Q: Add-from-registry today via MCP? → A: Works, but the agent must hand-construct the upstream config from a search result; a convenience \"add from registry result\" mode is desired.\n - Q: Does quarantine-by-default hold on add? → A: Yes, on every surface (they share the core add path); this MUST be preserved as an invariant.\n \n+### Session 2026-06-01 (O3 — post-implementation amendment)\n+\n+- Amendment (O3): The US1/US2 \"gaps\" recorded on 2026-05-31 were partly **stale**. During implementation it was found that the Web UI already exposed an \"Add to MCP\" path and the CLI already *listed and searched* registries; the genuine gap was narrower — each surface re-implemented add logic (including a client-side parse on the Web UI, a CN-001 risk) instead of sharing one path, and the CLI could not add directly *from a search result*. The real work delivered was therefore **de-duplicating every surface (Web UI, CLI, MCP) onto the single `AddServerFromRegistry` keystone core op** (`internal/registries/`), so quarantine-by-default and validation live in exactly one place. This landed in PR #555 / commit `354580f4` and is guarded by a cross-surface consistency regression (`internal/server/consistency_crosssurface_test.go`, T021 / CN-004 / SC-004). The other decision artifacts are already reflected in shipped code — O1 (required-input heuristic), O2 (key-absent skip), O4 (P2 in scope); O3 (this note) was the only outstanding artifact.\n+\n ## User Scenarios & Testing *(mandatory)*\n \n ### User Story 1 — Add a discovered server to upstream from the Web UI in one flow (Priority: P1)"
+    }
+  ],
+  "commit_details": [
+    {
+      "sha": "e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+      "status": "ok",
+      "detail": {
+        "sha": "e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+        "node_id": "C_kwDOO9ixUtoAKGU3NDMzNWRmMmQxY2VkMWZmN2E3NmEwNWM1OWU3YWNiNDk1MWY3MTY",
+        "commit": {
+          "author": {
+            "name": "Algis Dumbris",
+            "email": "a.dumbris@gmail.com",
+            "date": "2026-06-01T09:11:54Z"
+          },
+          "committer": {
+            "name": "Algis Dumbris",
+            "email": "a.dumbris@gmail.com",
+            "date": "2026-06-01T10:01:22Z"
+          },
+          "message": "test(070): cross-surface registry-add consistency regression (T021, CN-004/SC-004)\n\nGuards that all three add surfaces (Web UI, CLI, MCP) route through the\nsingle AddServerFromRegistry keystone op with quarantine-by-default\npreserved. The production code landed via PR #555; this is the Phase-7\nregression that was cut after #555's branch point.\n\nRelated MCP-746",
+          "tree": {
+            "sha": "c61ba2e0bdd426bcc6b531413bc7c48d5340a1ea",
+            "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees/c61ba2e0bdd426bcc6b531413bc7c48d5340a1ea"
+          },
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits/e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+          "comment_count": 0,
+          "verification": {
+            "verified": false,
+            "reason": "unsigned",
+            "signature": null,
+            "payload": null,
+            "verified_at": null
+          }
+        },
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+        "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+        "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/e74335df2d1ced1ff7a76a05c59e7acb4951f716/comments",
+        "author": {
+          "login": "Dumbris",
+          "id": 1362215,
+          "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/Dumbris",
+          "html_url": "https://github.com/Dumbris",
+          "followers_url": "https://api.github.com/users/Dumbris/followers",
+          "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+          "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+          "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+          "repos_url": "https://api.github.com/users/Dumbris/repos",
+          "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "Dumbris",
+          "id": 1362215,
+          "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/Dumbris",
+          "html_url": "https://github.com/Dumbris",
+          "followers_url": "https://api.github.com/users/Dumbris/followers",
+          "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+          "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+          "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+          "repos_url": "https://api.github.com/users/Dumbris/repos",
+          "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "c17f262dfc4c3c3bdb35c7deb0a7847bf381f8c0",
+            "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/c17f262dfc4c3c3bdb35c7deb0a7847bf381f8c0",
+            "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/c17f262dfc4c3c3bdb35c7deb0a7847bf381f8c0"
+          }
+        ],
+        "stats": {
+          "total": 165,
+          "additions": 165,
+          "deletions": 0
+        },
+        "files": [
+          {
+            "sha": "5253c4be29c5b232b03b1f41c7d237034dc6ac32",
+            "filename": "internal/server/consistency_crosssurface_test.go",
+            "status": "added",
+            "additions": 165,
+            "deletions": 0,
+            "changes": 165,
+            "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/e74335df2d1ced1ff7a76a05c59e7acb4951f716/internal%2Fserver%2Fconsistency_crosssurface_test.go",
+            "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/e74335df2d1ced1ff7a76a05c59e7acb4951f716/internal%2Fserver%2Fconsistency_crosssurface_test.go",
+            "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fserver%2Fconsistency_crosssurface_test.go?ref=e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+            "patch": "@@ -0,0 +1,165 @@\n+package server\n+\n+import (\n+\t\"bytes\"\n+\t\"context\"\n+\t\"encoding/json\"\n+\t\"net/http\"\n+\t\"net/http/httptest\"\n+\t\"testing\"\n+\t\"time\"\n+\n+\t\"github.com/stretchr/testify/assert\"\n+\t\"github.com/stretchr/testify/require\"\n+\t\"go.uber.org/zap\"\n+\n+\t\"github.com/smart-mcp-proxy/mcpproxy-go/internal/config\"\n+\t\"github.com/smart-mcp-proxy/mcpproxy-go/internal/contracts\"\n+\t\"github.com/smart-mcp-proxy/mcpproxy-go/internal/httpapi\"\n+)\n+\n+// Spec 070 keystone regression (T021 / CN-004 / FR-010 / SC-004).\n+//\n+// Every add surface (REST, MCP, CLI) funnels through the single keystone\n+// AddServerFromRegistryRef, so the registry-result -> config.ServerConfig\n+// normalization lives in exactly one place. This test is the guard that keeps\n+// it that way: it drives the SAME logical add — same (registry, serverId, name,\n+// env) — through each surface against its own isolated server, then asserts the\n+// PERSISTED config.ServerConfig is byte-identical across all three (modulo the\n+// Created/Updated timestamps) and that every one is quarantined (SC-004).\n+//\n+// If a future change lets one surface bypass the keystone (e.g. the Web UI's\n+// old client-side install_cmd parsing, or a surface that forgets the quarantine\n+// default), the persisted configs diverge and this test fails.\n+//\n+// Surfaces exercised in-process:\n+//   - MCP: the real upstream_servers handler (operation=add_from_registry),\n+//     which extracts args from the MCP request (note: env arrives as env_json).\n+//   - REST: a real HTTP POST to the actual chi router handler\n+//     (POST /api/v1/registries/{id}/servers/{serverId}/add), exercising JSON\n+//     body decode + URL param extraction + auth.\n+//   - CLI add path: the CLI is a thin HTTP client of the REST route, so its\n+//     config-derivation contribution bottoms out at the same controller method\n+//     (AddServerFromRegistryRef). The full CLI binary->daemon path is separately\n+//     covered end-to-end by TestRegistryAddCLIE2E.\n+func TestCrossSurfaceConsistency_RegistryAdd(t *testing.T) {\n+\t// One stdio entry whose install command declares a required input\n+\t// (${API_KEY}); supplying it via env exercises required-input satisfaction\n+\t// AND env carry-through on the persisted config.\n+\tservers := []map[string]interface{}{\n+\t\t{\"id\": \"everything\", \"name\": \"everything\", \"installCmd\": \"npx -y srv --key ${API_KEY}\"},\n+\t}\n+\tstartTestRegistry(t, servers) // registers id=\"testreg\" against a local httptest server\n+\n+\tconst (\n+\t\tregID    = \"testreg\"\n+\t\tserverID = \"everything\"\n+\t\taddName  = \"consistency-srv\"\n+\t)\n+\tenv := map[string]string{\"API_KEY\": \"secret-123\"}\n+\n+\t// --- Surface 1: MCP -------------------------------------------------------\n+\tsrvMCP := newConsistencyServer(t)\n+\tproxy := createTestMCPProxyServer(t)\n+\tproxy.mainServer = srvMCP\n+\n+\tenvJSON, err := json.Marshal(env)\n+\trequire.NoError(t, err)\n+\tmcpResult := callAddFromRegistry(t, proxy, map[string]interface{}{\n+\t\t\"operation\": \"add_from_registry\",\n+\t\t\"registry\":  regID,\n+\t\t\"id\":        serverID,\n+\t\t\"name\":      addName,\n+\t\t\"env_json\":  string(envJSON),\n+\t})\n+\trequire.False(t, mcpResult.IsError, \"MCP add must succeed: %v\", mcpResult.Content)\n+\tmcpCfg := persistedServer(t, srvMCP, addName)\n+\n+\t// --- Surface 2: REST (real HTTP through the chi router) -------------------\n+\tsrvREST := newConsistencyServer(t)\n+\tapi := httpapi.NewServer(srvREST, zap.NewNop().Sugar(), nil)\n+\n+\tbody, err := json.Marshal(contracts.AddFromRegistryRequest{Name: addName, Env: env})\n+\trequire.NoError(t, err)\n+\treq := httptest.NewRequest(http.MethodPost,\n+\t\t\"/api/v1/registries/\"+regID+\"/servers/\"+serverID+\"/add\", bytes.NewReader(body))\n+\treq.Header.Set(\"Content-Type\", \"application/json\")\n+\treq.Header.Set(\"X-API-Key\", consistencyAPIKey)\n+\trec := httptest.NewRecorder()\n+\tapi.Router().ServeHTTP(rec, req)\n+\trequire.Equal(t, http.StatusOK, rec.Code, \"REST add must succeed: %s\", rec.Body.String())\n+\trestCfg := persistedServer(t, srvREST, addName)\n+\n+\t// --- Surface 3: CLI add path (shared controller bottom) -------------------\n+\tsrvCLI := newConsistencyServer(t)\n+\tcliCfg, rerr, err := srvCLI.AddServerFromRegistryRef(context.Background(), regID, serverID, addName, env, nil)\n+\trequire.NoError(t, err)\n+\trequire.Nil(t, rerr)\n+\trequire.NotNil(t, cliCfg)\n+\tcliPersisted := persistedServer(t, srvCLI, addName)\n+\n+\t// --- Cross-surface byte-identity (CN-004) ---------------------------------\n+\tmcpJSON := canonicalServerJSON(t, mcpCfg)\n+\trestJSON := canonicalServerJSON(t, restCfg)\n+\tcliJSON := canonicalServerJSON(t, cliPersisted)\n+\n+\tassert.Equal(t, mcpJSON, restJSON, \"REST add must persist a byte-identical config to MCP add\")\n+\tassert.Equal(t, mcpJSON, cliJSON, \"CLI add path must persist a byte-identical config to MCP add\")\n+\n+\t// --- Quarantine invariant (SC-004 / CN-002) -------------------------------\n+\tassert.True(t, mcpCfg.Quarantined, \"MCP-added server must be quarantined\")\n+\tassert.True(t, restCfg.Quarantined, \"REST-added server must be quarantined\")\n+\tassert.True(t, cliPersisted.Quarantined, \"CLI-added server must be quarantined\")\n+\n+\t// --- Sanity on the shared derivation -------------------------------------\n+\tassert.Equal(t, \"stdio\", mcpCfg.Protocol)\n+\tassert.Equal(t, \"npx\", mcpCfg.Command)\n+\tassert.Equal(t, []string{\"-y\", \"srv\", \"--key\", \"${API_KEY}\"}, mcpCfg.Args)\n+\tassert.Equal(t, \"secret-123\", mcpCfg.Env[\"API_KEY\"])\n+\tassert.True(t, mcpCfg.Enabled)\n+}\n+\n+const consistencyAPIKey = \"t021-consistency-key\"\n+\n+// newConsistencyServer builds an isolated *Server (own data dir + storage) with\n+// a known API key so the REST surface can authenticate. The storage handle is\n+// closed on cleanup so the temp-dir removal succeeds on Windows.\n+func newConsistencyServer(t *testing.T) *Server {\n+\tt.Helper()\n+\tcfg := config.DefaultConfig()\n+\tcfg.DataDir = t.TempDir()\n+\tcfg.Listen = \"127.0.0.1:0\"\n+\tcfg.APIKey = consistencyAPIKey\n+\tsrv, err := NewServer(cfg, zap.NewNop())\n+\trequire.NoError(t, err)\n+\tt.Cleanup(func() { _ = srv.Shutdown() })\n+\treturn srv\n+}\n+\n+// persistedServer reads the actually-persisted ServerConfig back from the\n+// server's live config snapshot (not the function return value), so the\n+// comparison reflects what reached storage.\n+func persistedServer(t *testing.T, srv *Server, name string) *config.ServerConfig {\n+\tt.Helper()\n+\tcfg := srv.runtime.Config()\n+\trequire.NotNil(t, cfg, \"runtime config must be available\")\n+\tfor _, sc := range cfg.Servers {\n+\t\tif sc != nil && sc.Name == name {\n+\t\t\treturn sc\n+\t\t}\n+\t}\n+\tt.Fatalf(\"server %q not found in persisted config\", name)\n+\treturn nil\n+}\n+\n+// canonicalServerJSON serializes a ServerConfig with the per-add timestamps\n+// zeroed, so byte-comparison reflects only the derived/persisted fields.\n+func canonicalServerJSON(t *testing.T, sc *config.ServerConfig) string {\n+\tt.Helper()\n+\tclone := *sc\n+\tclone.Created = time.Time{}\n+\tclone.Updated = time.Time{}\n+\tb, err := json.Marshal(&clone)\n+\trequire.NoError(t, err)\n+\treturn string(b)\n+}"
+          }
+        ]
+      }
+    },
+    {
+      "sha": "746f95ef5ead283fc597c5170335591df5a49dfd",
+      "status": "ok",
+      "detail": {
+        "sha": "746f95ef5ead283fc597c5170335591df5a49dfd",
+        "node_id": "C_kwDOO9ixUtoAKDc0NmY5NWVmNWVhZDI4M2ZjNTk3YzUxNzAzMzU1OTFkZjVhNDlkZmQ",
+        "commit": {
+          "author": {
+            "name": "Algis Dumbris",
+            "email": "a.dumbris@gmail.com",
+            "date": "2026-06-01T09:11:54Z"
+          },
+          "committer": {
+            "name": "Algis Dumbris",
+            "email": "a.dumbris@gmail.com",
+            "date": "2026-06-01T10:01:22Z"
+          },
+          "message": "docs(070): O3 spec amendment — record stale US1/US2 gap premise\n\nThe US1/US2 gaps recorded 2026-05-31 were partly stale: Web UI already\nhad an 'Add to MCP' path and the CLI already listed/searched registries.\nReal work was de-duplicating every surface onto the single\nAddServerFromRegistry keystone op (PR #555 / 354580f4).\n\nRelated MCP-746",
+          "tree": {
+            "sha": "fd8c97c9f728afe0b02beb71fc4e89584e2f6038",
+            "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees/fd8c97c9f728afe0b02beb71fc4e89584e2f6038"
+          },
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits/746f95ef5ead283fc597c5170335591df5a49dfd",
+          "comment_count": 0,
+          "verification": {
+            "verified": false,
+            "reason": "unsigned",
+            "signature": null,
+            "payload": null,
+            "verified_at": null
+          }
+        },
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/746f95ef5ead283fc597c5170335591df5a49dfd",
+        "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/746f95ef5ead283fc597c5170335591df5a49dfd",
+        "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/746f95ef5ead283fc597c5170335591df5a49dfd/comments",
+        "author": {
+          "login": "Dumbris",
+          "id": 1362215,
+          "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/Dumbris",
+          "html_url": "https://github.com/Dumbris",
+          "followers_url": "https://api.github.com/users/Dumbris/followers",
+          "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+          "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+          "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+          "repos_url": "https://api.github.com/users/Dumbris/repos",
+          "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "Dumbris",
+          "id": 1362215,
+          "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/Dumbris",
+          "html_url": "https://github.com/Dumbris",
+          "followers_url": "https://api.github.com/users/Dumbris/followers",
+          "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+          "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+          "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+          "repos_url": "https://api.github.com/users/Dumbris/repos",
+          "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+            "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/e74335df2d1ced1ff7a76a05c59e7acb4951f716",
+            "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/e74335df2d1ced1ff7a76a05c59e7acb4951f716"
+          }
+        ],
+        "stats": {
+          "total": 4,
+          "additions": 4,
+          "deletions": 0
+        },
+        "files": [
+          {
+            "sha": "8cf90f6df9288a9cc83bcb19b80c7210a1773b28",
+            "filename": "specs/070-registry-easy-upstream-add/spec.md",
+            "status": "modified",
+            "additions": 4,
+            "deletions": 0,
+            "changes": 4,
+            "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/746f95ef5ead283fc597c5170335591df5a49dfd/specs%2F070-registry-easy-upstream-add%2Fspec.md",
+            "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/746f95ef5ead283fc597c5170335591df5a49dfd/specs%2F070-registry-easy-upstream-add%2Fspec.md",
+            "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/specs%2F070-registry-easy-upstream-add%2Fspec.md?ref=746f95ef5ead283fc597c5170335591df5a49dfd",
+            "patch": "@@ -15,6 +15,10 @@\n - Q: Add-from-registry today via MCP? → A: Works, but the agent must hand-construct the upstream config from a search result; a convenience \"add from registry result\" mode is desired.\n - Q: Does quarantine-by-default hold on add? → A: Yes, on every surface (they share the core add path); this MUST be preserved as an invariant.\n \n+### Session 2026-06-01 (O3 — post-implementation amendment)\n+\n+- Amendment (O3): The US1/US2 \"gaps\" recorded on 2026-05-31 were partly **stale**. During implementation it was found that the Web UI already exposed an \"Add to MCP\" path and the CLI already *listed and searched* registries; the genuine gap was narrower — each surface re-implemented add logic (including a client-side parse on the Web UI, a CN-001 risk) instead of sharing one path, and the CLI could not add directly *from a search result*. The real work delivered was therefore **de-duplicating every surface (Web UI, CLI, MCP) onto the single `AddServerFromRegistry` keystone core op** (`internal/registries/`), so quarantine-by-default and validation live in exactly one place. This landed in PR #555 / commit `354580f4` and is guarded by a cross-surface consistency regression (`internal/server/consistency_crosssurface_test.go`, T021 / CN-004 / SC-004). The other decision artifacts are already reflected in shipped code — O1 (required-input heuristic), O2 (key-absent skip), O4 (P2 in scope); O3 (this note) was the only outstanding artifact.\n+\n ## User Scenarios & Testing *(mandatory)*\n \n ### User Story 1 — Add a discovered server to upstream from the Web UI in one flow (Priority: P1)"
+          }
+        ]
+      }
+    },
+    {
+      "sha": "b5aac02165bcae107674e56783f1079ffa72a1ce",
+      "status": "ok",
+      "detail": {
+        "sha": "b5aac02165bcae107674e56783f1079ffa72a1ce",
+        "node_id": "C_kwDOO9ixUtoAKGI1YWFjMDIxNjViY2FlMTA3Njc0ZTU2NzgzZjEwNzlmZmE3MmExY2U",
+        "commit": {
+          "author": {
+            "name": "Algis Dumbris",
+            "email": "a.dumbris@gmail.com",
+            "date": "2026-06-01T10:07:42Z"
+          },
+          "committer": {
+            "name": "Algis Dumbris",
+            "email": "a.dumbris@gmail.com",
+            "date": "2026-06-01T10:07:42Z"
+          },
+          "message": "fix(upstream): resolve connectStdio↔monitorStderr data race on c.stderr\n\nTestCrossSurfaceConsistency_RegistryAdd is the first unit test to drive the\nreal supervisor connect loop under -race and it surfaced a genuine production\ndata race: connectStdio reassigns the shared c.stderr field on every\n(re)connect (connection_stdio.go:217) while the monitorStderr goroutine read\nthat same field to build its scanner (monitoring.go:170). A reconnect's write\nraced a lingering monitor's read.\n\nCapture the stderr reader as a local under monitoringMu in\nStartStderrMonitoring and pass it to monitorStderr as an argument, completing\nthe existing \"abandoned goroutine touches only its locals\" design — the\nmonitor no longer reads the shared field, so the write can never race it.\n\nAdd TestStderrMonitoring_ReassignDuringMonitorNoRace, which reproduces the\nexact write@217/read@170 pair under -race (red before this change, green\nafter).\n\nRelated #559",
+          "tree": {
+            "sha": "87f411342dda446b41b45b3a8d06265e33535d5d",
+            "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees/87f411342dda446b41b45b3a8d06265e33535d5d"
+          },
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits/b5aac02165bcae107674e56783f1079ffa72a1ce",
+          "comment_count": 0,
+          "verification": {
+            "verified": false,
+            "reason": "unsigned",
+            "signature": null,
+            "payload": null,
+            "verified_at": null
+          }
+        },
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/b5aac02165bcae107674e56783f1079ffa72a1ce",
+        "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/b5aac02165bcae107674e56783f1079ffa72a1ce",
+        "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/b5aac02165bcae107674e56783f1079ffa72a1ce/comments",
+        "author": {
+          "login": "Dumbris",
+          "id": 1362215,
+          "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/Dumbris",
+          "html_url": "https://github.com/Dumbris",
+          "followers_url": "https://api.github.com/users/Dumbris/followers",
+          "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+          "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+          "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+          "repos_url": "https://api.github.com/users/Dumbris/repos",
+          "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "Dumbris",
+          "id": 1362215,
+          "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/Dumbris",
+          "html_url": "https://github.com/Dumbris",
+          "followers_url": "https://api.github.com/users/Dumbris/followers",
+          "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+          "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+          "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+          "repos_url": "https://api.github.com/users/Dumbris/repos",
+          "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "746f95ef5ead283fc597c5170335591df5a49dfd",
+            "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/746f95ef5ead283fc597c5170335591df5a49dfd",
+            "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/746f95ef5ead283fc597c5170335591df5a49dfd"
+          }
+        ],
+        "stats": {
+          "total": 67,
+          "additions": 61,
+          "deletions": 6
+        },
+        "files": [
+          {
+            "sha": "0e743cae5e5070e524da3258c1fcbd4a98a8ae7f",
+            "filename": "internal/upstream/core/monitoring.go",
+            "status": "modified",
+            "additions": 18,
+            "deletions": 6,
+            "changes": 24,
+            "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/b5aac02165bcae107674e56783f1079ffa72a1ce/internal%2Fupstream%2Fcore%2Fmonitoring.go",
+            "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/b5aac02165bcae107674e56783f1079ffa72a1ce/internal%2Fupstream%2Fcore%2Fmonitoring.go",
+            "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fupstream%2Fcore%2Fmonitoring.go?ref=b5aac02165bcae107674e56783f1079ffa72a1ce",
+            "patch": "@@ -4,6 +4,7 @@ import (\n \t\"bufio\"\n \t\"context\"\n \t\"fmt\"\n+\t\"io\"\n \t\"os\"\n \t\"strings\"\n \t\"time\"\n@@ -31,17 +32,25 @@ func (c *Client) StartStderrMonitoring() {\n \t\treturn\n \t}\n \n+\t// Capture the stderr reader as a local under monitoringMu. connectStdio\n+\t// reassigns c.stderr on every (re)connect (connection_stdio.go:217); passing\n+\t// the reader as a goroutine arg keeps monitorStderr from reading the shared\n+\t// field, so a later reconnect's write never races a lingering monitor's read\n+\t// (the connectStdio↔monitorStderr data race, MCP-816).\n+\tstderr := c.stderr\n+\n \t// Create context for stderr monitoring. The monitor goroutine receives the\n-\t// context and its done channel as locals so an abandoned (timed-out)\n-\t// goroutine never reads the shared fields a later Start may overwrite.\n+\t// context, stderr reader, and its done channel as locals so an abandoned\n+\t// (timed-out) goroutine never reads the shared fields a later Start may\n+\t// overwrite.\n \tctx, cancel := context.WithCancel(context.Background())\n \tdone := make(chan struct{})\n \tc.stderrMonitoringCtx, c.stderrMonitoringCancel = ctx, cancel\n \tc.stderrMonitoringDone = done\n \n \tgo func() {\n \t\tdefer close(done)\n-\t\tc.monitorStderr(ctx)\n+\t\tc.monitorStderr(ctx, stderr)\n \t}()\n \n \tc.logger.Debug(\"Started stderr monitoring\",\n@@ -165,9 +174,12 @@ func (c *Client) monitorProcess(ctx context.Context) {\n \t}\n }\n \n-// monitorStderr monitors stderr output and logs it to both main and server-specific logs\n-func (c *Client) monitorStderr(ctx context.Context) {\n-\tscanner := bufio.NewScanner(c.stderr)\n+// monitorStderr monitors stderr output and logs it to both main and server-specific logs.\n+// The stderr reader is passed as an argument (captured under monitoringMu by the\n+// caller) rather than read from c.stderr, so a concurrent connectStdio reassigning\n+// the shared field cannot race this goroutine's read (MCP-816).\n+func (c *Client) monitorStderr(ctx context.Context, stderr io.Reader) {\n+\tscanner := bufio.NewScanner(stderr)\n \tfor scanner.Scan() {\n \t\tselect {\n \t\tcase <-ctx.Done():"
+          },
+          {
+            "sha": "20618f7d892ed27d46643f8117f2bf8345e38cb0",
+            "filename": "internal/upstream/core/monitoring_race_test.go",
+            "status": "modified",
+            "additions": 43,
+            "deletions": 0,
+            "changes": 43,
+            "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/b5aac02165bcae107674e56783f1079ffa72a1ce/internal%2Fupstream%2Fcore%2Fmonitoring_race_test.go",
+            "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/b5aac02165bcae107674e56783f1079ffa72a1ce/internal%2Fupstream%2Fcore%2Fmonitoring_race_test.go",
+            "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fupstream%2Fcore%2Fmonitoring_race_test.go?ref=b5aac02165bcae107674e56783f1079ffa72a1ce",
+            "patch": "@@ -48,6 +48,49 @@ func TestStderrMonitoring_StartStopRace(t *testing.T) {\n \tc.StopStderrMonitoring()\n }\n \n+// TestStderrMonitoring_ReassignDuringMonitorNoRace reproduces the\n+// connectStdio(connection_stdio.go:217)-write vs monitorStderr(monitoring.go:170)-read\n+// data race on the shared c.stderr field, surfaced by TestCrossSurfaceConsistency_RegistryAdd\n+// in CI (MCP-816 / MCP-809 RV-3). connectStdio reassigns c.stderr on every\n+// (re)connect, then starts the monitor; the monitor goroutine built its scanner\n+// from the shared c.stderr field instead of a captured local, so a reconnect's\n+// field write raced the lingering goroutine's read. Run under `go test -race`:\n+// trips before the capture-local fix, green after. Empty readers EOF immediately\n+// so each monitor goroutine exits at once and the loop stays fast.\n+func TestStderrMonitoring_ReassignDuringMonitorNoRace(t *testing.T) {\n+\tc := &Client{\n+\t\ttransportType: transportStdio,\n+\t\tstderr:        strings.NewReader(\"\"),\n+\t\tlogger:        zap.NewNop(),\n+\t\tconfig:        &config.ServerConfig{Name: \"race\"},\n+\t}\n+\n+\tconst iterations = 500\n+\tvar wg sync.WaitGroup\n+\twg.Add(2)\n+\n+\t// Mimics connectStdio: reassign c.stderr on each reconnect, then (re)start\n+\t// the monitor. The reassignment is the field write the detector flagged at\n+\t// connection_stdio.go:217; the monitor goroutine spawned by the previous\n+\t// iteration reads c.stderr at monitoring.go:170 concurrently.\n+\tgo func() {\n+\t\tdefer wg.Done()\n+\t\tfor i := 0; i < iterations; i++ {\n+\t\t\tc.stderr = strings.NewReader(\"\")\n+\t\t\tc.StartStderrMonitoring()\n+\t\t}\n+\t}()\n+\tgo func() {\n+\t\tdefer wg.Done()\n+\t\tfor i := 0; i < iterations; i++ {\n+\t\t\tc.StopStderrMonitoring()\n+\t\t}\n+\t}()\n+\n+\twg.Wait()\n+\tc.StopStderrMonitoring()\n+}\n+\n // TestStderrMonitoring_AbandonedMonitorNoRace models the round-5 escape: the\n // monitor goroutine is still alive when Stop is called (its stderr Read blocks),\n // so Stop hits the 500ms timeout and abandons it. With the old reused-WaitGroup"
+          }
+        ]
+      }
+    },
+    {
+      "sha": "fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+      "status": "ok",
+      "detail": {
+        "sha": "fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+        "node_id": "C_kwDOO9ixUtoAKGZiMWI2NGI5MTZhNGQxZjNmMGMwNzY1Y2FlYmQyN2UwZjE4MmZhZTM",
+        "commit": {
+          "author": {
+            "name": "Algis Dumbris",
+            "email": "a.dumbris@gmail.com",
+            "date": "2026-06-01T10:36:32Z"
+          },
+          "committer": {
+            "name": "Algis Dumbris",
+            "email": "a.dumbris@gmail.com",
+            "date": "2026-06-01T10:36:32Z"
+          },
+          "message": "fix(configsvc): guard Subscribe init-send against concurrent Close (send-on-closed)\n\nThe registry-add unit tests added in this PR drive a full Runtime + configsvc\nunder -race and surfaced a second production data race (distinct from the\nconnectStdio↔monitorStderr fix): Subscribe spawns a goroutine that sends the\ninitial snapshot on the subscriber channel (service.go:206) holding no lock,\nwhile Close (service.go:261) and Unsubscribe close that same channel under\nsubMu. The send racing the close both data-races and panics with\n\"send on closed channel\".\n\nDeliver the initial snapshot under subMu(R) after confirming the channel is\nstill a live subscriber (isSubscribedLocked), so the close paths — which run\nunder the subMu write lock — are mutually exclusive with the send. The send is\nnon-blocking (the cap-10 buffer is empty at subscribe time) so the lock is\nnever held across a blocking send. Preserve the ctx-canceled early-out.\n\nAdd TestService_SubscribeCloseRace, which reproduces the panic/race under\n-race (red before this change, green after).\n\nRelated #559",
+          "tree": {
+            "sha": "e8f3f984d7c3c755395fdc7d76166433055b6422",
+            "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/trees/e8f3f984d7c3c755395fdc7d76166433055b6422"
+          },
+          "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/git/commits/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+          "comment_count": 0,
+          "verification": {
+            "verified": false,
+            "reason": "unsigned",
+            "signature": null,
+            "payload": null,
+            "verified_at": null
+          }
+        },
+        "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+        "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+        "comments_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/comments",
+        "author": {
+          "login": "Dumbris",
+          "id": 1362215,
+          "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/Dumbris",
+          "html_url": "https://github.com/Dumbris",
+          "followers_url": "https://api.github.com/users/Dumbris/followers",
+          "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+          "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+          "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+          "repos_url": "https://api.github.com/users/Dumbris/repos",
+          "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "Dumbris",
+          "id": 1362215,
+          "node_id": "MDQ6VXNlcjEzNjIyMTU=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1362215?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/Dumbris",
+          "html_url": "https://github.com/Dumbris",
+          "followers_url": "https://api.github.com/users/Dumbris/followers",
+          "following_url": "https://api.github.com/users/Dumbris/following{/other_user}",
+          "gists_url": "https://api.github.com/users/Dumbris/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/Dumbris/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/Dumbris/subscriptions",
+          "organizations_url": "https://api.github.com/users/Dumbris/orgs",
+          "repos_url": "https://api.github.com/users/Dumbris/repos",
+          "events_url": "https://api.github.com/users/Dumbris/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/Dumbris/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "b5aac02165bcae107674e56783f1079ffa72a1ce",
+            "url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/commits/b5aac02165bcae107674e56783f1079ffa72a1ce",
+            "html_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/commit/b5aac02165bcae107674e56783f1079ffa72a1ce"
+          }
+        ],
+        "stats": {
+          "total": 65,
+          "additions": 62,
+          "deletions": 3
+        },
+        "files": [
+          {
+            "sha": "0a189a26abb04fe9259bad38fbd2bec5e2b3e0d6",
+            "filename": "internal/runtime/configsvc/service.go",
+            "status": "modified",
+            "additions": 33,
+            "deletions": 3,
+            "changes": 36,
+            "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fruntime%2Fconfigsvc%2Fservice.go",
+            "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fruntime%2Fconfigsvc%2Fservice.go",
+            "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fruntime%2Fconfigsvc%2Fservice.go?ref=fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+            "patch": "@@ -200,23 +200,53 @@ func (s *Service) Subscribe(ctx context.Context) <-chan Update {\n \ts.logger.Debug(\"New configuration subscriber\",\n \t\tzap.Int(\"total_subscribers\", len(s.subscribers)))\n \n-\t// Send initial snapshot to new subscriber\n+\t// Send initial snapshot to new subscriber.\n \tgo func() {\n+\t\t// Best-effort early-out if the subscriber canceled before we ran.\n+\t\tselect {\n+\t\tcase <-ctx.Done():\n+\t\t\ts.Unsubscribe(ch)\n+\t\t\treturn\n+\t\tdefault:\n+\t\t}\n+\n+\t\t// Deliver the initial snapshot under subMu(R) so Close()/Unsubscribe()\n+\t\t// (which close ch under the subMu write lock) cannot race or panic this\n+\t\t// send — a send on a closed channel both data-races and panics. The\n+\t\t// membership check covers both teardown paths: Close() nils the slice and\n+\t\t// Unsubscribe() removes this ch. The buffer (cap 10) is empty at subscribe\n+\t\t// time, so a non-blocking send always reaches a still-live subscriber;\n+\t\t// staying non-blocking avoids holding the lock across a blocking send.\n+\t\ts.subMu.RLock()\n+\t\tdefer s.subMu.RUnlock()\n+\t\tif !s.isSubscribedLocked(ch) {\n+\t\t\treturn\n+\t\t}\n \t\tselect {\n \t\tcase ch <- Update{\n \t\t\tSnapshot:  s.Current(),\n \t\t\tType:      UpdateTypeInit,\n \t\t\tChangedAt: time.Now(),\n \t\t\tSource:    \"subscription\",\n \t\t}:\n-\t\tcase <-ctx.Done():\n-\t\t\ts.Unsubscribe(ch)\n+\t\tdefault:\n \t\t}\n \t}()\n \n \treturn ch\n }\n \n+// isSubscribedLocked reports whether ch is still a live subscriber. Callers must\n+// hold subMu (read or write).\n+func (s *Service) isSubscribedLocked(ch chan Update) bool {\n+\tfor _, sub := range s.subscribers {\n+\t\tif sub == ch {\n+\t\t\treturn true\n+\t\t}\n+\t}\n+\treturn false\n+}\n+\n // Unsubscribe removes a subscriber channel and closes it.\n func (s *Service) Unsubscribe(ch <-chan Update) {\n \ts.subMu.Lock()"
+          },
+          {
+            "sha": "5be731ebc3a0644d703766464d60a99106fae8cd",
+            "filename": "internal/runtime/configsvc/service_test.go",
+            "status": "modified",
+            "additions": 29,
+            "deletions": 0,
+            "changes": 29,
+            "blob_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/blob/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fruntime%2Fconfigsvc%2Fservice_test.go",
+            "raw_url": "https://github.com/smart-mcp-proxy/mcpproxy-go/raw/fb1b64b916a4d1f3f0c0765caebd27e0f182fae3/internal%2Fruntime%2Fconfigsvc%2Fservice_test.go",
+            "contents_url": "https://api.github.com/repos/smart-mcp-proxy/mcpproxy-go/contents/internal%2Fruntime%2Fconfigsvc%2Fservice_test.go?ref=fb1b64b916a4d1f3f0c0765caebd27e0f182fae3",
+            "patch": "@@ -2,6 +2,7 @@ package configsvc\n \n import (\n \t\"context\"\n+\t\"sync\"\n \t\"testing\"\n \t\"time\"\n \n@@ -328,6 +329,34 @@ func TestSnapshot_ServerNames(t *testing.T) {\n \t}\n }\n \n+// TestService_SubscribeCloseRace reproduces the close-vs-send data race surfaced\n+// by TestHandleUpstreamServers_AddFromRegistry_* under -race (MCP-816 / MCP-809\n+// RV-3). Subscribe spawns a goroutine that sends the initial snapshot on the\n+// subscriber channel (service.go:206) while holding no lock; Close (service.go:261)\n+// closes that same channel under subMu. A send racing the close both data-races\n+// and can panic (\"send on closed channel\"). Run under `go test -race`: trips\n+// before the lock+membership-guarded send, green after. Run with high parallelism\n+// so a Subscribe-init send overlaps the Close in most iterations.\n+func TestService_SubscribeCloseRace(t *testing.T) {\n+\tconst iterations = 200\n+\n+\tvar wg sync.WaitGroup\n+\tfor i := 0; i < iterations; i++ {\n+\t\twg.Add(1)\n+\t\tgo func() {\n+\t\t\tdefer wg.Done()\n+\t\t\tsvc := NewService(&config.Config{Listen: \"127.0.0.1:8080\"}, \"/tmp/config.json\", zap.NewNop())\n+\t\t\tctx, cancel := context.WithCancel(context.Background())\n+\t\t\tdefer cancel()\n+\n+\t\t\t// Subscribe schedules the init-snapshot send goroutine; Close races it.\n+\t\t\t_ = svc.Subscribe(ctx)\n+\t\t\tsvc.Close()\n+\t\t}()\n+\t}\n+\twg.Wait()\n+}\n+\n func TestService_Close(t *testing.T) {\n \tcfg := &config.Config{\n \t\tListen: \"127.0.0.1:8080\","
+          }
+        ]
+      }
+    }
+  ]
+}

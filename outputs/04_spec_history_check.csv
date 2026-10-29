@@ -1,0 +1,15 @@
+tool,repo_name,pr_number,spec_path,history_commits,history_before_pr_created,pr_commit_matches,matched_pr_commit_shas,first_history,last_history
+speckit,timcsy/ai-api,53,specs/028-per-device-credentials/spec.md,1,0,0,,2026-06-04T10:07:32+00:00,2026-06-04T10:07:32+00:00
+claude_code,gaia-react/gaia,606,.claude/skills/gaia/references/spec.md,80,70,0,,2026-05-05T15:59:18+00:00,2026-07-08T18:44:20+00:00
+openspec,Soju06/codex-lb,137,openspec/changes/add-service-tier-forwarding/specs/chat-completions-compat/spec.md,0,0,0,,,
+openspec,Soju06/codex-lb,137,openspec/changes/add-service-tier-forwarding/specs/responses-api-compat/spec.md,0,0,0,,,
+openspec,Soju06/codex-lb,137,openspec/changes/add-service-tier-pricing/specs/api-keys/spec.md,0,0,0,,,
+openspec,Soju06/codex-lb,137,openspec/changes/add-service-tier-pricing/specs/frontend-architecture/spec.md,0,0,0,,,
+openspec,Soju06/codex-lb,137,openspec/specs/api-keys/spec.md,20,4,0,,2026-02-18T05:47:17+00:00,2026-07-10T05:15:46+00:00
+openspec,epam/ai-dial-admin-frontend,3846,openspec/changes/add-analytics-v2-query-builder/specs/analytics/spec.md,0,0,0,,,
+openspec,epam/ai-dial-admin-frontend,3846,openspec/changes/add-analytics-v2-sql-editor/specs/analytics/spec.md,0,0,0,,,
+openspec,epam/ai-dial-admin-frontend,3846,openspec/specs/analytics/spec.md,0,0,0,,,
+openspec,carverauto/serviceradar,2855,openspec/changes/add-bmp-dual-path-observability/specs/observability-signals/spec.md,2,0,0,,2026-02-20T07:51:08+00:00,2026-02-20T07:51:08+00:00
+openspec,carverauto/serviceradar,2855,openspec/changes/add-bmp-dual-path-observability/specs/srql/spec.md,0,0,0,,,
+openspec,carverauto/serviceradar,2855,openspec/changes/add-faker-bgp-traffic-simulation/specs/bgp-faker-simulation/spec.md,0,0,0,,,
+openspec,carverauto/serviceradar,2855,openspec/changes/add-srql-cagg-time-routing/specs/srql/spec.md,0,0,0,,,

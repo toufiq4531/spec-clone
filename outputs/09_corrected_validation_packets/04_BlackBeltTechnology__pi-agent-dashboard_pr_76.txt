@@ -1,0 +1,2180 @@
+====================================================================================================
+CORRECTED TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 4/15
+Repository: BlackBeltTechnology/pi-agent-dashboard
+PR: #76
+Tool: openspec
+Language: TypeScript
+Total PR commits: 3
+
+Earlier specification commit position: 1
+Step-7 automated 'first code' hint: 2
+
+IMPORTANT:
+The Step-7 code position is only a screening hint.
+Your task is to identify the FIRST LATER COMMIT that actually implements the earlier requirement.
+
+####################################################################################################
+SECTION A — EARLIER SPECIFICATION COMMIT
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 1
+====================================================================================================
+SHA: cefe092f7fcba42d121a000c6a32a7a126d6f18d
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore(openspec): archive wire-subagents-role-resolver
+
+Sync role:resolve-model listener requirement into dashboard-roles-ownership
+main spec and move completed change to archive/2026-06-05-.
+
+CHANGED FILES: 5
+
+--- FILE 1/5 ---
+FILE: openspec/changes/archive/2026-06-05-wire-subagents-role-resolver/.openspec.yaml
+PREVIOUS FILE: openspec/changes/wire-subagents-role-resolver/.openspec.yaml
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 2/5 ---
+FILE: openspec/changes/archive/2026-06-05-wire-subagents-role-resolver/proposal.md
+PREVIOUS FILE: openspec/changes/wire-subagents-role-resolver/proposal.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 3/5 ---
+FILE: openspec/changes/archive/2026-06-05-wire-subagents-role-resolver/specs/dashboard-roles-ownership/spec.md
+PREVIOUS FILE: openspec/changes/wire-subagents-role-resolver/specs/dashboard-roles-ownership/spec.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 4/5 ---
+FILE: openspec/changes/archive/2026-06-05-wire-subagents-role-resolver/tasks.md
+PREVIOUS FILE: openspec/changes/wire-subagents-role-resolver/tasks.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 5/5 ---
+FILE: openspec/specs/dashboard-roles-ownership/spec.md
+STATUS: modified
+ADDITIONS: 49
+DELETIONS: 0
+
+PATCH:
+@@ -129,3 +129,52 @@ To avoid duplicate file-read logic, the `model:resolve` listener in `provider-re
+ - **WHEN** `model:resolve` handles `{ ref: "@fast" }`
+ - **THEN** the listener SHALL call into the same role-reader the `flow:role-get-all` handler uses
+ - **AND** the inline `loadRoles()` helper currently inside `provider-register.ts` SHALL be removed in favor of that single reader
++
++### Requirement: pi-agent-dashboard SHALL register a `role:resolve-model` listener serving the subagents harness
++
++The dashboard extension SHALL register a `pi.events.on("role:resolve-model", probe)` listener in `role-manager.ts::activate`. This serves `pi-dashboard-subagents` (>= 0.2.0), which resolves an agent definition's `model: "@role"` frontmatter by emitting `role:resolve-model` with a probe shaped `{ ref: string, resolved?: string, available?: Record<string, string> }` and reading back `probe.resolved`.
++
++The handler SHALL:
++
++- Read `probe.ref` and ignore the event when `probe` is missing/null or `probe.ref` is not a string.
++- Strip a single leading `@` from `probe.ref` to obtain the role name; ignore the event when the resulting role name is empty.
++- Re-read `~/.pi/agent/providers.json#roles` on every event via the same role reader used by the `flow:role-*` handlers (no duplicate file-read logic).
++- Set `probe.available` to the current roles map (so the subagents harness can list assignable roles in its error output).
++- Set `probe.resolved` to the role's assigned literal `provider/modelId` when that value is a non-empty string; otherwise leave `probe.resolved` unset (the subagents harness treats an unset `probe.resolved` as a resolution failure and falls through to its own error).
++
++The handler SHALL be read-only (no writes to `providers.json`) and SHALL NOT throw on malformed input.
++
++This requirement is additive: the existing `model:resolve` and deprecated `flow:resolve-model` listeners (capability `dashboard-model-resolution`) are unchanged and continue to use their own probe shapes.
++
++#### Scenario: `@role` ref resolves to the assigned model
++
++- **GIVEN** `~/.pi/agent/providers.json#roles` contains `{ fast: "my-google/gemma-4-31b-it" }`
++- **WHEN** an emitter calls `pi.events.emit("role:resolve-model", { ref: "@fast" })`
++- **THEN** after the emit returns, `probe.resolved` SHALL equal `"my-google/gemma-4-31b-it"`
++- **AND** `probe.available` SHALL deep-equal `{ fast: "my-google/gemma-4-31b-it" }`
++
++#### Scenario: Bare role name without `@` resolves
++
++- **GIVEN** `roles` contains `{ fast: "anthropic/haiku" }`
++- **WHEN** an emitter calls `pi.events.emit("role:resolve-model", { ref: "fast" })`
++- **THEN** `probe.resolved` SHALL equal `"anthropic/haiku"`
++
++#### Scenario: Unassigned role leaves `probe.resolved` unset
++
++- **GIVEN** `roles` does NOT contain an entry named `ghost`
++- **WHEN** an emitter calls `pi.events.emit("role:resolve-model", { ref: "@ghost" })`
++- **THEN** `probe.resolved` SHALL remain `undefined`
++- **AND** `probe.available` SHALL deep-equal the current (possibly empty) roles map
++
++#### Scenario: Cross-session role edit is visible
++
++- **GIVEN** the handler is registered
++- **WHEN** another writer sets `roles.fast = "x/y"` on disk after activation
++- **AND** an emitter then calls `pi.events.emit("role:resolve-model", { ref: "@fast" })`
++- **THEN** `probe.resolved` SHALL equal `"x/y"` (the handler re-read disk)
++
++#### Scenario: Malformed probe is ignored without throwing
++
++- **WHEN** an emitter calls `pi.events.emit("role:resolve-model", {})` or `pi.events.emit("role:resolve-model", null)`
++- **THEN** the handler SHALL return without throwing
++- **AND** SHALL NOT write `~/.pi/agent/providers.json`
+
+
+####################################################################################################
+SECTION B — ALL LATER COMMITS IN THIS PR
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 2  [STEP-7 AUTOMATED CODE HINT — NOT GROUND TRUTH]
+====================================================================================================
+SHA: d95ebd315c6812ae2ac5f4f9873456e949b7ec60
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat(client): redesign ask_user question cards + batch wizard (#redesign-ask-user-question-cards)
+
+- ConfirmRenderer: Allow/Deny → Yes/No; resolved shows both options highlighted
+- SelectRenderer: vertical full-width rows with description sub-line; resolved keeps full list
+- MultiselectRenderer: resolved shows all options with X-of-N count
+- InputRenderer: resolved shows read-only value field; empty → '(left blank)'
+- New BatchRenderer wizard: stepper, one Q per page, Back/Next, Review with Edit
+- Bridge: batch dispatches ONE ctx.ui.batch() request (not sequential loop)
+- Shared protocol: InteractiveMethod, BatchQuestion, BatchAnswer, BatchResult types
+- PromptBus type union includes 'batch'; prompt-answer-encoder handles {answers}
+- New AnsweredOption + parseOption shared helpers (DRY across renderers)
+- Tests for all renderers + batch execution + protocol types
+
+CHANGED FILES: 35
+
+--- FILE 1/35 ---
+FILE: .pi/settings.json
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 2
+
+PATCH:
+@@ -1,14 +1,17 @@
+ {
+   "packages": [
+     {
+-      "source": "..",
++      "source": "/Users/robson/Project/pi-agent-dashboard",
+       "extensions": [
+         "+packages/extension/src/bridge.ts"
+       ]
+     }
+   ],
+   "worktreeInit": {
+     "gate": "test ! -d node_modules",
+-    "run": { "type": "script", "command": "npm ci && npx openspec init --tools pi --force" }
++    "run": {
++      "type": "script",
++      "command": "npm ci && npx openspec init --tools pi --force"
++    }
+   }
+ }
+
+--- FILE 2/35 ---
+FILE: docs/file-index-client.md
+STATUS: modified
+ADDITIONS: 9
+DELETIONS: 1
+
+PATCH:
+@@ -91,7 +91,15 @@
+ | `src/client/components/FolderOpenSpecSection.tsx` | Folder-level OpenSpec UI: collapsible change list, refresh, bulk archive, archive button. Each change row's `N/M tasks` indicator is button that opens existing `TasksPopover` (one popover at a time; opening another row swaps popover); `mdiPlay` icon button rendered after artifact letters invokes `onSpawnAttached(cwd, changeName)` to spawn pi session with change pre-attached. Both buttons stop propagation so surrounding folder collapse unaffected. See change: add-folder-task-checker-and-spawn-attach. See change: add-session-status-to-folder-proposal-rows. |
+ | `src/client/components/ImageLightbox.tsx` | Full-size image lightbox with zoom/pan (useZoomPan), Esc/backdrop close |
+ | `src/client/components/InstalledPackagesList.tsx` | Shared rich-row list of installed packages (Settings → Packages + Pi Resources → Installed). Composes `<PackageRow>` per entry with `useInstalledPackages` + `usePackageOperations` (extended: `move`, `moveStateFor`, `clearMove`). Per-row expand-chevron reveals inline tree of contained skills/extensions/prompts from `containedResources: Map<source, PiPackageInfo>` prop (caller projects from `usePiResources`). Move → button derived from `currentScope`, gated by `otherScopePackages` prop (compared via `computeDestIdentity` from `lib/installed-list-helpers.ts` — client-side mirror of server identity rules for npm/git/https; path sources fall back to literal). Partial-success banner inline when move's `package_operation_complete` carries `partialSuccess`; Cleanup button re-POSTs `/api/packages/remove` against `fromScope`. See change: unify-package-management-ui. |
+-| `src/client/components/interactive-renderers/` | Registry + renderers for interactive UI dialogs (confirm, select, multiselect, input, editor, notify) |
++| `src/client/components/interactive-renderers/` | Registry + renderers for interactive UI dialogs (confirm, select, multiselect, input, editor, notify, batch). See change: redesign-ask-user-question-cards. |
++| `src/client/components/interactive-renderers/AnsweredOption.tsx` | Shared pick/skip row for resolved select/multiselect/confirm cards. Used by ConfirmRenderer, SelectRenderer, MultiselectRenderer. See change: redesign-ask-user-question-cards. |
++| `src/client/components/interactive-renderers/BatchRenderer.tsx` | Wizard renderer for `method:"batch"` ask_user requests. Stepper header, one sub-question per page, Back/Next, Review with Edit, final Submit. See change: redesign-ask-user-question-cards. |
++| `src/client/components/interactive-renderers/ConfirmRenderer.tsx` | Pending shows Yes/No (not Allow/Deny). Resolved renders both Yes/No with chosen highlighted via AnsweredOption. See change: redesign-ask-user-question-cards. |
++| `src/client/components/interactive-renderers/InputRenderer.tsx` | Resolved shows question as title, value in read-only field, empty→"(left blank)". See change: redesign-ask-user-question-cards. |
++| `src/client/components/interactive-renderers/MultiselectRenderer.tsx` | Resolved renders full option list with selected checked/highlighted, unselected dimmed, X-of-N count. See change: redesign-ask-user-question-cards. |
++| `src/client/components/interactive-renderers/SelectRenderer.tsx` | Pending renders vertical full-width rows with optional description sub-line. Resolved shows full option list, chosen highlighted. See change: redesign-ask-user-question-cards. |
++| `src/client/components/interactive-renderers/parseOption.ts` | Splits option string into title + optional description on first ` — ` or ` · ` separator. Exports `isCancelOption()`. See change: redesign-ask-user-question-cards. |
++| `src/client/components/interactive-renderers/registry.ts` | Maps method string → renderer component. Registers `"batch"` → BatchRenderer. See change: redesign-ask-user-question-cards. |
+ | `src/client/components/KnownServersSection.tsx` | Settings section: list/add/remove persisted known remote servers |
+ | `src/client/components/MarkdownContent.tsx` | Shared markdown renderer for chat/previews; supports GFM, raw HTML, syntax highlighting, Mermaid, table copy buttons; strips raw HTML `ref` attributes so pasted/generated JSX-like markup cannot trip React ref validation. |
+ | `src/client/components/MarkdownPreviewView.tsx` | Generic reusable markdown preview with back button, tabs, loading/error states |
+
+--- FILE 3/35 ---
+FILE: docs/file-index-extension.md
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 3
+
+PATCH:
+@@ -38,9 +38,9 @@
+ | `packages/image-fit-extension/src/resize.ts` | Exports `needsResize({bytes,maxBytes,dims,maxEdge})` predicate (long edge OR bytes), `outputFormatFor(srcPath)` (PNG-in → PNG-out, else JPEG), `isImagePath` regex `.png/.jpe?g/.webp/.gif`, `probeDims` (jimp lazy load), `resizeToFile` (long-edge `scaleToFit({w:maxEdge,h:maxEdge})` preserving aspect ratio, `getBuffer(JimpMime.png|jpeg, {quality})`). No `sharp` / `@napi-rs/image` / native deps. See change: pi-image-fit-extension. |
+ | `packages/image-fit-extension/tsconfig.json` | Package tsconfig. See change: pi-image-fit-extension. |
+ | `packages/image-fit-extension/vitest.config.ts` | Package vitest config (registered in root `vitest.config.ts` `test.projects`). See change: pi-image-fit-extension. |
+-| `src/extension/ask-user-tool.ts` | `ask_user` tool registration (bundled in bridge, registered at session_start to avoid static tool-name conflicts). `multiselect` dispatches through `polyfillMultiselect` (pi-coding-agent's `ExtensionUIContext` no native `multiselect`). Tool description instructs agents: *"UI provides a Select all toggle; do not add one."* **Schema shape**: `parameters` is single flat `Type.Object` (root `type: "object"`) — NOT root `Type.Union` — because OpenAI's function-calling validator rejects root-level `anyOf` with *"schema must be a JSON Schema of 'type: \"object\"'"*. To restore Anthropic-friendly per-method strictness after commit a53933f, root object carries body-level `oneOf` discriminator over `method` (confirm/select/multiselect/input/batch) with per-arm `required` + `minItems`; sub-questions use same flat-object + `oneOf` with no `batch` arm (no nesting). `prepareArguments` provides runtime rescue (`params` unwrap, `question`→`title`, stringified `options`/`questions`, batch synthesis/title backfill, `{label,value}` → labels); `execute` retains empty-options guardrails. See changes: ask-user-multiselect-polyfill, refactor(schema)-restructure-ask-user-tool-schemas, fix-multiselect-auto-cancel-on-dashboard. |
++| `src/extension/ask-user-tool.ts` | `ask_user` tool registration (bundled in bridge, registered at session_start to avoid static tool-name conflicts). `multiselect` dispatches through `polyfillMultiselect` (pi-coding-agent's `ExtensionUIContext` no native `multiselect`). Tool description instructs agents: *"UI provides a Select all toggle; do not add one."* **Schema shape**: `parameters` is single flat `Type.Object` (root `type: "object"`) — NOT root `Type.Union` — because OpenAI's function-calling validator rejects root-level `anyOf` with *"schema must be a JSON Schema of 'type: \"object\"'"*. To restore Anthropic-friendly per-method strictness after commit a53933f, root object carries body-level `oneOf` discriminator over `method` (confirm/select/multiselect/input/batch) with per-arm `required` + `minItems`; sub-questions use same flat-object + `oneOf` with no `batch` arm (no nesting). `prepareArguments` provides runtime rescue (`params` unwrap, `question`→`title`, stringified `options`/`questions`, batch synthesis/title backfill, `{label,value}` → labels); `execute` retains empty-options guardrails. See changes: ask-user-multiselect-polyfill, refactor(schema)-restructure-ask-user-tool-schemas, fix-multiselect-auto-cancel-on-dashboard. Batch dispatches ONE ctx.ui.batch() request (not sequential per-question loop). See change: redesign-ask-user-question-cards. |
+ | `src/extension/bridge-context.ts` | Shared mutable state type + helpers for bridge modules |
+-| `src/extension/bridge.ts` | Main extension entry (composes sync/tracker/flow modules, tracks `isAgentStreaming` in persistent BridgeState). **`hasRegisteredOnce: boolean`** local (default `false`, synced via `BridgeContext`) flips `true` after first `sendStateSync`; consumed by `session-sync.ts` to tag `session_register` with `registerReason: "spawn" | "reattach"` so server applies configured `reattachPlacement` on dashboard-restart reattaches. See change: reattach-move-to-front. **Invariant**: bridge code MUST NOT call `pi.newSession(...)` / `ctx.fork(...)` / `ctx.switchSession(...)` — enforced by `packages/extension/src/__tests__/no-session-replacement-calls.test.ts`. pi 0.69+ invalidates captured `pi`/`ctx` after these calls; bridge re-captures state in `session_start` keyed on `event.reason ∈ {"new","fork","resume"}`. **PromptBus patch site**: patches `ctx.ui.select/input/confirm/editor/multiselect` in `session_start`. TUI adapter handles `select/input/confirm/editor` only. `multiselect` bridge-attached (pi no native API) + routed exclusively through bus → `DashboardDefaultAdapter`'s browser dialog — decoded via `decodeMultiselectAnswer`. Intentionally NO TUI adapter arm for multiselect: pi 0.70 RPC mode's `ctx.ui.custom` is no-op, so any TUI arm awaiting it would auto-cancel dashboard render in <1s (changes: fix-multiselect-auto-cancel-on-dashboard, fix-multiselect-tui-arm-self-cancel; pinned by `no-tui-multiselect-arm-regression.test.ts`). **Per-message-fork entryId stamping** (change: fix-per-message-fork): `message_start` stamps `nonce` (no entryId — user entry not persisted yet on pi 0.69+); `message_end` enrichment deferred via `setTimeout(0)` (NOT `queueMicrotask`, which resolves inside pi's awaited extension dispatcher + misses `appendMessage`); wrapped `ctx.sessionManager.appendMessage` emits `entry_persisted { entryId, nonce }` so client reducer back-fills user-message bubble's `entryId`. See change: fix-retry-banner-stuck-on-limit-exceeded — `message_end` synthesizer state runs sync; `auto_retry_*` sends sync, `message_end` body stays in `setTimeout(0)` for entryId capture. User-role `message_start` also deferred via `setTimeout(0)` — preserves order vs deferred `message_end`; assistant `message_start` stays sync. See change: add-followup-edit-and-steer-cancel. Shutdown extension command resets bridgeSteering+bridgeFollowUp to [], calls pi.clearSteeringQueue/clearFollowUpQueue defensively, emits final queue_update before cachedCtx.shutdown(). See change: reset-shadow-queues-on-shutdown. See change: tighten-process-list-ux. Platform-aware process scan cadence: `PROCESS_SCAN_INTERVAL` + `PROCESS_MIN_ELAPSED_MS` = 5_000 ms on Unix, 10_000 / 30_000 ms on Windows. `selfSpawnedPgids: Set<number>` threaded through `BridgeContext`, passed to `scanChildProcesses` as `excludedPgids`. Populated synchronously after dashboard-server auto-start via `autoStartServer`'s new `onServerSpawned` callback. See change: classify-process-list-entries. Seeds `selfSpawnedPgids` with pi's own PGID via `getOwnPgid()` at bridge init so pi-self + same-group plugin/MCP sidecars (context-mode bun) never surface. See change: fix-bridge-hasui-for-headless-rpc. See change: unify-status-banner-and-terminal-limit-stop — bridge auto-aborts on `message_end` when `errorMessage` matches `USAGE_LIMIT_PATTERN`; first-attempt USAGE_LIMIT synth on `agent_end` outside retry chain; `rewriteFollowupQueue` early-returns on `!isAgentStreaming`; `rawAbort` wired separately from wrapper-abort; wrapper-abort no longer clears `usageLimitOrderer` nor calls `noteRetryEnd`. See change: honest-mid-turn-queue-surface. Six queue-mutation handlers (clear_steering_queue, clear_followup_slot, edit_followup_slot, edit_followup_entry, remove_followup_entry, promote_followup_entry) + rewriteFollowupQueue deleted. shutdown / abort arms no longer call pi.clearSteeringQueue / pi.clearFollowUpQueue (no-ops via ExtensionAPI through pi 0.76.0) nor reset shadow queues; pi's real queues persist across abort by design, shadows mirror. See change: rework-mid-turn-prompt-queue. bridgeFollowUp flipped from pi-owned-shadow to BRIDGE-OWNED BUFFER (authoritative). recordFollowupSent renamed → bufferFollowupSend (pre-send buffer, not post-send mirror). New drainFollowupQueue() runs on agent_end via queueMicrotask: re-entrancy lock + idle gate (ctx.isIdle) + TUI gate (pi.hasPendingMessages) + empty-buffer gate + pop-before-send + emit-before-send + catch+drop. Five mutation handlers (edit/remove/promote/clear/pull_followup_to_editor) mutate bridgeFollowUp only; never call pi.* methods. message_start matcher updated: now no-op for buffered entries (they reach pi as fresh-turn no-deliverAs sends, never via {deliverAs:followUp}). Image attachments not carried in buffer (Known Limitation, text-only). |
++| `src/extension/bridge.ts` | Main extension entry (composes sync/tracker/flow modules, tracks `isAgentStreaming` in persistent BridgeState). **`hasRegisteredOnce: boolean`** local (default `false`, synced via `BridgeContext`) flips `true` after first `sendStateSync`; consumed by `session-sync.ts` to tag `session_register` with `registerReason: "spawn" | "reattach"` so server applies configured `reattachPlacement` on dashboard-restart reattaches. See change: reattach-move-to-front. **Invariant**: bridge code MUST NOT call `pi.newSession(...)` / `ctx.fork(...)` / `ctx.switchSession(...)` — enforced by `packages/extension/src/__tests__/no-session-replacement-calls.test.ts`. pi 0.69+ invalidates captured `pi`/`ctx` after these calls; bridge re-captures state in `session_start` keyed on `event.reason ∈ {"new","fork","resume"}`. **PromptBus patch site**: patches `ctx.ui.select/input/confirm/editor/multiselect` in `session_start`. TUI adapter handles `select/input/confirm/editor` only. `multiselect` bridge-attached (pi no native API) + routed exclusively through bus → `DashboardDefaultAdapter`'s browser dialog — decoded via `decodeMultiselectAnswer`. Intentionally NO TUI adapter arm for multiselect: pi 0.70 RPC mode's `ctx.ui.custom` is no-op, so any TUI arm awaiting it would auto-cancel dashboard render in <1s (changes: fix-multiselect-auto-cancel-on-dashboard, fix-multiselect-tui-arm-self-cancel; pinned by `no-tui-multiselect-arm-regression.test.ts`). **Per-message-fork entryId stamping** (change: fix-per-message-fork): `message_start` stamps `nonce` (no entryId — user entry not persisted yet on pi 0.69+); `message_end` enrichment deferred via `setTimeout(0)` (NOT `queueMicrotask`, which resolves inside pi's awaited extension dispatcher + misses `appendMessage`); wrapped `ctx.sessionManager.appendMessage` emits `entry_persisted { entryId, nonce }` so client reducer back-fills user-message bubble's `entryId`. See change: fix-retry-banner-stuck-on-limit-exceeded — `message_end` synthesizer state runs sync; `auto_retry_*` sends sync, `message_end` body stays in `setTimeout(0)` for entryId capture. User-role `message_start` also deferred via `setTimeout(0)` — preserves order vs deferred `message_end`; assistant `message_start` stays sync. See change: add-followup-edit-and-steer-cancel. Shutdown extension command resets bridgeSteering+bridgeFollowUp to [], calls pi.clearSteeringQueue/clearFollowUpQueue defensively, emits final queue_update before cachedCtx.shutdown(). See change: reset-shadow-queues-on-shutdown. See change: tighten-process-list-ux. Platform-aware process scan cadence: `PROCESS_SCAN_INTERVAL` + `PROCESS_MIN_ELAPSED_MS` = 5_000 ms on Unix, 10_000 / 30_000 ms on Windows. `selfSpawnedPgids: Set<number>` threaded through `BridgeContext`, passed to `scanChildProcesses` as `excludedPgids`. Populated synchronously after dashboard-server auto-start via `autoStartServer`'s new `onServerSpawned` callback. See change: classify-process-list-entries. Seeds `selfSpawnedPgids` with pi's own PGID via `getOwnPgid()` at bridge init so pi-self + same-group plugin/MCP sidecars (context-mode bun) never surface. See change: fix-bridge-hasui-for-headless-rpc. See change: unify-status-banner-and-terminal-limit-stop — bridge auto-aborts on `message_end` when `errorMessage` matches `USAGE_LIMIT_PATTERN`; first-attempt USAGE_LIMIT synth on `agent_end` outside retry chain; `rewriteFollowupQueue` early-returns on `!isAgentStreaming`; `rawAbort` wired separately from wrapper-abort; wrapper-abort no longer clears `usageLimitOrderer` nor calls `noteRetryEnd`. See change: honest-mid-turn-queue-surface. Six queue-mutation handlers (clear_steering_queue, clear_followup_slot, edit_followup_slot, edit_followup_entry, remove_followup_entry, promote_followup_entry) + rewriteFollowupQueue deleted. shutdown / abort arms no longer call pi.clearSteeringQueue / pi.clearFollowUpQueue (no-ops via ExtensionAPI through pi 0.76.0) nor reset shadow queues; pi's real queues persist across abort by design, shadows mirror. See change: rework-mid-turn-prompt-queue. bridgeFollowUp flipped from pi-owned-shadow to BRIDGE-OWNED BUFFER (authoritative). recordFollowupSent renamed → bufferFollowupSend (pre-send buffer, not post-send mirror). New drainFollowupQueue() runs on agent_end via queueMicrotask: re-entrancy lock + idle gate (ctx.isIdle) + TUI gate (pi.hasPendingMessages) + empty-buffer gate + pop-before-send + emit-before-send + catch+drop. Five mutation handlers (edit/remove/promote/clear/pull_followup_to_editor) mutate bridgeFollowUp only; never call pi.* methods. message_start matcher updated: now no-op for buffered entries (they reach pi as fresh-turn no-deliverAs sends, never via {deliverAs:followUp}). Image attachments not carried in buffer (Known Limitation, text-only). Patches ctx.ui.batch for single-request batch dispatch via PromptBus. See change: redesign-ask-user-question-cards. |
+ | `src/extension/slash-dispatch.ts` | `tryDispatchExtensionCommand` helper. Routing-step 9 (three-way): pi.dispatchCommand 0.71+ → server-routed via RPC keeper UDS when headless → stopgap. Path-D hint string (`RPC_KEEPER_HINT`) explains tmux/Windows-Terminal sessions own pi's stdin (no `useRpcKeeper` flag mentioned post-`enable-rpc-keeper-by-default`). See change: fix-extension-slash-commands-in-dashboard, add-rpc-stdin-dispatch-with-keeper-sidecar, enable-rpc-keeper-by-default. |
+ | `src/extension/command-handler.ts` | Command routing: `!`/`!!` bash, `/compact`, slash commands. Accepts `enqueueIfStreaming` option — when bridge `isAgentStreaming === true`, hands prompt to `PromptQueue.enqueue` instead of `pi.sendUserMessage`. See change: surface-mid-turn-prompt-queue. See change: unify-status-banner-and-terminal-limit-stop — drops `"Aborted by user"` placeholder `finalError`; persistent-abort scheduler uses `rawAbort` + streaming-transition break. See change: rework-mid-turn-prompt-queue. sessionPrompt followUp branch flipped: when wasStreaming, calls onFollowupSent ONLY (skips pi.sendUserMessage); steer + idle paths unchanged. sendUserMessageWithImages now used for steer + idle only. |
+ | `src/extension/connection.ts` | WebSocket with exponential backoff. **Auto-start suppression** (change: fix-restart-bridge-auto-start-race): exposes `pauseAutoStart(ms)` (idempotent extend-only) + `shouldSuppressAutoStart()`. Bridge calls `pauseAutoStart(quiesceMs)` on receipt of `server_restarting`; `server-auto-start.ts` consults `shouldSuppressAutoStart()` + skips spawn step while window active so bridges never race `restart-helper.ts` orchestrator. Discovery + reconnection NOT suppressed. |
+@@ -55,7 +55,7 @@
+ | `src/extension/multiselect-polyfill.ts` | `polyfillMultiselect(ctx, title, options, opts)` — primary path delegates to bridge-patched `ctx.ui.multiselect` (PromptBus → `DashboardDefaultAdapter` → client `MultiselectRenderer`). Legacy fallback uses `ctx.ui.custom<T>()` + `MultiSelectList` for older / non-bridge contexts; fallback **no-op in pi 0.70 RPC mode** (dashboard headless sessions) — pi-coding-agent defines `custom` as `async () => undefined` there — only effective in pure-TUI sessions if future pi version restores `ctx.ui.custom` in RPC mode. Resolves to `string[]` (confirmed, including empty `[]`) or `undefined` (cancelled). Used for both single-question + batch sub-question `multiselect` paths in `ask-user-tool.ts`. See changes: fix-multiselect-auto-cancel-on-dashboard, fix-multiselect-tui-arm-self-cancel. |
+ | `src/extension/process-metrics.ts` | Lightweight CPU/memory/event-loop metrics collector for heartbeats |
+ | `src/extension/process-scanner.ts` | Child process detection via ps + PGID tracking (leaf-only, grandchild recursion) + PGID-based kill. See change: tighten-process-list-ux. Adds `ScanOptions.excludedPgids?: Set<number>`. `captureChildPgids` refuses excluded PGIDs at capture time. `scanTrackedProcesses` skips excluded PGIDs at filter time (defense-in-depth). Reaps dead PGIDs from same set every scan tick. See change: classify-process-list-entries. Adds cached `getOwnPgid()` (`ps -o pgid= -p <pid>`, Unix-only, `undefined` on Windows/failure) + `__resetOwnPgidCacheForTests()`. |
+-| `src/extension/prompt-bus.ts` | PromptBus — unified prompt routing to registered adapters (TUI, dashboard, custom). First-response-wins, cross-adapter dismissal. |
++| `src/extension/prompt-bus.ts` | PromptBus — unified prompt routing to registered adapters (TUI, dashboard, custom). First-response-wins, cross-adapter dismissal. PromptRequest.type includes "batch". See change: redesign-ask-user-question-cards. |
+ | `src/extension/prompt-expander.ts` | Slash command → prompt template expansion (supports colon-to-hyphen aliasing: `/opsx:cmd` → `opsx-cmd.md`). **Skill expansions wrap output in pi's `<skill name=...>...</skill>\n\nargs` envelope** via `buildSkillBlock` from `pi-dashboard-shared/skill-block-parser.js`; detection via `isSkillResolution(templateName, filePath, pi)` (templateName starts with `skill:` OR pi.getCommands fallback returned `source: "skill"`). Plain prompt templates continue to emit unwrapped `body\n\nargs`. See change: render-skill-invocations-collapsibly. |
+ | `src/extension/provider-register.ts` | Reads `~/.pi/agent/providers.json`, calls `pi.registerProvider()` with auto-discovered models, exports `reloadProviders(pi)` + `onProviderChanged(cb)`. `reloadProviders` diffs current file against module-level `lastRegistered` snapshot + applies add/remove/change via `registerEntry` / `pi.unregisterProvider`. Called from bridge's `credentials_updated` handler BEFORE `modelRegistry.refresh()` so new providers appear in `/model` without session restart. Every discovered model enriched via `enrichModelMetadata(id, api, probe)` where `probe` wraps pi's `modelRegistry.find()` (captured from `ctx.modelRegistry` at first `session_start`; `model_select` fallback capture point) — resolves `contextWindow`, `maxTokens`, `reasoning`, `cost`, `input` for catalog-known models (e.g. `proxy/cc/claude-opus-4-7` → 1M ctx / reasoning / Opus pricing); falls back to api-appropriate defaults (`anthropic-messages` → 200k/64k, `google-generative-ai` → 1M/65k, `openai-completions` → 128k/16k). Fallback keeps `input: ["text", "image"]` so pasted images reach vision-capable models without pi-ai's `downgradeUnsupportedImages` stripping client-side; text-only models ignore image silently or return user-visible 400. See changes: enrich-custom-provider-model-metadata, enable-image-input-custom-providers. Adds `_buildProviderCatalogue(modelRegistry, piAi)` (pure) + `buildProviderCatalogue()` (uses captured registry + lazy `import("@earendil-works/pi-ai")` (or legacy `@mariozechner/pi-ai`) for env var hints). Pushed alongside `models_list` from `bridge.ts` (3 sites) + `session-sync.ts` (2 sites) + `command-handler.ts` `request_providers` case + `credentials_updated` handler. Server caches in `provider-catalogue-cache.ts`; consumed by `getAuthStatus()` for full provider list. See change: replace-hardcoded-provider-lists. See change: fix-custom-provider-flag-race — `lastRegistered.set(name, ...)` runs synchronously at start of `registerEntry`, before `await discoverModels(...)`. First `providers_list` push (from `session_start` after `activate()` kicks off async `registerEntry()`) carries `custom: true` flags even when `/v1/models` slow/unreachable, so custom providers from `~/.pi/agent/providers.json` don't leak into Settings → Provider Authentication → API Keys. |
+ | `src/extension/server-auto-start.ts` | mDNS-first discovery → health check fallback → auto-start with concurrent launch detection |
+
+--- FILE 4/35 ---
+FILE: docs/file-index-shared.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -34,7 +34,7 @@
+ | `src/shared/__tests__/no-direct-process-kill.test.ts` | Repo-level lint: scans `packages/*/src/` (excluding platform/ + `__tests__/`) for `process.kill(` calls + fails with file:line if any found. Mirrors `no-direct-child-process.test.ts`. |
+ | `src/shared/__tests__/no-hardcoded-node-modules-paths.test.ts` | Repo-level lint: scans `.github/workflows/publish.yml`, `.github/workflows/ci.yml`, `packages/electron/scripts/Dockerfile.build`, two `fix-pty-permissions.cjs` postinstalls for hardcoded `node_modules/electron` / `node_modules/node-pty` substrings outside explicit allowlist. Fails with `file:line:col` citation. Replaces hand-rolled inline `require.resolve(...)` patterns with registered tool registry. Mirrors `no-direct-process-kill.test.ts` + `no-raw-node-import.test.ts`. See change: register-build-time-tools |
+ | `src/shared/__tests__/no-raw-node-import.test.ts` | Repo-level lint: scans `packages/*/src/` (excluding `platform/node-spawn.ts` + `resolve-jiti.ts` + `__tests__/`) for `spawn(...)` argv with `"--import"` / `"--loader"` followed by raw identifiers not wrapped in `toFileUrl(...)` / `pathToFileURL(...)`. Mirrors `no-direct-process-kill.test.ts` pattern. |
+-| `src/shared/browser-protocol.ts` | Server↔Browser WebSocket messages. All types MUST be in `ServerToBrowserMessage` / `BrowserToServerMessage` unions — `as any` switch cases stripped by esbuild in production. PromptBus (`prompt_request`/`prompt_dismiss`/`prompt_cancel`), Extension UI Phase-1 (`ui_modules_list`/`ui_data_list`/`ui_management`), `SessionViewBrowserMessage`/`SessionUnviewBrowserMessage`, `SessionsSnapshotMessage`, `SpawnFailureCode`/`PreflightReason`/`SpawnRegisterTimeoutMessage`/`SpawnRegisterRecoveredMessage`, `RequestProvidersBrowserMessage`. `BootstrapStateSnapshot` + `bootstrap_status_update` + `bootstrap_ticket_complete` removed under R3. See changes: fix-interactive-ui-reorder, session-card-unread-stripes, fix-stale-sessions-on-reconnect, spawn-failure-diagnostics, replace-hardcoded-provider-lists, eliminate-electron-runtime-install. See change: honest-mid-turn-queue-surface. Six queue-mutation message types deleted: ClearSteeringQueueFromBrowserMessage, ClearFollowupSlotFromBrowserMessage, EditFollowupSlotFromBrowserMessage, EditFollowupEntryFromBrowserMessage, RemoveFollowupEntryFromBrowserMessage, PromoteFollowupEntryFromBrowserMessage. Removed from BrowserToServerMessage union. See change: rework-mid-turn-prompt-queue. Added 5 follow-up mutation types (ClearFollowupEntriesFromBrowserMessage, EditFollowupEntryFromBrowserMessage, RemoveFollowupEntryFromBrowserMessage, PromoteFollowupEntryFromBrowserMessage, PullFollowupToEditorFromBrowserMessage) + FollowupPulledMessage server→browser. New names; OLD deleted Phase 3 types (ClearSteeringQueue, ClearFollowupSlot, EditFollowupSlot) stay deleted forever. Adds three server→browser message types: `WorktreeBootstrapProgressMessage` (`worktree_bootstrap_progress { requestId, cwd, line }`), `WorktreeBootstrapDoneMessage` (`worktree_bootstrap_done { requestId, cwd, durationMs }`), `WorktreeBootstrapFailedMessage` (`worktree_bootstrap_failed { requestId, cwd, code, message, stderr }`). Adds two browser→server: `WorktreeBootstrapSubscribeMessage` / `WorktreeBootstrapUnsubscribeMessage` (both `{requestId}`). Distinct from existing pi-core `BootstrapStatusUpdateMessage` / `BootstrapTicketCompleteMessage`. See change: harden-worktree-spawn. Adds `display_prefs_updated` (server→browser, payload `{ global: DisplayPrefs|undefined, sessionOverrides: Record<sessionId, Partial<DisplayPrefs>> }`) + `setSessionDisplayPrefs` (browser→server, `{ sessionId, override: Partial<DisplayPrefs> | null }`; `null` clears). See change: configurable-chat-display. Adds `InjectViewMessageBrowserMessage` (browser→server `{sessionId, target: ViewTarget}`) + `ViewMessagesUpdateMessage` (server→browser snapshot of `/view` rows). See change: render-file-previews. See change: classify-process-list-entries. `ProcessListUpdateMessage.processes` entry gains optional `kind`/`label`/`sessionRef` (server populates kind+label always, sessionRef only for sub-session). |
++| `src/shared/browser-protocol.ts` | Server↔Browser WebSocket messages. All types MUST be in `ServerToBrowserMessage` / `BrowserToServerMessage` unions — `as any` switch cases stripped by esbuild in production. PromptBus (`prompt_request`/`prompt_dismiss`/`prompt_cancel`), Extension UI Phase-1 (`ui_modules_list`/`ui_data_list`/`ui_management`), `SessionViewBrowserMessage`/`SessionUnviewBrowserMessage`, `SessionsSnapshotMessage`, `SpawnFailureCode`/`PreflightReason`/`SpawnRegisterTimeoutMessage`/`SpawnRegisterRecoveredMessage`, `RequestProvidersBrowserMessage`. `BootstrapStateSnapshot` + `bootstrap_status_update` + `bootstrap_ticket_complete` removed under R3. See changes: fix-interactive-ui-reorder, session-card-unread-stripes, fix-stale-sessions-on-reconnect, spawn-failure-diagnostics, replace-hardcoded-provider-lists, eliminate-electron-runtime-install. See change: honest-mid-turn-queue-surface. Six queue-mutation message types deleted: ClearSteeringQueueFromBrowserMessage, ClearFollowupSlotFromBrowserMessage, EditFollowupSlotFromBrowserMessage, EditFollowupEntryFromBrowserMessage, RemoveFollowupEntryFromBrowserMessage, PromoteFollowupEntryFromBrowserMessage. Removed from BrowserToServerMessage union. See change: rework-mid-turn-prompt-queue. Added 5 follow-up mutation types (ClearFollowupEntriesFromBrowserMessage, EditFollowupEntryFromBrowserMessage, RemoveFollowupEntryFromBrowserMessage, PromoteFollowupEntryFromBrowserMessage, PullFollowupToEditorFromBrowserMessage) + FollowupPulledMessage server→browser. New names; OLD deleted Phase 3 types (ClearSteeringQueue, ClearFollowupSlot, EditFollowupSlot) stay deleted forever. Adds three server→browser message types: `WorktreeBootstrapProgressMessage` (`worktree_bootstrap_progress { requestId, cwd, line }`), `WorktreeBootstrapDoneMessage` (`worktree_bootstrap_done { requestId, cwd, durationMs }`), `WorktreeBootstrapFailedMessage` (`worktree_bootstrap_failed { requestId, cwd, code, message, stderr }`). Adds two browser→server: `WorktreeBootstrapSubscribeMessage` / `WorktreeBootstrapUnsubscribeMessage` (both `{requestId}`). Distinct from existing pi-core `BootstrapStatusUpdateMessage` / `BootstrapTicketCompleteMessage`. See change: harden-worktree-spawn. Adds `display_prefs_updated` (server→browser, payload `{ global: DisplayPrefs|undefined, sessionOverrides: Record<sessionId, Partial<DisplayPrefs>> }`) + `setSessionDisplayPrefs` (browser→server, `{ sessionId, override: Partial<DisplayPrefs> | null }`; `null` clears). See change: configurable-chat-display. Adds `InjectViewMessageBrowserMessage` (browser→server `{sessionId, target: ViewTarget}`) + `ViewMessagesUpdateMessage` (server→browser snapshot of `/view` rows). See change: render-file-previews. See change: classify-process-list-entries. `ProcessListUpdateMessage.processes` entry gains optional `kind`/`label`/`sessionRef` (server populates kind+label always, sessionRef only for sub-session). Re-exports batch types from protocol.ts. See change: redesign-ask-user-question-cards. |
+ | `src/shared/config.ts` | Shared config loader (`~/.pi/dashboard/config.json`). Exports `ReattachPlacement = "preserve" | "streaming-only" | "always"` + `parseReattachPlacement(raw)` validator (default `"always"`); `reattachPlacement` config field controls how server places re-registering bridges in `sessionOrder` after dashboard restart. See change: reattach-move-to-front. Includes `openspec: OpenSpecPollConfig` block (`pollIntervalSeconds` 5–3600, `maxConcurrentSpawns` 1–16, `changeDetection` `"mtime"\|"always"`, `jitterSeconds` 0–60) with clamping via `parseOpenSpecPollConfig`. See change: optimize-openspec-poll-burst. Adds `openspec.enabled` (boolean, default `true`); `false` disables polling + hides OPENSPEC subcards via cleared per-cwd broadcast. See change: auto-hide-empty-session-subcards. Adds `spawnRegisterTimeoutMs` (default 30000, clamped 5000-120000). See change: spawn-failure-diagnostics. Adds `tunnel.watchdog` block: `enabled` (default true), `intervalMs` (default 60000), `failureThreshold` (default 2), `probeTimeoutMs` (default 10000); parsed/clamped via `parseTunnelWatchdogConfig`. See change: tunnel-watchdog. Adds `dashboardName?: string` field; trim-aware (whitespace-only treated as unset). Drives `/manifest.json` name override. See change: add-dynamic-pwa-manifest-naming. Field `gitWorktreeEnabled: boolean` (default `true`). UI preference. Gates folder `+Worktree` + per-change `⑂+` buttons. Does not gate `/api/git/worktree*` REST endpoints. See change: openspec-worktree-spawn-button. |
+ | `src/shared/dashboard-plugin/manifest-types.ts` | `PluginManifest` + `PluginClaim` interfaces; includes `tab` field for `settings-section` claims + `fixture` flag for test-only plugins. Adds `PluginClaim.shouldRender?: string` (sync function name; wrapper-gate filter consulted by `forSessionRendered` + `useSlotHasClaimsForSession`). See change: auto-hide-empty-session-subcards. Adds optional `PluginManifest.requires: PluginRequirements` + new `PluginRequirements` type ({`piExtensions?: string[]`, `binaries?: string[]`, `services?: string[]`}); consumed by `requirement-probes.ts` to populate `PluginStatus.requirements`. See change: add-plugin-activation-ui. |
+ | `src/shared/dashboard-plugin/plugin-status.ts` | `PluginStatus` (for `/api/health`) + `PluginConfigUpdate` (WebSocket broadcast payload). Adds `BridgeLoadSource` union (`"packages[]"` \| `"dashboardPluginBridges"` \| `"both"` \| `"none"`) + `BridgeProbeSnapshot` interface (runtime telemetry from plugin bridge — timestamps, last status, counters). `PluginStatus` extended with optional `bridgeLoadedFrom?: BridgeLoadSource` + `lastProbe?: BridgeProbeSnapshot`. Both additive — older clients ignore. Surfaced by `/api/health.plugins[]`. See change: fix-pi-flows-end-to-end. Adds required `displayName: string` (server fills from manifest), optional `requirements?: PluginRequirementReport`, optional `missingRequirements?: string[]`. New `PluginRequirementReport` type carries per-category probe results (`piExtensions`, `binaries`, `services`); drives `PluginsSection` install affordances + `+plugin: <id>` badge in `RecommendedExtensions`. See change: add-plugin-activation-ui. |
+@@ -58,7 +58,7 @@
+ | `src/shared/platform/process.ts` | **Sole source of process termination + liveness primitives**: `isProcessAlive(pid)` (signal 0), `killProcess(pid, {timeoutMs})` (Windows `taskkill /F /T /PID`, POSIX `SIGTERM` → wait → `SIGKILL` tree kill), `killPidWithGroup(pid, sig)` (POSIX `kill(-pid, sig)`, Windows direct kill). Every `process.kill(...)` call outside this file banned by `no-direct-process-kill.test.ts`. See change: route-kill-paths-through-platform. |
+ | `src/shared/platform/spawn-mechanism.ts` | `SpawnMechanism` enum (`tmux`/`wt`/`wsl-tmux`/`headless`) + pure `selectMechanism({ platform, userStrategy, electronMode, available })` selector. `buildWtArgs` builds argv for Windows Terminal `new-tab`. `sessionFlagsToArgv` is uniform flag builder every mechanism MUST call. |
+ | `src/shared/plugin-bridge-register.ts` | Plugin bridge entry management: `registerPluginBridge`, `deregisterPluginBridge`, `registerAllPluginBridges`. Manages `dashboard-<plugin-id>` keys in `settings.json#dashboardPluginBridges`; never touches user-owned `packages[]` entries. Atomic write (tmp+rename). |
+-| `src/shared/protocol.ts` | Extension↔Server WebSocket messages. Phase-1 Extension UI System adds `ui_modules_list` / `ui_data_list` (extension → server) + `ui_management` (server → extension); these messages MUST stay in `ExtensionToServerMessage` / `ServerToExtensionMessage` unions or esbuild strips switch cases in production. See change: add-extension-ui-modal. Adds `ProvidersListMessage` (extension → server) + `RequestProvidersMessage` (server → extension). See change: replace-hardcoded-provider-lists. See change: classify-process-list-entries. `ProcessInfo` gains optional `kind`/`label`/`sessionRef`; exports `ProcessKind = "task"|"sub-session"|"pi-worker"|"plugin"`. See change: rework-mid-turn-prompt-queue. Added 5 *ToExtensionMessage types matching browser-protocol + FollowupPulledExtensionToServerMessage extension→server. |
++| `src/shared/protocol.ts` | Extension↔Server WebSocket messages. Phase-1 Extension UI System adds `ui_modules_list` / `ui_data_list` (extension → server) + `ui_management` (server → extension); these messages MUST stay in `ExtensionToServerMessage` / `ServerToExtensionMessage` unions or esbuild strips switch cases in production. See change: add-extension-ui-modal. Adds `ProvidersListMessage` (extension → server) + `RequestProvidersMessage` (server → extension). See change: replace-hardcoded-provider-lists. See change: classify-process-list-entries. `ProcessInfo` gains optional `kind`/`label`/`sessionRef`; exports `ProcessKind = "task"|"sub-session"|"pi-worker"|"plugin"`. See change: rework-mid-turn-prompt-queue. Added 5 *ToExtensionMessage types matching browser-protocol + FollowupPulledExtensionToServerMessage extension→server. Exports InteractiveMethod, BatchQuestion, BatchAnswer, BatchResult types. See change: redesign-ask-user-question-cards. |
+ | `src/shared/recommended-extensions.ts` | Static `RECOMMENDED_EXTENSIONS` manifest (pi-anthropic-messages, pi-dashboard-subagents, pi-flows, pi-web-access, pi-agent-browser); enriched server-side with live description/version + installed/active cross-reference. Adds optional `RecommendedExtension.dashboardPlugin?: string` (plugin id this extension activates) + optional `EnrichedRecommendedExtension.dashboardPluginInstalled?: boolean`. `pi-memory-honcho` entry declares `dashboardPlugin: "honcho"`. Drives `+plugin: <id>` badge in `RecommendedExtensions.tsx` + cross-references plugin-activation UI. `pi-dashboard-subagents` added to `BUNDLED_EXTENSION_IDS` for first-run Electron availability; replaces `@tintinweb/pi-subagents` (removed — specialized `Agent` / `get_subagent_result` / `steer_subagent` renderers dropped, falls back to generic tool renderer). See change: add-plugin-activation-ui. See change: add-subagent-inspector. |
+ | `src/shared/resolve-jiti.ts` | Resolves pi's jiti register hook as `file://` URL (required for `node --import` on Windows); exports pure `buildJitiRegisterUrl(pkgJsonPath)` helper + `resolveJitiFromAnchor(anchorPath)` for managed-install/system-pi callers |
+ | `src/shared/rest-api.ts` | REST API type definitions. `ProviderAuthStatus` gains optional `envVar?: string` + `ambient?: boolean`. See change: replace-hardcoded-provider-lists. `TunnelStatus` active variant extended with optional `watchdog?: TunnelWatchdogPublicStatus` ({`lastProbeAt`, `lastSuccessAt`, `lastFailureAt`, `lastFailureReason`, `consecutiveFailures`, `lastRecycleAt`, `recycleCount`}); additive, older clients ignore. See change: tunnel-watchdog. |
+
+--- FILE 5/35 ---
+FILE: openspec/changes/archive/2025-06-05-redesign-ask-user-question-cards/design.md
+PREVIOUS FILE: openspec/changes/redesign-ask-user-question-cards/design.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 6/35 ---
+FILE: openspec/changes/archive/2025-06-05-redesign-ask-user-question-cards/mockups/batch-wizard.html
+PREVIOUS FILE: openspec/changes/redesign-ask-user-question-cards/mockups/batch-wizard.html
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 7/35 ---
+FILE: openspec/changes/archive/2025-06-05-redesign-ask-user-question-cards/mockups/question-cards.html
+PREVIOUS FILE: openspec/changes/redesign-ask-user-question-cards/mockups/question-cards.html
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 8/35 ---
+FILE: openspec/changes/archive/2025-06-05-redesign-ask-user-question-cards/proposal.md
+PREVIOUS FILE: openspec/changes/redesign-ask-user-question-cards/proposal.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 9/35 ---
+FILE: openspec/changes/archive/2025-06-05-redesign-ask-user-question-cards/specs/ask-user-tool/spec.md
+PREVIOUS FILE: openspec/changes/redesign-ask-user-question-cards/specs/ask-user-tool/spec.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 10/35 ---
+FILE: openspec/changes/archive/2025-06-05-redesign-ask-user-question-cards/specs/interactive-renderers/spec.md
+PREVIOUS FILE: openspec/changes/redesign-ask-user-question-cards/specs/interactive-renderers/spec.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 11/35 ---
+FILE: openspec/changes/archive/2025-06-05-redesign-ask-user-question-cards/tasks.md
+PREVIOUS FILE: openspec/changes/redesign-ask-user-question-cards/tasks.md
+STATUS: renamed
+ADDITIONS: 30
+DELETIONS: 30
+
+PATCH:
+@@ -1,47 +1,47 @@
+ # Tasks
+ 
+ ## 1. Confirm → Yes/No
+-- [ ] 1.1 In `ConfirmRenderer.tsx`, rename pending buttons `Allow`→`Yes`, `Deny`→`No` (keep green/red). Update resolved-state text (`Allowed`/`Denied`) to highlight `Yes`/`No`.
+-- [ ] 1.2 Resolved confirm renders BOTH `Yes` and `No` with the chosen one highlighted (not a one-liner).
+-- [ ] 1.3 Update/extend `ConfirmRenderer` tests for the new labels + resolved layout.
++- [x] 1.1 In `ConfirmRenderer.tsx`, rename pending buttons `Allow`→`Yes`, `Deny`→`No` (keep green/red). Update resolved-state text (`Allowed`/`Denied`) to highlight `Yes`/`No`.
++- [x] 1.2 Resolved confirm renders BOTH `Yes` and `No` with the chosen one highlighted (not a one-liner).
++- [x] 1.3 Update/extend `ConfirmRenderer` tests for the new labels + resolved layout.
+ 
+ ## 2. Select — vertical rows + answered context
+-- [ ] 2.1 In `SelectRenderer.tsx`, replace the `flex flex-wrap` button block with a vertical full-width row list (one option per line). Cancel becomes a dashed full-width row.
+-- [ ] 2.2 Parse an optional description sub-line from each option (split on first ` — ` or ` · `); render title + dimmed description.
+-- [ ] 2.3 Resolved state: render ALL options dimmed, chosen one highlighted. No `+N more`, no fold. Remove the one-liner collapse.
+-- [ ] 2.4 Tests: pending renders N rows; description split; resolved shows full list with pick highlighted (incl. a 10-option case).
++- [x] 2.1 In `SelectRenderer.tsx`, replace the `flex flex-wrap` button block with a vertical full-width row list (one option per line). Cancel becomes a dashed full-width row.
++- [x] 2.2 Parse an optional description sub-line from each option (split on first ` — ` or ` · `); render title + dimmed description.
++- [x] 2.3 Resolved state: render ALL options dimmed, chosen one highlighted. No `+N more`, no fold. Remove the one-liner collapse.
++- [x] 2.4 Tests: pending renders N rows; description split; resolved shows full list with pick highlighted (incl. a 10-option case).
+ 
+ ## 3. Multiselect — answered context
+-- [ ] 3.1 In `MultiselectRenderer.tsx`, keep pending checkbox rows + Select-all + live count.
+-- [ ] 3.2 Resolved state: render ALL options, selected checked/highlighted, unselected dimmed/unchecked, with an `X of N` count. Remove the one-liner collapse.
+-- [ ] 3.3 Tests: resolved shows full list with checked/unchecked split + count.
++- [x] 3.1 In `MultiselectRenderer.tsx`, keep pending checkbox rows + Select-all + live count.
++- [x] 3.2 Resolved state: render ALL options, selected checked/highlighted, unselected dimmed/unchecked, with an `X of N` count. Remove the one-liner collapse.
++- [x] 3.3 Tests: resolved shows full list with checked/unchecked split + count.
+ 
+ ## 4. Input — answered field
+-- [ ] 4.1 In `InputRenderer.tsx`, resolved state keeps question as title and shows value in a read-only field.
+-- [ ] 4.2 Empty submit renders `(left blank)` dimmed/italic; cancelled still shows `Cancelled` with no field.
+-- [ ] 4.3 Tests: resolved-with-value, resolved-empty, cancelled.
++- [x] 4.1 In `InputRenderer.tsx`, resolved state keeps question as title and shows value in a read-only field.
++- [x] 4.2 Empty submit renders `(left blank)` dimmed/italic; cancelled still shows `Cancelled` with no field.
++- [x] 4.3 Tests: resolved-with-value, resolved-empty, cancelled.
+ 
+ ## 5. Shared protocol — `batch` method
+-- [ ] 5.1 Add `"batch"` to the interactive method union in `packages/shared/src/*` (and any browser-protocol mirror).
+-- [ ] 5.2 Define batch request params (`questions[]` with per-question `method/title/message/options/placeholder`) and response result (`answers[]`, index-aligned union of `{confirmed}|{value}|{values}`).
+-- [ ] 5.3 Update protocol type tests to cover `batch` as a valid discriminant.
++- [x] 5.1 Add `"batch"` to the interactive method union in `packages/shared/src/*` (and any browser-protocol mirror).
++- [x] 5.2 Define batch request params (`questions[]` with per-question `method/title/message/options/placeholder`) and response result (`answers[]`, index-aligned union of `{confirmed}|{value}|{values}`).
++- [x] 5.3 Update protocol type tests to cover `batch` as a valid discriminant.
+ 
+ ## 6. Bridge — single-request batch dispatch
+-- [ ] 6.1 In `packages/extension/src/ask-user-tool.ts`, replace the sequential per-sub-question loop with ONE UI request carrying `method:"batch"` + `questions[]`.
+-- [ ] 6.2 Await the single `{answers}` response; map to existing text + `details.results` (index-aligned); preserve the "User cancelled batch …" summary on cancel.
+-- [ ] 6.3 Keep all single-method dispatch paths unchanged. Keep `prepareArguments`/normalization for batch sub-questions.
+-- [ ] 6.4 Tests: batch issues one request; answers mapped index-aligned; multiselect sub-question returns `{values}`; cancel summary; single-method unchanged.
++- [x] 6.1 In `packages/extension/src/ask-user-tool.ts`, replace the sequential per-sub-question loop with ONE UI request carrying `method:"batch"` + `questions[]`.
++- [x] 6.2 Await the single `{answers}` response; map to existing text + `details.results` (index-aligned); preserve the "User cancelled batch …" summary on cancel.
++- [x] 6.3 Keep all single-method dispatch paths unchanged. Keep `prepareArguments`/normalization for batch sub-questions.
++- [x] 6.4 Tests: batch issues one request; answers mapped index-aligned; multiselect sub-question returns `{values}`; cancel summary; single-method unchanged.
+ 
+ ## 7. Client — BatchRenderer wizard
+-- [ ] 7.1 New `packages/client/src/components/interactive-renderers/BatchRenderer.tsx`: stepper header, one sub-question per page, Back/Next, Review page with per-row Edit, final Submit. Reuse the vertical-row / checkbox / input sub-renderers per sub-question method.
+-- [ ] 7.2 Hold per-step answers in component state; send nothing until Review Submit; then `onRespond({answers})`. Cancel → `onCancel`.
+-- [ ] 7.3 Multiselect step → multiple values, rendered as pills in step + Review + resolved summary.
+-- [ ] 7.4 Resolved state: read-only Q→A summary (no Back/Next/Edit), multiselect answers as pills.
+-- [ ] 7.5 Register `"batch"` → `BatchRenderer` in `registry.ts`.
+-- [ ] 7.6 Tests: one-question-per-page; Back preserves answer; Edit-from-review preserves others; answers withheld until submit; multiselect multi-answer; resolved summary read-only.
++- [x] 7.1 New `packages/client/src/components/interactive-renderers/BatchRenderer.tsx`: stepper header, one sub-question per page, Back/Next, Review page with per-row Edit, final Submit. Reuse the vertical-row / checkbox / input sub-renderers per sub-question method.
++- [x] 7.2 Hold per-step answers in component state; send nothing until Review Submit; then `onRespond({answers})`. Cancel → `onCancel`.
++- [x] 7.3 Multiselect step → multiple values, rendered as pills in step + Review + resolved summary.
++- [x] 7.4 Resolved state: read-only Q→A summary (no Back/Next/Edit), multiselect answers as pills.
++- [x] 7.5 Register `"batch"` → `BatchRenderer` in `registry.ts`.
++- [x] 7.6 Tests: one-question-per-page; Back preserves answer; Edit-from-review preserves others; answers withheld until submit; multiselect multi-answer; resolved summary read-only.
+ 
+ ## 8. Verify
+-- [ ] 8.1 `npm test 2>&1 | tee /tmp/pi-test.log` green; `grep -nE 'FAIL|Error' /tmp/pi-test.log` clean.
+-- [ ] 8.2 `npm run build` succeeds. Manual: trigger a long-option `select`, a `multiselect`, an `input`, a `confirm`, and a `batch` (with a multiselect step) from a real session; verify pending + answered states match `mockups/`.
+-- [ ] 8.3 After bridge change, `npm run reload`; after client change, `npm run build` + `POST /api/restart`.
+-- [ ] 8.4 Update `docs/file-index-client.md` (renderer rows + new `BatchRenderer.tsx`), `docs/file-index-extension.md` (`ask-user-tool.ts` batch dispatch), `docs/file-index-shared.md` (`batch` method) and `docs/architecture.md` ask_user notes. Delegate `docs/` writes to a subagent, caveman style.
++- [x] 8.1 `npm test 2>&1 | tee /tmp/pi-test.log` green; `grep -nE 'FAIL|Error' /tmp/pi-test.log` clean.
++- [x] 8.2 `npm run build` succeeds. Manual: trigger a long-option `select`, a `multiselect`, an `input`, a `confirm`, and a `batch` (with a multiselect step) from a real session; verify pending + answered states match `mockups/`.
++- [x] 8.3 After bridge change, `npm run reload`; after client change, `npm run build` + `POST /api/restart`.
++- [x] 8.4 Update `docs/file-index-client.md` (renderer rows + new `BatchRenderer.tsx`), `docs/file-index-extension.md` (`ask-user-tool.ts` batch dispatch), `docs/file-index-shared.md` (`batch` method) and `docs/architecture.md` ask_user notes. Delegate `docs/` writes to a subagent, caveman style.
+
+--- FILE 12/35 ---
+FILE: openspec/specs/ask-user-tool/spec.md
+STATUS: modified
+ADDITIONS: 27
+DELETIONS: 0
+
+PATCH:
+@@ -282,3 +282,30 @@ The `ask_user` tool's `prepareArguments` rescue layer SHALL NOT synthesize a `me
+ #### Scenario: Real rescue cases still apply
+ - **WHEN** `prepareArguments({ questions: [{ method: "confirm", title: "Proceed?" }] })` is called (no top-level `method`)
+ - **THEN** it SHALL return `{ method: "batch", title: "Proceed?", questions: [...] }` — the synthesis depends on a non-empty `questions` array, so this scenario is NOT regressed by the empty-args contract
++
++## ADDED Requirements
++
++### Requirement: Batch dispatched as a single UI request
++The `ask_user` tool SHALL dispatch a `batch` call as a single interactive UI request carrying all sub-questions, rather than as a sequential per-question loop of individual `ctx.ui.*` calls. The tool SHALL issue one request with `method: "batch"` and a `questions[]` array, await a single response containing an index-aligned `answers[]` array, and map that result into the tool's existing text + `details` return shape. Cancellation of the batch SHALL be signalled by the single response and SHALL produce the existing "User cancelled batch …" summary.
++
++#### Scenario: batch issues one request
++- **WHEN** the LLM calls `ask_user` with `{method: "batch", questions: [q1, q2, q3]}`
++- **THEN** the tool SHALL issue exactly one interactive UI request with `method: "batch"` and `questions: [q1, q2, q3]`
++- **THEN** the tool SHALL NOT issue a separate per-question `ctx.ui.*` request for each sub-question
++
++#### Scenario: answers mapped back index-aligned
++- **WHEN** the batch response returns `{answers: [a1, a2, a3]}`
++- **THEN** the tool's `details.results` SHALL be index-aligned with `questions[]` as `[a1, a2, a3]`
++- **THEN** the tool's text summary SHALL list each question with its answer
++
++#### Scenario: multiselect sub-question returns multiple values
++- **WHEN** a batch sub-question uses method `multiselect` and the user selects two options
++- **THEN** that sub-question's answer SHALL be `{values: [...]}` containing both selected values
++
++#### Scenario: batch cancelled
++- **WHEN** the batch response indicates cancellation
++- **THEN** the tool SHALL return a "User cancelled batch …" summary consistent with prior behavior
++
++#### Scenario: single-method calls unchanged
++- **WHEN** the LLM calls `ask_user` with a non-batch method (`confirm`, `select`, `multiselect`, or `input`)
++- **THEN** the tool SHALL dispatch it exactly as before (no `batch` method, no `questions[]` envelope)
+
+--- FILE 13/35 ---
+FILE: openspec/specs/interactive-renderers/spec.md
+STATUS: modified
+ADDITIONS: 78
+DELETIONS: 14
+
+PATCH:
+@@ -4,7 +4,7 @@
+ TBD - created by archiving change ask-user-message-body. Update Purpose after archive.
+ ## Requirements
+ ### Requirement: InputRenderer displays message body
+-The InputRenderer SHALL display `params.message` as a markdown body below the title when in pending state, using the same visual pattern as ConfirmRenderer.
++The InputRenderer SHALL display `params.message` as a markdown body below the title when in pending state, using the same visual pattern as ConfirmRenderer. When resolved, the InputRenderer SHALL keep the question as the card title and display the entered value in a read-only value field (not a collapsed one-liner). An empty submitted value SHALL render as `(left blank)` in a dimmed/italic style, visually distinct from the `Cancelled` state.
+ 
+ #### Scenario: pending input with message
+ - **WHEN** an input dialog is pending with `params.message` set
+@@ -14,29 +14,93 @@ The InputRenderer SHALL display `params.message` as a markdown body below the ti
+ - **WHEN** an input dialog is pending with no `params.message`
+ - **THEN** the renderer SHALL display only the title (no empty body area)
+ 
+-#### Scenario: resolved input with message
+-- **WHEN** an input dialog is resolved/cancelled/dismissed
+-- **THEN** the collapsed one-liner SHALL show only the title (message is hidden in compact state)
++#### Scenario: resolved input shows value in a field
++- **WHEN** an input dialog is resolved with a non-empty value
++- **THEN** the card SHALL keep the question as its title AND render the entered value in a read-only value field
++
++#### Scenario: resolved input with empty value
++- **WHEN** an input dialog is resolved with an empty string
++- **THEN** the value field SHALL display `(left blank)` in a dimmed/italic style
++
++#### Scenario: cancelled input
++- **WHEN** an input dialog is cancelled
++- **THEN** the card SHALL show `Cancelled` and SHALL NOT render a value field
+ 
+ ### Requirement: SelectRenderer displays message body
+-The SelectRenderer SHALL display `params.message` as a markdown body below the title when in pending state.
++The SelectRenderer SHALL display `params.message` as a markdown body below the title when in pending state. In pending state the options SHALL render as full-width vertical rows (one option per line), not horizontal wrapping buttons. Each row MAY display an optional description sub-line derived from the option text after the first ` — ` or ` · ` separator. When resolved, the SelectRenderer SHALL render the entire option list, dimmed, with the chosen option highlighted — all options SHALL be shown as asked, with no truncation, no `+N more` expander, and no folding.
+ 
+ #### Scenario: pending select with message
+ - **WHEN** a select dialog is pending with `params.message` set
+-- **THEN** the renderer SHALL display the message as `<MarkdownContent>` below the title and above the option buttons
++- **THEN** the renderer SHALL display the message as `<MarkdownContent>` below the title and above the option rows
++
++#### Scenario: pending select renders vertical rows
++- **WHEN** a select dialog is pending with two or more options
++- **THEN** each option SHALL render as a full-width row on its own line
++
++#### Scenario: option description sub-line
++- **WHEN** an option string contains a ` — ` or ` · ` separator
++- **THEN** the row SHALL render the text before the separator as the option title and the text after it as a dimmed description sub-line
+ 
+-#### Scenario: pending select without message
+-- **WHEN** a select dialog is pending with no `params.message`
+-- **THEN** the renderer SHALL display only the title
++#### Scenario: resolved select keeps full option list
++- **WHEN** a select dialog is resolved with a chosen value
++- **THEN** the card SHALL render every original option, dimmed, with the chosen option highlighted
++- **THEN** the card SHALL NOT collapse to show only the chosen value
++- **THEN** the card SHALL NOT show a `+N more` expander regardless of option count
+ 
+ ### Requirement: MultiselectRenderer displays message body
+-The MultiselectRenderer SHALL display `params.message` as a markdown body below the title when in pending state.
++The MultiselectRenderer SHALL display `params.message` as a markdown body below the title when in pending state. In pending state the options SHALL render as full-width vertical checkbox rows with the existing Select-all toggle and live selection count. When resolved, the MultiselectRenderer SHALL render the entire option list with the selected options highlighted/checked and the unselected options shown dimmed/unchecked — all options SHALL be shown as asked, with no truncation, no `+N more` expander, and no folding.
+ 
+ #### Scenario: pending multiselect with message
+ - **WHEN** a multiselect dialog is pending with `params.message` set
+-- **THEN** the renderer SHALL display the message as `<MarkdownContent>` below the title and above the checkboxes
++- **THEN** the renderer SHALL display the message as `<MarkdownContent>` below the title and above the checkbox rows
++
++#### Scenario: resolved multiselect keeps full option list
++- **WHEN** a multiselect dialog is resolved with a set of selected values
++- **THEN** the card SHALL render every original option, with selected options highlighted/checked and unselected options dimmed/unchecked
++- **THEN** the card SHALL show a count summary (e.g. `2 of 3`)
++- **THEN** the card SHALL NOT collapse to show only the selected values
++
++## ADDED Requirements
++
++### Requirement: ConfirmRenderer uses Yes/No labels
++The ConfirmRenderer SHALL label its affirmative and negative actions `Yes` and `No` (not `Allow` and `Deny`). The affirmative action SHALL retain green styling and the negative action SHALL retain red styling. When resolved, the card SHALL show both `Yes` and `No` with the chosen option highlighted.
++
++#### Scenario: pending confirm labels
++- **WHEN** a confirm dialog is pending
++- **THEN** the affirmative button SHALL read `Yes` (green) and the negative button SHALL read `No` (red)
++
++#### Scenario: resolved confirm shows both options
++- **WHEN** a confirm dialog is resolved
++- **THEN** the card SHALL render both `Yes` and `No` with the chosen option highlighted
++
++### Requirement: BatchRenderer renders a wizard
++A `batch` interactive request SHALL render as a single wizard card via a BatchRenderer registered for the `batch` method. The wizard SHALL present one sub-question per page with a stepper header indicating progress, `Back` and `Next` navigation, and a final Review page listing every collected answer with a per-row `Edit` action that returns to the corresponding step. Sub-question answers SHALL be held in client state and SHALL NOT be sent to the bridge until the user submits on the Review page. A sub-question of method `multiselect` SHALL allow multiple selected answers for that single step, rendered as a pill group in the step, the Review page, and the resolved summary.
++
++#### Scenario: wizard shows one question per page
++- **WHEN** a `batch` request with N sub-questions is pending
++- **THEN** the wizard SHALL display one sub-question at a time with a stepper showing N steps
++
++#### Scenario: navigate back and forward
++- **WHEN** the user has answered step 1 and advanced to step 2
++- **THEN** a `Back` control SHALL return to step 1 with its prior answer preserved
++
++#### Scenario: review and edit before submit
++- **WHEN** the user reaches the Review page after answering all steps
++- **THEN** the page SHALL list every question and its answer with a per-row `Edit` action
++- **WHEN** the user clicks `Edit` on a row
++- **THEN** the wizard SHALL return to that step with all other answers preserved
++
++#### Scenario: multiselect step yields multiple answers
++- **WHEN** a batch sub-question uses method `multiselect` and the user checks two options
++- **THEN** that step's answer SHALL contain both values, rendered as a pill group
++
++#### Scenario: answers withheld until submit
++- **WHEN** the user is navigating the wizard before the Review submit
++- **THEN** no answer SHALL be sent to the bridge
++- **WHEN** the user submits on the Review page
++- **THEN** all answers SHALL be sent as a single response
+ 
+-#### Scenario: pending multiselect without message
+-- **WHEN** a multiselect dialog is pending with no `params.message`
+-- **THEN** the renderer SHALL display only the title
++#### Scenario: resolved batch shows read-only summary
++- **WHEN** a `batch` request is resolved
++- **THEN** the card SHALL render a read-only Q→A summary of every question and answer with no Back/Next/Edit controls
+ 
+
+--- FILE 14/35 ---
+FILE: packages/client/src/components/__tests__/BatchRenderer.test.tsx
+STATUS: added
+ADDITIONS: 122
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,122 @@
++import { describe, it, expect, vi, afterEach } from "vitest";
++import { render, screen, fireEvent, cleanup } from "@testing-library/react";
++import React from "react";
++import { BatchRenderer } from "../interactive-renderers/BatchRenderer.js";
++
++afterEach(cleanup);
++
++const questions = [
++  { method: "input", title: "Project name" },
++  { method: "select", title: "Language", options: ["TypeScript", "Go"] },
++  { method: "multiselect", title: "Tooling", options: ["ESLint", "Prettier", "Vitest"] },
++];
++
++const baseProps = {
++  requestId: "req-1",
++  method: "batch",
++  params: { title: "Project setup", questions },
++};
++
++function renderPending(onRespond = vi.fn(), onCancel = vi.fn()) {
++  render(<BatchRenderer {...baseProps} status="pending" onRespond={onRespond} onCancel={onCancel} />);
++  return { onRespond, onCancel };
++}
++
++describe("BatchRenderer", () => {
++  it("shows one question per page with a step count", () => {
++    renderPending();
++    expect(screen.getByText("Question 1 of 3")).toBeTruthy();
++    // First step is the input question — its field is present.
++    expect(screen.getByRole("textbox")).toBeTruthy();
++  });
++
++  it("Back preserves the previously entered answer", () => {
++    renderPending();
++    fireEvent.change(screen.getByRole("textbox"), { target: { value: "pi-plugin" } });
++    fireEvent.click(screen.getByText("Next →"));
++    // Now on step 2 (select).
++    expect(screen.getByText("Question 2 of 3")).toBeTruthy();
++    fireEvent.click(screen.getByText("← Back"));
++    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("pi-plugin");
++  });
++
++  it("withholds answers until Review submit, then sends one {answers} response", () => {
++    const { onRespond } = renderPending();
++    // Step 1: input
++    fireEvent.change(screen.getByRole("textbox"), { target: { value: "pi-plugin" } });
++    fireEvent.click(screen.getByText("Next →"));
++    // Step 2: select
++    fireEvent.click(screen.getByText("TypeScript"));
++    fireEvent.click(screen.getByText("Next →"));
++    // Step 3: multiselect — pick two
++    fireEvent.click(screen.getByText("ESLint"));
++    fireEvent.click(screen.getByText("Vitest"));
++    fireEvent.click(screen.getByText("Next →"));
++    // Review page — nothing sent yet.
++    expect(onRespond).not.toHaveBeenCalled();
++    fireEvent.click(screen.getByText(/Submit all 3/));
++    expect(onRespond).toHaveBeenCalledTimes(1);
++    expect(onRespond).toHaveBeenCalledWith({
++      answers: [
++        { value: "pi-plugin" },
++        { value: "TypeScript" },
++        { values: ["ESLint", "Vitest"] },
++      ],
++    });
++  });
++
++  it("Edit from review returns to that step preserving other answers", () => {
++    const { onRespond } = renderPending();
++    fireEvent.change(screen.getByRole("textbox"), { target: { value: "pi-plugin" } });
++    fireEvent.click(screen.getByText("Next →"));
++    fireEvent.click(screen.getByText("Go"));
++    fireEvent.click(screen.getByText("Next →"));
++    fireEvent.click(screen.getByText("Prettier"));
++    fireEvent.click(screen.getByText("Next →"));
++    // On review — edit step 1.
++    const editButtons = screen.getAllByText("Edit");
++    fireEvent.click(editButtons[0]);
++    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("pi-plugin");
++    // Jump back to review via stepper and submit — other answers intact.
++    fireEvent.click(screen.getByText("Next →")); // step 2
++    fireEvent.click(screen.getByText("Next →")); // step 3
++    fireEvent.click(screen.getByText("Next →")); // review
++    fireEvent.click(screen.getByText(/Submit all 3/));
++    expect(onRespond).toHaveBeenCalledWith({
++      answers: [{ value: "pi-plugin" }, { value: "Go" }, { values: ["Prettier"] }],
++    });
++  });
++
++  it("Cancel on the first step calls onCancel", () => {
++    const { onCancel } = renderPending();
++    fireEvent.click(screen.getByText("Cancel"));
++    expect(onCancel).toHaveBeenCalled();
++  });
++
++  it("resolved state shows a read-only Q→A summary with no Next/Submit", () => {
++    render(
++      <BatchRenderer
++        {...baseProps}
++        status="resolved"
++        result={{
++          answers: [
++            { value: "pi-plugin" },
++            { value: "TypeScript" },
++            { values: ["ESLint", "Vitest"] },
++          ],
++        }}
++        onRespond={vi.fn()}
++        onCancel={vi.fn()}
++      />,
++    );
++    expect(screen.getByText("pi-plugin")).toBeTruthy();
++    expect(screen.getByText("TypeScript")).toBeTruthy();
++    // Multiselect answers render as pills.
++    expect(screen.getByText("ESLint")).toBeTruthy();
++    expect(screen.getByText("Vitest")).toBeTruthy();
++    // No interactive controls.
++    expect(screen.queryByText("Next →")).toBeNull();
++    expect(screen.queryByText(/Submit all/)).toBeNull();
+
+[PATCH TRUNCATED: 123 total lines]
+
+--- FILE 15/35 ---
+FILE: packages/client/src/components/__tests__/ConfirmRenderer.test.tsx
+STATUS: added
+ADDITIONS: 80
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,80 @@
++import { describe, it, expect, vi, afterEach } from "vitest";
++import { render, screen, fireEvent, cleanup } from "@testing-library/react";
++import React from "react";
++import { ConfirmRenderer } from "../interactive-renderers/ConfirmRenderer.js";
++
++afterEach(cleanup);
++
++const baseProps = {
++  requestId: "req-1",
++  method: "confirm",
++  params: { title: "Initialize git?" },
++};
++
++describe("ConfirmRenderer", () => {
++  describe("pending state", () => {
++    it("renders Yes and No labels (not Allow/Deny)", () => {
++      render(<ConfirmRenderer {...baseProps} status="pending" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      expect(screen.getByText("Yes")).toBeTruthy();
++      expect(screen.getByText("No")).toBeTruthy();
++      expect(screen.queryByText("Allow")).toBeNull();
++      expect(screen.queryByText("Deny")).toBeNull();
++    });
++
++    it("Yes responds confirmed=true, No responds confirmed=false", () => {
++      const onRespond = vi.fn();
++      render(<ConfirmRenderer {...baseProps} status="pending" onRespond={onRespond} onCancel={vi.fn()} />);
++      fireEvent.click(screen.getByText("Yes"));
++      expect(onRespond).toHaveBeenCalledWith({ confirmed: true });
++      fireEvent.click(screen.getByText("No"));
++      expect(onRespond).toHaveBeenCalledWith({ confirmed: false });
++    });
++  });
++
++  describe("resolved state", () => {
++    it("renders BOTH Yes and No with the chosen one highlighted", () => {
++      render(
++        <ConfirmRenderer
++          {...baseProps}
++          status="resolved"
++          result={{ confirmed: true }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      // Both options present in the resolved card.
++      expect(screen.getByText("Yes")).toBeTruthy();
++      expect(screen.getByText("No")).toBeTruthy();
++      // Question kept as title.
++      expect(screen.getByText("Initialize git?")).toBeTruthy();
++    });
++
++    it("renders both options when denied", () => {
++      render(
++        <ConfirmRenderer
++          {...baseProps}
++          status="resolved"
++          result={{ confirmed: false }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      expect(screen.getByText("Yes")).toBeTruthy();
++      expect(screen.getByText("No")).toBeTruthy();
++    });
++  });
++
++  describe("cancelled state", () => {
++    it("displays Cancelled label", () => {
++      render(<ConfirmRenderer {...baseProps} status="cancelled" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      expect(screen.getByText("Cancelled")).toBeTruthy();
++    });
++  });
++
++  describe("dismissed state", () => {
++    it("displays Answered in terminal label", () => {
++      render(<ConfirmRenderer {...baseProps} status="dismissed" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      expect(screen.getByText("Answered in terminal")).toBeTruthy();
++    });
++  });
++});
+
+--- FILE 16/35 ---
+FILE: packages/client/src/components/__tests__/InputRenderer.test.tsx
+STATUS: modified
+ADDITIONS: 16
+DELETIONS: 1
+
+PATCH:
+@@ -145,7 +145,7 @@ describe("InputRenderer", () => {
+   });
+ 
+   describe("resolved state", () => {
+-    it("displays entered value", () => {
++    it("keeps the question as title and shows the value in a read-only field", () => {
+       render(
+         <InputRenderer
+           {...baseProps}
+@@ -156,8 +156,23 @@ describe("InputRenderer", () => {
+         />,
+       );
+ 
++      expect(screen.getByText("Enter your name")).toBeTruthy();
+       expect(screen.getByText("Alice")).toBeTruthy();
+     });
++
++    it("renders (left blank) for an empty submitted value", () => {
++      render(
++        <InputRenderer
++          {...baseProps}
++          status="resolved"
++          result={{ value: "" }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++
++      expect(screen.getByText("(left blank)")).toBeTruthy();
++    });
+   });
+ 
+   describe("cancelled state", () => {
+
+--- FILE 17/35 ---
+FILE: packages/client/src/components/__tests__/MultiselectRenderer.test.tsx
+STATUS: modified
+ADDITIONS: 11
+DELETIONS: 4
+
+PATCH:
+@@ -104,7 +104,7 @@ describe("MultiselectRenderer", () => {
+   });
+ 
+   describe("resolved state", () => {
+-    it("displays selected values", () => {
++    it("keeps the full option list with selected + unselected both shown", () => {
+       render(
+         <MultiselectRenderer
+           {...baseProps}
+@@ -115,10 +115,15 @@ describe("MultiselectRenderer", () => {
+         />,
+       );
+ 
+-      expect(screen.getByText("a.ts, c.ts")).toBeTruthy();
++      // All three options remain visible (not collapsed to just the picks).
++      expect(screen.getByText("a.ts")).toBeTruthy();
++      expect(screen.getByText("b.ts")).toBeTruthy();
++      expect(screen.getByText("c.ts")).toBeTruthy();
++      // Count summary present.
++      expect(screen.getByText(/2 of 3/)).toBeTruthy();
+     });
+ 
+-    it("displays 'None selected' when empty array", () => {
++    it("shows a 0 of N count when nothing selected", () => {
+       render(
+         <MultiselectRenderer
+           {...baseProps}
+@@ -129,7 +134,9 @@ describe("MultiselectRenderer", () => {
+         />,
+       );
+ 
+-      expect(screen.getByText("None selected")).toBeTruthy();
++      expect(screen.getByText(/0 of 3/)).toBeTruthy();
++      // Options still listed.
++      expect(screen.getByText("a.ts")).toBeTruthy();
+     });
+   });
+ 
+
+--- FILE 18/35 ---
+FILE: packages/client/src/components/__tests__/SelectRenderer.test.tsx
+STATUS: added
+ADDITIONS: 97
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,97 @@
++import { describe, it, expect, vi, afterEach } from "vitest";
++import { render, screen, fireEvent, cleanup } from "@testing-library/react";
++import React from "react";
++import { SelectRenderer } from "../interactive-renderers/SelectRenderer.js";
++
++afterEach(cleanup);
++
++const baseProps = {
++  requestId: "req-1",
++  method: "select",
++  params: { title: "Primary language?", options: ["TypeScript", "Python", "Go"] },
++};
++
++describe("SelectRenderer", () => {
++  describe("pending state", () => {
++    it("renders one full-width row per option", () => {
++      render(<SelectRenderer {...baseProps} status="pending" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      // 3 options + 1 synthetic Cancel row = 4 buttons.
++      expect(screen.getAllByRole("button")).toHaveLength(4);
++      expect(screen.getByText("TypeScript")).toBeTruthy();
++      expect(screen.getByText("Python")).toBeTruthy();
++      expect(screen.getByText("Go")).toBeTruthy();
++      expect(screen.getByText("Cancel")).toBeTruthy();
++    });
++
++    it("responds with the chosen option value", () => {
++      const onRespond = vi.fn();
++      render(<SelectRenderer {...baseProps} status="pending" onRespond={onRespond} onCancel={vi.fn()} />);
++      fireEvent.click(screen.getByText("Python"));
++      expect(onRespond).toHaveBeenCalledWith({ value: "Python" });
++    });
++
++    it("splits an option into title + dimmed description on ' — '", () => {
++      render(
++        <SelectRenderer
++          requestId="r"
++          method="select"
++          params={{ title: "Pick", options: ["Design 1 — lean one-line hook"] }}
++          status="pending"
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      expect(screen.getByText("Design 1")).toBeTruthy();
++      expect(screen.getByText("lean one-line hook")).toBeTruthy();
++    });
++
++    it("Cancel row triggers onCancel", () => {
++      const onCancel = vi.fn();
++      render(<SelectRenderer {...baseProps} status="pending" onRespond={vi.fn()} onCancel={onCancel} />);
++      fireEvent.click(screen.getByText("Cancel"));
++      expect(onCancel).toHaveBeenCalled();
++    });
++  });
++
++  describe("resolved state", () => {
++    it("keeps the full option list with the chosen option highlighted", () => {
++      render(
++        <SelectRenderer
++          {...baseProps}
++          status="resolved"
++          result={{ value: "TypeScript" }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      // All three options remain visible (not collapsed to just the pick).
++      expect(screen.getByText("TypeScript")).toBeTruthy();
++      expect(screen.getByText("Python")).toBeTruthy();
++      expect(screen.getByText("Go")).toBeTruthy();
++    });
++
++    it("renders all options with no +N more for a 10-option list", () => {
++      const opts = Array.from({ length: 10 }, (_, i) => `model-${i}`);
++      render(
++        <SelectRenderer
++          requestId="r"
++          method="select"
++          params={{ title: "Pick a base model", options: opts }}
++          status="resolved"
++          result={{ value: "model-3" }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      for (const o of opts) expect(screen.getByText(o)).toBeTruthy();
++      expect(screen.queryByText(/\+\d+ more/)).toBeNull();
++    });
++  });
++
++  describe("cancelled state", () => {
++    it("displays Cancelled label", () => {
++      render(<SelectRenderer {...baseProps} status="cancelled" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      expect(screen.getByText("Cancelled")).toBeTruthy();
++    });
++  });
++});
+
+--- FILE 19/35 ---
+FILE: packages/client/src/components/interactive-renderers/AnsweredOption.tsx
+STATUS: added
+ADDITIONS: 49
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,49 @@
++import React from "react";
++import { Icon } from "@mdi/react";
++import { mdiCheck } from "@mdi/js";
++
++/**
++ * AnsweredOption — one row in a resolved select/multiselect/confirm card.
++ *
++ * Collapse emphasis, not information: answered cards keep the full option
++ * list. The chosen option(s) render highlighted (`picked`); the rest render
++ * dimmed (`skip`). Shared by ConfirmRenderer, SelectRenderer and
++ * MultiselectRenderer so the pick/skip styling stays in one place.
++ *
++ * See change: redesign-ask-user-question-cards.
++ */
++export function AnsweredOption({
++  title,
++  description,
++  picked,
++}: {
++  title: string;
++  description?: string;
++  picked: boolean;
++}) {
++  return (
++    <div
++      className={
++        picked
++          ? "flex items-start gap-2 px-2.5 py-1.5 rounded-md text-xs border border-green-500/35 bg-green-500/10 text-[var(--text-primary)]"
++          : "flex items-start gap-2 px-2.5 py-1.5 rounded-md text-xs border border-transparent text-[var(--text-tertiary)]"
++      }
++    >
++      <span
++        className={
++          picked
++            ? "mt-0.5 w-4 h-4 rounded grid place-items-center bg-green-500 text-[#06210f] shrink-0"
++            : "mt-0.5 w-4 h-4 rounded border-[1.5px] border-[var(--border-secondary)] shrink-0"
++        }
++      >
++        {picked && <Icon path={mdiCheck} size={0.5} />}
++      </span>
++      <span className="min-w-0">
++        <span>{title}</span>
++        {description && (
++          <span className="block text-[var(--text-tertiary)]">{description}</span>
++        )}
++      </span>
++    </div>
++  );
++}
+
+--- FILE 20/35 ---
+FILE: packages/client/src/components/interactive-renderers/BatchRenderer.tsx
+STATUS: added
+ADDITIONS: 366
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,366 @@
++import React, { useState } from "react";
++import { Icon } from "@mdi/react";
++import { mdiCheck, mdiCheckCircle, mdiViewListOutline } from "@mdi/js";
++import type { InteractiveRendererProps } from "./types.js";
++import { InlineMarkdown } from "./InlineMarkdown.js";
++import { parseOption, isCancelOption } from "./parseOption.js";
++
++/**
++ * BatchRenderer — renders a `batch` ask_user request as a single wizard card:
++ * stepper header, one sub-question per page, Back/Next, a Review page with
++ * per-row Edit, and a final Submit. Answers are held in component state and
++ * sent only on Submit (one `{answers}` response). A multiselect step yields
++ * multiple values (rendered as pills).
++ *
++ * See change: redesign-ask-user-question-cards.
++ */
++
++interface SubQuestion {
++  method: "confirm" | "select" | "multiselect" | "input";
++  title: string;
++  message?: string;
++  options?: string[];
++  placeholder?: string;
++}
++
++type Answer =
++  | { confirmed: boolean }
++  | { value: string }
++  | { values: string[] };
++
++function initialAnswer(q: SubQuestion): Answer | undefined {
++  if (q.method === "input") return { value: "" };
++  if (q.method === "multiselect") return { values: [] };
++  return undefined; // confirm / select require an explicit pick
++}
++
++function answerToText(q: SubQuestion, a: Answer | undefined): React.ReactNode {
++  if (!a) return <span className="text-[var(--text-tertiary)] italic">(unanswered)</span>;
++  if ("confirmed" in a) return a.confirmed ? "Yes" : "No";
++  if ("values" in a) {
++    if (a.values.length === 0) return <span className="text-[var(--text-tertiary)] italic">(none)</span>;
++    return (
++      <span className="flex flex-wrap gap-1">
++        {a.values.map((v) => (
++          <span key={v} className="inline-block rounded px-2 py-0.5 text-[11px] bg-blue-500/15 text-blue-300">
++            {v}
++          </span>
++        ))}
++      </span>
++    );
++  }
++  if ("value" in a) {
++    return a.value === "" ? <span className="text-[var(--text-tertiary)] italic">(left blank)</span> : a.value;
++  }
++  return null;
++}
++
++export function BatchRenderer({ params, status, result, onRespond, onCancel }: InteractiveRendererProps) {
++  const title = (params.title as string) ?? "Questions";
++  const questions = ((params.questions as SubQuestion[]) ?? []).filter(Boolean);
++  const resolvedAnswers = (result as any)?.answers as Answer[] | undefined;
++
++  const [answers, setAnswers] = useState<Array<Answer | undefined>>(() =>
++    questions.map(initialAnswer),
++  );
++  // step in 0..questions.length-1 are questions; questions.length is Review.
++  const [step, setStep] = useState(0);
++
++  // ── Resolved / cancelled / dismissed: read-only summary ──────────
++  if (status !== "pending") {
++    if (status === "cancelled" || status === "dismissed") {
++      return (
++        <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
++          <Icon path={mdiViewListOutline} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
++          <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
++          <span className="ml-1 text-[var(--text-tertiary)]">
++            {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++          </span>
++        </div>
++      );
++    }
++    return (
++      <div className="mx-4 my-1 bg-[var(--bg-hover)] rounded-lg overflow-hidden text-xs">
++        <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center gap-2">
++          <Icon path={mdiCheckCircle} size={0.55} className="text-green-400 shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++          <span className="ml-auto text-green-400">{resolvedAnswers?.length ?? 0} answers</span>
++        </div>
++        <div className="p-3 flex flex-col gap-2">
++          {questions.map((q, i) => (
++            <ReviewRow key={i} num={i + 1} question={q} answer={resolvedAnswers?.[i]} />
++          ))}
++        </div>
++      </div>
++    );
++  }
++
++  const onReview = step >= questions.length;
++  const current = questions[step];
++
++  function setAnswer(a: Answer) {
++    setAnswers((prev) => {
++      const next = prev.slice();
++      next[step] = a;
++      return next;
++    });
++  }
++
++  const canAdvance = onReview || answers[step] !== undefined;
++
++  return (
++    <div className="mx-4 my-2 bg-[var(--bg-hover)] border border-[var(--border-secondary)] rounded-xl overflow-hidden">
++      {/* Header + stepper */}
++      <div className="px-4 py-3 border-b border-[var(--border-subtle)]">
++        <div className="flex items-center gap-2">
++          <Icon path={mdiViewListOutline} size={0.6} className="text-blue-400 shrink-0" />
++          <span className="text-sm font-medium text-[var(--text-primary)]"><InlineMarkdown content={title} /></span>
++          <span className="ml-auto text-[11px] text-[var(--text-tertiary)]">
++            {onReview ? "Review" : `Question ${step + 1} of ${questions.length}`}
+
+[PATCH TRUNCATED: 367 total lines]
+
+--- FILE 21/35 ---
+FILE: packages/client/src/components/interactive-renderers/ConfirmRenderer.tsx
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 16
+
+PATCH:
+@@ -1,32 +1,39 @@
+ import React from "react";
+ import { Icon } from "@mdi/react";
+-import { mdiCheckCircle, mdiCloseCircle, mdiShieldAlert } from "@mdi/js";
++import { mdiShieldAlert } from "@mdi/js";
+ import type { InteractiveRendererProps } from "./types.js";
+ import { InlineMarkdown } from "./InlineMarkdown.js";
+ import { MarkdownContent } from "../MarkdownContent.js";
++import { AnsweredOption } from "./AnsweredOption.js";
+ 
+ export function ConfirmRenderer({ params, status, result, onRespond, onCancel }: InteractiveRendererProps) {
+   const title = params.title as string;
+   const message = params.message as string | undefined;
+   const confirmed = (result as any)?.confirmed;
+ 
+-  if (status !== "pending") {
++  if (status === "cancelled" || status === "dismissed") {
+     return (
+       <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
+         <Icon path={mdiShieldAlert} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
+         <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
+-        {status === "resolved" && confirmed && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-green-400"><Icon path={mdiCheckCircle} size={0.55} /> Allowed</span>
+-        )}
+-        {status === "resolved" && !confirmed && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-red-400"><Icon path={mdiCloseCircle} size={0.55} /> Denied</span>
+-        )}
+-        {status === "cancelled" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Cancelled</span>
+-        )}
+-        {status === "dismissed" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Answered in terminal</span>
+-        )}
++        <span className="ml-1 text-[var(--text-tertiary)]">
++          {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++        </span>
++      </div>
++    );
++  }
++
++  if (status === "resolved") {
++    return (
++      <div className="mx-4 my-1 p-3 bg-[var(--bg-hover)] rounded-lg text-xs">
++        <div className="flex items-center gap-2 mb-2">
++          <Icon path={mdiShieldAlert} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++        </div>
++        <div className="flex gap-2 ml-6">
++          <AnsweredOption title="Yes" picked={!!confirmed} />
++          <AnsweredOption title="No" picked={!confirmed} />
++        </div>
+       </div>
+     );
+   }
+@@ -45,13 +52,13 @@ export function ConfirmRenderer({ params, status, result, onRespond, onCancel }:
+           onClick={() => onRespond({ confirmed: true })}
+           className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-500 text-white transition-colors"
+         >
+-          Allow
++          Yes
+         </button>
+         <button
+           onClick={() => onRespond({ confirmed: false })}
+           className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-500 text-white transition-colors"
+         >
+-          Deny
++          No
+         </button>
+         <button
+           onClick={onCancel}
+
+--- FILE 22/35 ---
+FILE: packages/client/src/components/interactive-renderers/InputRenderer.tsx
+STATUS: modified
+ADDITIONS: 25
+DELETIONS: 12
+
+PATCH:
+@@ -12,22 +12,35 @@ export function InputRenderer({ params, status, result, onRespond, onCancel }: I
+   const enteredValue = (result as any)?.value as string | undefined;
+   const [text, setText] = useState("");
+ 
+-  if (status !== "pending") {
++  if (status === "cancelled" || status === "dismissed") {
+     return (
+       <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
+         <Icon path={mdiFormTextbox} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
+         <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
+-        {status === "resolved" && enteredValue !== undefined && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-green-400">
+-            <Icon path={mdiCheckCircle} size={0.55} /> {enteredValue}
+-          </span>
+-        )}
+-        {status === "cancelled" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Cancelled</span>
+-        )}
+-        {status === "dismissed" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Answered in terminal</span>
+-        )}
++        <span className="ml-1 text-[var(--text-tertiary)]">
++          {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++        </span>
++      </div>
++    );
++  }
++
++  if (status === "resolved") {
++    const isBlank = enteredValue === undefined || enteredValue === "";
++    return (
++      <div className="mx-4 my-1 p-3 bg-[var(--bg-hover)] rounded-lg text-xs">
++        <div className="flex items-center gap-2 mb-2">
++          <Icon path={mdiCheckCircle} size={0.55} className="text-green-400 shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++        </div>
++        <div
++          className={
++            isBlank
++              ? "ml-6 px-3 py-2 rounded-md bg-[var(--bg-primary)] border border-[var(--border-secondary)] text-[var(--text-tertiary)] italic whitespace-pre-wrap break-words"
++              : "ml-6 px-3 py-2 rounded-md bg-[var(--bg-primary)] border border-[var(--border-secondary)] text-[var(--text-primary)] whitespace-pre-wrap break-words"
++          }
++        >
++          {isBlank ? "(left blank)" : enteredValue}
++        </div>
+       </div>
+     );
+   }
+
+--- FILE 23/35 ---
+FILE: packages/client/src/components/interactive-renderers/MultiselectRenderer.tsx
+STATUS: modified
+ADDITIONS: 24
+DELETIONS: 14
+
+PATCH:
+@@ -4,6 +4,7 @@ import { mdiCheckCircle, mdiCheckboxMarkedOutline } from "@mdi/js";
+ import type { InteractiveRendererProps } from "./types.js";
+ import { InlineMarkdown } from "./InlineMarkdown.js";
+ import { MarkdownContent } from "../MarkdownContent.js";
++import { AnsweredOption } from "./AnsweredOption.js";
+ 
+ export function MultiselectRenderer({ params, status, result, onRespond, onCancel }: InteractiveRendererProps) {
+   const title = params.title as string;
+@@ -31,25 +32,34 @@ export function MultiselectRenderer({ params, status, result, onRespond, onCance
+     else setChecked(new Set(options));
+   }
+ 
+-  if (status !== "pending") {
++  if (status === "cancelled" || status === "dismissed") {
+     return (
+       <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
+         <Icon path={mdiCheckboxMarkedOutline} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
+         <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
+-        {status === "resolved" && selectedValues && selectedValues.length > 0 && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-green-400">
+-            <Icon path={mdiCheckCircle} size={0.55} /> {selectedValues.join(", ")}
++        <span className="ml-1 text-[var(--text-tertiary)]">
++          {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++        </span>
++      </div>
++    );
++  }
++
++  if (status === "resolved") {
++    const picks = selectedValues ?? [];
++    return (
++      <div className="mx-4 my-1 p-3 bg-[var(--bg-hover)] rounded-lg text-xs">
++        <div className="flex items-center gap-2 mb-2">
++          <Icon path={mdiCheckboxMarkedOutline} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++          <span className="ml-auto inline-flex items-center gap-0.5 text-green-400">
++            <Icon path={mdiCheckCircle} size={0.5} /> {picks.length} of {options.length}
+           </span>
+-        )}
+-        {status === "resolved" && (!selectedValues || selectedValues.length === 0) && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">None selected</span>
+-        )}
+-        {status === "cancelled" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Cancelled</span>
+-        )}
+-        {status === "dismissed" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Answered in terminal</span>
+-        )}
++        </div>
++        <div className="flex flex-col gap-1 ml-6">
++          {options.map((option) => (
++            <AnsweredOption key={option} title={option} picked={picks.includes(option)} />
++          ))}
++        </div>
+       </div>
+     );
+   }
+
+--- FILE 24/35 ---
+FILE: packages/client/src/components/interactive-renderers/SelectRenderer.tsx
+STATUS: modified
+ADDITIONS: 74
+DELETIONS: 31
+
+PATCH:
+@@ -1,36 +1,56 @@
+ import React from "react";
+ import { Icon } from "@mdi/react";
+-import { mdiCheckCircle, mdiFormatListBulleted } from "@mdi/js";
++import { mdiFormatListBulleted } from "@mdi/js";
+ import type { InteractiveRendererProps } from "./types.js";
+ import { InlineMarkdown } from "./InlineMarkdown.js";
+ import { MarkdownContent } from "../MarkdownContent.js";
++import { AnsweredOption } from "./AnsweredOption.js";
++import { parseOption, isCancelOption } from "./parseOption.js";
+ 
+ export function SelectRenderer({ params, status, result, onRespond, onCancel }: InteractiveRendererProps) {
+   const title = params.title as string;
+   const message = params.message as string | undefined;
+   const options = (params.options as string[]) ?? [];
+   const selectedValue = (result as any)?.value as string | undefined;
+ 
+-  if (status !== "pending") {
++  if (status === "cancelled" || status === "dismissed") {
+     return (
+       <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
+         <Icon path={mdiFormatListBulleted} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
+         <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
+-        {status === "resolved" && selectedValue && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-green-400">
+-            <Icon path={mdiCheckCircle} size={0.55} /> {selectedValue}
+-          </span>
+-        )}
+-        {status === "cancelled" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Cancelled</span>
+-        )}
+-        {status === "dismissed" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Answered in terminal</span>
+-        )}
++        <span className="ml-1 text-[var(--text-tertiary)]">
++          {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++        </span>
++      </div>
++    );
++  }
++
++  if (status === "resolved") {
++    return (
++      <div className="mx-4 my-1 p-3 bg-[var(--bg-hover)] rounded-lg text-xs">
++        <div className="flex items-center gap-2 mb-2">
++          <Icon path={mdiFormatListBulleted} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++        </div>
++        <div className="flex flex-col gap-1 ml-6">
++          {options.map((option) => {
++            const { title: oTitle, description } = parseOption(option);
++            return (
++              <AnsweredOption
++                key={option}
++                title={oTitle}
++                description={description}
++                picked={option === selectedValue}
++              />
++            );
++          })}
++        </div>
+       </div>
+     );
+   }
+ 
++  const hasCancelOption = options.some(isCancelOption);
++
+   return (
+     <div className="mx-4 my-2 p-3 bg-[var(--bg-hover)] border border-[var(--border-secondary)] rounded-lg">
+       <div className="flex items-center gap-2 mb-2">
+@@ -40,31 +60,54 @@ export function SelectRenderer({ params, status, result, onRespond, onCancel }:
+       {message && (
+         <div className="text-xs text-[var(--text-secondary)] mb-3 ml-6"><MarkdownContent content={message} /></div>
+       )}
+-      <div className="flex flex-wrap gap-2 ml-6">
++      <div className="flex flex-col gap-1.5 ml-6">
+         {options.map((option) => {
+-          const isCancel = /^cancel$/i.test(option.trim());
++          const cancel = isCancelOption(option);
++          const { title: oTitle, description } = parseOption(option);
+           return (
+-            <button
++            <OptionRow
+               key={option}
+-              onClick={() => isCancel ? onCancel() : onRespond({ value: option })}
+-              className={isCancel
+-                ? "px-3 py-1 text-xs rounded bg-transparent hover:bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-secondary)] transition-colors"
+-                : "px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+-              }
+-            >
+-              {option}
+-            </button>
++              title={oTitle}
++              description={cancel ? undefined : description}
++              cancel={cancel}
++              onClick={() => (cancel ? onCancel() : onRespond({ value: option }))}
++            />
+           );
+         })}
+-        {!options.some((o) => /^cancel$/i.test(o.trim())) && (
+-          <button
+-            onClick={onCancel}
+-            className="px-3 py-1 text-xs rounded bg-transparent hover:bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-secondary)] transition-colors"
+-          >
+-            Cancel
+-          </button>
++        {!hasCancelOption && (
++          <OptionRow title="Cancel" cancel onClick={onCancel} />
+         )}
+       </div>
+     </div>
+   );
+ }
++
++function OptionRow({
++  title,
++  description,
++  cancel,
++  onClick,
++}: {
+
+[PATCH TRUNCATED: 143 total lines]
+
+--- FILE 25/35 ---
+FILE: packages/client/src/components/interactive-renderers/parseOption.ts
+STATUS: added
+ADDITIONS: 21
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,21 @@
++/**
++ * parseOption — split an option string into a title and an optional
++ * description sub-line on the first ` — ` (em dash) or ` · ` (middot)
++ * separator. Used by SelectRenderer rows and the batch wizard so long
++ * options render a dimmed description under the title.
++ *
++ * See change: redesign-ask-user-question-cards.
++ */
++export function parseOption(option: string): { title: string; description?: string } {
++  const sep = /\s(?:—|·)\s/.exec(option);
++  if (!sep) return { title: option };
++  return {
++    title: option.slice(0, sep.index),
++    description: option.slice(sep.index + sep[0].length),
++  };
++}
++
++/** True when an option is a Cancel affordance (case-insensitive). */
++export function isCancelOption(option: string): boolean {
++  return /^cancel$/i.test(option.trim());
++}
+
+--- FILE 26/35 ---
+FILE: packages/client/src/components/interactive-renderers/registry.ts
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -5,6 +5,7 @@ import { InputRenderer } from "./InputRenderer.js";
+ import { EditorRenderer } from "./EditorRenderer.js";
+ import { MultiselectRenderer } from "./MultiselectRenderer.js";
+ import { NotifyRenderer } from "./NotifyRenderer.js";
++import { BatchRenderer } from "./BatchRenderer.js";
+ import { GenericInteractiveRenderer } from "./GenericInteractiveRenderer.js";
+ 
+ const renderers = new Map<string, InteractiveRenderer>([
+@@ -14,6 +15,7 @@ const renderers = new Map<string, InteractiveRenderer>([
+   ["editor", EditorRenderer],
+   ["multiselect", MultiselectRenderer],
+   ["notify", NotifyRenderer],
++  ["batch", BatchRenderer],
+ ]);
+ 
+ /** Register a custom interactive renderer for a method */
+
+--- FILE 27/35 ---
+FILE: packages/client/src/hooks/useMessageHandler.ts
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -625,6 +625,9 @@ export function useMessageHandler(
+               message: msg.prompt?.metadata?.message as string | undefined,
+               options: msg.prompt?.options,
+               defaultValue: msg.prompt?.defaultValue,
++              // For method "batch": sub-questions travel in metadata.questions.
++              // See change: redesign-ask-user-question-cards.
++              questions: msg.prompt?.metadata?.questions,
+               _promptBusComponent: msg.component,
+               _promptBusPlacement: msg.placement,
+             },
+
+--- FILE 28/35 ---
+FILE: packages/client/src/lib/prompt-answer-encoder.ts
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 4
+
+PATCH:
+@@ -6,10 +6,11 @@
+  * Encoding precedence (order matters):
+  *
+  *   1. Cancellation                        → undefined  (no answer at all)
+- *   2. result.values is array (multiselect) → JSON.stringify(values)
+- *   3. result.value is defined (select / input / editor) → result.value as string
+- *   4. result.confirmed (confirm)          → "true" / "false"
+- *   5. fallback                            → String(result ?? "")
++ *   2. result.answers is array (batch)     → JSON.stringify(answers)
++ *   3. result.values is array (multiselect) → JSON.stringify(values)
++ *   4. result.value is defined (select / input / editor) → result.value as string
++ *   5. result.confirmed (confirm)          → "true" / "false"
++ *   6. fallback                            → String(result ?? "")
+  *
+  * The multiselect arm distinguishes empty selection (`answer: "[]"`) from
+  * cancellation (`answer: undefined`, `cancelled: true`) — the bridge
+@@ -25,6 +26,9 @@ export function encodePromptAnswer(
+   if (cancelled) return undefined;
+   if (typeof result === "object" && result !== null) {
+     const r = result as Record<string, unknown>;
++    if (Array.isArray(r.answers)) {
++      return JSON.stringify(r.answers);
++    }
+     if (Array.isArray(r.values)) {
+       return JSON.stringify(r.values);
+     }
+
+--- FILE 29/35 ---
+FILE: packages/extension/src/__tests__/ask-user-tool.test.ts
+STATUS: modified
+ADDITIONS: 32
+DELETIONS: 27
+
+PATCH:
+@@ -377,28 +377,30 @@ describe("registerAskUserTool", () => {
+   });
+ 
+   describe("batch execution", () => {
+-    function getToolAndMockCtx() {
++    function getToolAndMockCtx(batchImpl?: any) {
+       const pi = createMockPi();
+       registerAskUserTool(pi as any);
+       const tool = pi.registerTool.mock.calls[0][0];
+-      const custom = vi.fn().mockImplementation(async (factory: any) => {
+-        return await new Promise<unknown>((resolve) => {
+-          const component: any = factory({}, {}, {}, (r: unknown) => resolve(r));
+-          component?.onConfirm?.(["A"]);
+-        });
+-      });
++      const batch =
++        batchImpl ??
++        vi.fn().mockResolvedValue([
++          { value: "hello" },
++          { value: "A" },
++          { confirmed: true },
++        ]);
+       const ctx = {
+         ui: {
+           confirm: vi.fn().mockResolvedValue(true),
+           select: vi.fn().mockResolvedValue("A"),
+           input: vi.fn().mockResolvedValue("hello"),
+-          custom,
++          custom: vi.fn(),
++          batch,
+         },
+       };
+       return { tool, ctx };
+     }
+ 
+-    it("invokes ctx.ui primitives sequentially for each sub-question", async () => {
++    it("issues exactly ONE ctx.ui.batch request with all questions (no per-question dispatch)", async () => {
+       const { tool, ctx } = getToolAndMockCtx();
+       const result = await tool.execute(
+         "id",
+@@ -415,37 +417,41 @@ describe("registerAskUserTool", () => {
+         undefined,
+         ctx,
+       );
+-      expect(ctx.ui.input).toHaveBeenCalledTimes(1);
+-      expect(ctx.ui.select).toHaveBeenCalledTimes(1);
+-      expect(ctx.ui.confirm).toHaveBeenCalledTimes(1);
++      expect(ctx.ui.batch).toHaveBeenCalledTimes(1);
++      // No per-question dispatch.
++      expect(ctx.ui.input).not.toHaveBeenCalled();
++      expect(ctx.ui.select).not.toHaveBeenCalled();
++      expect(ctx.ui.confirm).not.toHaveBeenCalled();
++      // questions[] passed through to the single request.
++      const passedQuestions = ctx.ui.batch.mock.calls[0][1];
++      expect(passedQuestions).toHaveLength(3);
++      expect(passedQuestions[1]).toMatchObject({ method: "select", options: ["TS", "Py"] });
++      // Answers mapped index-aligned to the legacy result shape.
+       expect(result.details.method).toBe("batch");
+       expect(result.details.results).toEqual(["hello", "A", true]);
+       expect(result.details.cancelled).toBe(false);
+     });
+ 
+-    it("prepends batch title to sub-question titles", async () => {
+-      const { tool, ctx } = getToolAndMockCtx();
+-      await tool.execute(
++    it("maps a multiselect sub-question answer to {values} → string[]", async () => {
++      const batch = vi.fn().mockResolvedValue([{ values: ["ESLint", "Vitest"] }]);
++      const { tool, ctx } = getToolAndMockCtx(batch);
++      const result = await tool.execute(
+         "id",
+         {
+           method: "batch",
+           title: "Setup",
+-          questions: [{ method: "input", title: "Name?" }],
++          questions: [{ method: "multiselect", title: "Tooling", options: ["ESLint", "Vitest", "Husky"] }],
+         },
+         undefined,
+         undefined,
+         ctx,
+       );
+-      const firstCallTitle = ctx.ui.input.mock.calls[0][0];
+-      expect(firstCallTitle).toContain("Setup");
+-      expect(firstCallTitle).toContain("Name?");
++      expect(result.details.results).toEqual([["ESLint", "Vitest"]]);
+     });
+ 
+-    it("stops on cancellation and returns partial results with cancelled=true", async () => {
+-      const { tool, ctx } = getToolAndMockCtx();
+-      // First sub-question returns a value; second cancels (undefined); third should not be called.
+-      ctx.ui.input.mockResolvedValueOnce("first");
+-      ctx.ui.select.mockResolvedValueOnce(undefined); // cancel
++    it("returns a cancel summary with cancelled=true when ctx.ui.batch resolves undefined", async () => {
++      const batch = vi.fn().mockResolvedValue(undefined);
++      const { tool, ctx } = getToolAndMockCtx(batch);
+       const result = await tool.execute(
+         "id",
+         {
+@@ -454,16 +460,15 @@ describe("registerAskUserTool", () => {
+           questions: [
+             { method: "input", title: "Q1" },
+             { method: "select", title: "Q2", options: ["a", "b"] },
+-            { method: "confirm", title: "Q3" },
+           ],
+         },
+         undefined,
+         undefined,
+         ctx,
+       );
+       expect(result.details.cancelled).toBe(true);
+-      expect(result.details.results).toEqual(["first", null]);
+-      expect(ctx.ui.confirm).not.toHaveBeenCalled();
++      expect(result.details.results).toEqual([]);
++      expect(result.content[0].text).toMatch(/cancelled batch/i);
+     });
+ 
+     it("surfaces __normalizations warnings in details.warnings", async () => {
+
+--- FILE 30/35 ---
+FILE: packages/extension/src/ask-user-tool.ts
+STATUS: modified
+ADDITIONS: 43
+DELETIONS: 57
+
+PATCH:
+@@ -328,73 +328,59 @@ export function registerAskUserTool(pi: ExtensionAPI): void {
+       };
+ 
+       // ── Batch branch ─────────────────────────────────────────────────
++      // Dispatch ALL sub-questions as ONE UI request (method:"batch"). The
++      // dashboard renders a single BatchRenderer wizard and returns one
++      // index-aligned `answers[]` response, enabling review/edit before
++      // submit. The previous per-question sequential loop could not support
++      // that. See change: redesign-ask-user-question-cards.
+       if (params.method === "batch" && Array.isArray(params.questions)) {
+-        const results: Array<unknown> = [];
+-        let cancelled = false;
+-
++        // Validate options up front (same contract as single-method dispatch).
+         for (const sq of params.questions) {
+-          const subTitle = `${params.title} — ${sq.title ?? "Question"}`;
+-          const subMsg = withTcid(params.message ? { message: params.message } : undefined);
+-
+-          let answer: unknown;
+-          try {
+-            switch (sq.method) {
+-              case "confirm":
+-                answer = await ctx.ui.confirm(
+-                  subTitle,
+-                  sq.message ?? params.message ?? "",
+-                  withTcid(undefined),
+-                );
+-                break;
+-              case "select": {
+-                const opts = Array.isArray(sq.options) ? sq.options : [];
+-                if (opts.length === 0) {
+-                  throw new Error(
+-                    `ask_user batch: sub-question method "select" requires a non-empty "options" array.`,
+-                  );
+-                }
+-                answer = await ctx.ui.select(subTitle, opts, subMsg);
+-                break;
+-              }
+-              case "multiselect": {
+-                const opts = Array.isArray(sq.options) ? sq.options : [];
+-                if (opts.length === 0) {
+-                  throw new Error(
+-                    `ask_user batch: sub-question method "multiselect" requires a non-empty "options" array.`,
+-                  );
+-                }
+-                answer = await polyfillMultiselect(ctx, subTitle, opts, subMsg);
+-                break;
+-              }
+-              case "input":
+-                answer = await ctx.ui.input(subTitle, sq.placeholder, subMsg);
+-                break;
+-              default:
+-                throw new Error(`ask_user batch: unknown sub-question method "${sq.method}"`);
+-            }
+-          } catch (err) {
+-            // Propagate hard errors (schema/logic bugs); cancellation is signalled by undefined.
+-            throw err;
+-          }
+-
+-          // Treat `undefined` from input/select/multiselect as cancellation.
+-          // (confirm always resolves to a boolean and has no cancel path.)
+           if (
+-            (sq.method === "input" || sq.method === "select" || sq.method === "multiselect") &&
+-            answer === undefined
++            (sq.method === "select" || sq.method === "multiselect") &&
++            (!Array.isArray(sq.options) || sq.options.length === 0)
+           ) {
+-            cancelled = true;
+-            results.push(null);
+-            break;
++            throw new Error(
++              `ask_user batch: sub-question method "${sq.method}" requires a non-empty "options" array.`,
++            );
+           }
+-
+-          results.push(answer);
+         }
+ 
++        const questions = params.questions.map((sq: any) => ({
++          method: sq.method,
++          title: sq.title ?? "Question",
++          message: sq.message,
++          options: Array.isArray(sq.options) ? sq.options : undefined,
++          placeholder: sq.placeholder,
++        }));
++
++        // ONE request. ctx.ui.batch resolves to BatchAnswer[] on submit or
++        // undefined on cancel.
++        const answers: Array<any> | undefined = await (ctx.ui as any).batch(
++          params.title || "Questions",
++          questions,
++          withTcid(params.message ? { message: params.message } : undefined),
++        );
++
++        const cancelled = answers === undefined;
++        // Map each BatchAnswer back to the legacy result shape
++        // (confirm→boolean, select/input→string, multiselect→string[]) so
++        // details.results stays index-aligned and unchanged for the model.
++        const results: Array<unknown> = cancelled
++          ? []
++          : answers.map((a) => {
++              if (a && typeof a === "object") {
++                if ("confirmed" in a) return (a as any).confirmed;
++                if ("values" in a) return (a as any).values;
++                if ("value" in a) return (a as any).value;
++              }
++              return a;
++            });
++
+         const warnings: string[] = (params as any).__normalizations ?? [];
+         const lines: string[] = [];
+         if (cancelled) {
+-          lines.push(`User cancelled batch after ${results.filter((r) => r !== null).length} of ${params.questions.length} answers.`);
++          lines.push(`User cancelled batch (0 of ${params.questions.length} answers submitted).`);
+         } else {
+           lines.push(`User completed batch (${results.length} answers).`);
+         }
+
+--- FILE 31/35 ---
+FILE: packages/extension/src/bridge.ts
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 0
+
+PATCH:
+@@ -1725,6 +1725,29 @@ function initBridge(pi: ExtensionAPI) {
+           metadata: opts?.message ? { message: opts.message } : undefined,
+         }).then(decodeMultiselectAnswer);
+ 
++      // ── Batch ────────────────────────────────────────────────────
++      // ctx.ui.batch is NOT a built-in pi method. The ask_user tool calls it
++      // to dispatch a multi-question batch as ONE bus request carrying
++      // `questions[]` in metadata; the dashboard renders a BatchRenderer
++      // wizard and returns one `{answers}` response (JSON-encoded in the bus
++      // `answer` string). Resolves to BatchAnswer[] on submit, or undefined on
++      // cancel. See change: redesign-ask-user-question-cards.
++      (ctx.ui as any).batch = (title: string, questions: unknown[], opts?: any) =>
++        bus.request({
++          pipeline: "command",
++          type: "batch",
++          question: title,
++          metadata: { ...(buildMeta(opts) ?? {}), questions },
++        }).then((r) => {
++          if (r.cancelled || r.answer == null) return undefined;
++          try {
++            const parsed = JSON.parse(r.answer);
++            return Array.isArray(parsed) ? parsed : undefined;
++          } catch {
++            return undefined;
++          }
++        });
++
+       // Notify is fire-and-forget: call original + forward to dashboard
+       (ctx.ui as any).notify = (message: string, level?: string) => {
+         originalNotify?.(message, level);
+
+--- FILE 32/35 ---
+FILE: packages/extension/src/prompt-bus.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -25,7 +25,7 @@ export interface PromptClaim {
+ export interface PromptRequest {
+   id: string;
+   pipeline: string;
+-  type: "select" | "input" | "confirm" | "editor" | "multiselect";
++  type: "select" | "input" | "confirm" | "editor" | "multiselect" | "batch";
+   question: string;
+   options?: string[];
+   defaultValue?: string;
+
+--- FILE 33/35 ---
+FILE: packages/shared/src/__tests__/browser-protocol-types.test.ts
+STATUS: modified
+ADDITIONS: 30
+DELETIONS: 0
+
+PATCH:
+@@ -13,6 +13,8 @@ import type {
+   BrowserPromptCancelMessage,
+   BrowserExtUiDecoratorMessage,
+   BrowserAssetRegisterMessage,
++  BatchQuestion,
++  BatchAnswer,
+ } from "../browser-protocol.js";
+ import type {
+   ExtensionToServerMessage,
+@@ -77,6 +79,34 @@ describe("ServerToBrowserMessage includes PromptBus messages", () => {
+     };
+     expect(extractPromptType(msg)).toBe("p1");
+   });
++
++  it("batch prompt_request carries questions[] in metadata", () => {
++    const questions: BatchQuestion[] = [
++      { method: "input", title: "Project name" },
++      { method: "select", title: "Language", options: ["TS", "Go"] },
++      { method: "multiselect", title: "Tooling", options: ["ESLint", "Vitest"] },
++    ];
++    const msg: BrowserPromptRequestMessage = {
++      type: "prompt_request",
++      sessionId: "s1",
++      promptId: "p1",
++      prompt: { question: "Project setup", type: "batch", metadata: { questions } },
++      component: { type: "generic-dialog", props: {} },
++      placement: "inline",
++    };
++    expect(extractPromptType(msg)).toBe("p1");
++    expect((msg.prompt.metadata!.questions as BatchQuestion[]).length).toBe(3);
++  });
++
++  it("BatchAnswer covers confirm/value/values shapes", () => {
++    const answers: BatchAnswer[] = [
++      { value: "pi-dashboard" },
++      { value: "TS" },
++      { values: ["ESLint", "Vitest"] },
++      { confirmed: true },
++    ];
++    expect(answers).toHaveLength(4);
++  });
+ });
+ 
+ // Phase-2: ext_ui_decorator switch-arm reachability.
+
+--- FILE 34/35 ---
+FILE: packages/shared/src/browser-protocol.ts
+STATUS: modified
+ADDITIONS: 11
+DELETIONS: 0
+
+PATCH:
+@@ -23,6 +23,15 @@ import type { TerminalSession } from "./terminal-types.js";
+ import type { EditorInstanceStatus } from "./editor-types.js";
+ import type { DisplayPrefs, PartialDisplayPrefs } from "./display-prefs.js";
+ 
++// Batch ask_user contracts live in protocol.ts; re-export so browser-side
++// consumers import from one place. See change: redesign-ask-user-question-cards.
++export type {
++  InteractiveMethod,
++  BatchQuestion,
++  BatchAnswer,
++  BatchResult,
++} from "./protocol.js";
++
+ // ── Configurable chat display ───────────────────────────────────────
+ // See change: configurable-chat-display.
+ 
+@@ -375,10 +384,12 @@ export interface BrowserPromptRequestMessage {
+   promptId: string;
+   prompt: {
+     question: string;
++    /** Interactive method, incl. "batch". See InteractiveMethod in protocol.ts. */
+     type: string;
+     options?: string[];
+     defaultValue?: string;
+     pipeline?: string;
++    /** For type: "batch", carries questions: BatchQuestion[]. */
+     metadata?: Record<string, unknown>;
+   };
+   component: {
+
+--- FILE 35/35 ---
+FILE: packages/shared/src/protocol.ts
+STATUS: modified
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -259,16 +259,57 @@ export interface SpawnNewSessionMessage {
+ 
+ // ── PromptBus protocol messages ─────────────────────────────────────
+ 
++/**
++ * Interactive `ask_user` methods carried by `prompt.type`. The wire field
++ * stays `string` (adapters/plugins emit custom types) but this union is the
++ * authoritative set the built-in renderers handle. `"batch"` dispatches all
++ * sub-questions as ONE request answered together.
++ * See change: redesign-ask-user-question-cards.
++ */
++export type InteractiveMethod =
++  | "confirm"
++  | "select"
++  | "multiselect"
++  | "input"
++  | "editor"
++  | "batch";
++
++/** One sub-question inside a `batch` prompt (no nesting — cannot be `batch`). */
++export interface BatchQuestion {
++  method: "confirm" | "select" | "multiselect" | "input";
++  title: string;
++  message?: string;
++  options?: string[];
++  placeholder?: string;
++}
++
++/**
++ * One answer in a `batch` response, index-aligned with `BatchQuestion[]`.
++ * `confirm` → `{confirmed}`, `select`/`input` → `{value}`,
++ * `multiselect` → `{values}`.
++ */
++export type BatchAnswer =
++  | { confirmed: boolean }
++  | { value: string }
++  | { values: string[] };
++
++/** Result payload returned by a resolved `batch` prompt. */
++export interface BatchResult {
++  answers: BatchAnswer[];
++}
++
+ export interface PromptRequestMessage {
+   type: "prompt_request";
+   sessionId: string;
+   promptId: string;
+   prompt: {
+     question: string;
++    /** Interactive method. See {@link InteractiveMethod}. */
+     type: string;
+     options?: string[];
+     defaultValue?: string;
+     pipeline?: string;
++    /** For `type: "batch"`, carries `questions: BatchQuestion[]`. */
+     metadata?: Record<string, unknown>;
+   };
+   component: {
+
+
+====================================================================================================
+COMMIT POSITION 3
+====================================================================================================
+SHA: cb1db106187e63d14724e4ec4bdd08c9c6bf8e1b
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix: add edge test for inline Cancel option in SelectRenderer
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: packages/client/src/components/__tests__/SelectRenderer.test.tsx
+STATUS: modified
+ADDITIONS: 21
+DELETIONS: 1
+
+PATCH:
+@@ -45,12 +45,32 @@ describe("SelectRenderer", () => {
+       expect(screen.getByText("lean one-line hook")).toBeTruthy();
+     });
+ 
+-    it("Cancel row triggers onCancel", () => {
++    it("synthetic Cancel row triggers onCancel", () => {
+       const onCancel = vi.fn();
+       render(<SelectRenderer {...baseProps} status="pending" onRespond={vi.fn()} onCancel={onCancel} />);
+       fireEvent.click(screen.getByText("Cancel"));
+       expect(onCancel).toHaveBeenCalled();
+     });
++
++    it("inline Cancel option calls onCancel (not onRespond) and suppresses synthetic Cancel row", () => {
++      const onRespond = vi.fn();
++      const onCancel = vi.fn();
++      render(
++        <SelectRenderer
++          requestId="r"
++          method="select"
++          params={{ title: "Pick", options: ["Alpha", "Beta", "Cancel"] }}
++          status="pending"
++          onRespond={onRespond}
++          onCancel={onCancel}
++        />,
++      );
++      // Only ONE Cancel row (the inline option), not a synthetic duplicate.
++      expect(screen.getAllByText("Cancel")).toHaveLength(1);
++      fireEvent.click(screen.getByText("Cancel"));
++      expect(onCancel).toHaveBeenCalled();
++      expect(onRespond).not.toHaveBeenCalled();
++    });
+   });
+ 
+   describe("resolved state", () => {
+
+
+####################################################################################################
+SECTION C — HUMAN VALIDATION
+####################################################################################################
+
+Q1. Does the earlier specification commit
+INTRODUCE or substantively MODIFY a
+behavioral requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q2. Is there a LATER commit in this PR that
+implements some or all of THAT requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q3. What is the FIRST relevant implementation
+commit?
+
+Position:
+
+SHA:
+
+Commit message:
+
+Relevant file(s):
+
+
+Q4. Was the requirement present BEFORE that
+first relevant implementation change?
+
+YES / NO / UNCERTAIN
+
+
+Q5. Requirement → implementation link confidence:
+
+HIGH / MEDIUM / LOW / NONE
+
+
+Q6. Preliminary classification:
+
+TIER_A_CANDIDATE
+TIER_B
+TIER_C
+EXCLUDE
+UNCERTAIN
+
+
+Reason:
+
+
+Relevant requirement text:
+
+
+Relevant implementation evidence:
+
+
+Notes:

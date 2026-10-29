@@ -1,0 +1,185 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 1/15
+Repository: derailed-dash/rickbot-adk
+PR: #18
+Tool: conductor
+Language: Python
+
+First specification commit position: 1
+First implementation commit position: 4
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: 2f02e119af7bcb614991d31d886f2913ddfa7bcb
+
+COMMIT MESSAGE:
+conductor(track): Initialize 'API Rate Limiting with slowapi' track and archive completed track
+
+FILE: conductor/archive/ui_tool_visibility_20260104/spec.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/spec.md
+STATUS: added
+ADDITIONS: 40
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,40 @@
++# Specification: API Rate Limiting with slowapi
++
++## Overview
++Implement API rate limiting to protect the Rickbot-ADK backend from abuse, ensure fair resource allocation (especially for LLM calls), and improve overall system stability. We will use the `slowapi` library, which is a FastAPI port of `limits`.
++
++## Functional Requirements
++- **Global Rate Limiting:** Apply a default safety-net rate limit to all API endpoints.
++- **Endpoint-Specific Limits:** Apply stricter limits to resource-intensive endpoints, specifically LLM generation.
++- **Identifier Strategy:** 
++    - Authenticated users: Limit by User ID (extracted from JWT).
++    - Unauthenticated requests: Limit by Client IP address.
++- **Error Handling:** Return a standard `429 Too Many Requests` response when a limit is exceeded, including a `Retry-After` header if possible.
++
++## Rate Limit Policies
++| Scope | Limit | Identifier |
++| :--- | :--- | :--- |
++| Global (Default) | 60 requests per minute | User ID / IP |
++| LLM Generation (`/chat`, etc.) | 5 requests per minute | User ID / IP |
++
++## Non-Functional Requirements
++- **Performance:** Rate limiting checks should add minimal latency to API requests.
++- **Maintainability:** Use `slowapi` decorators for clear and concise configuration.
++- **Observability:** Log rate limit hits (exceeding the limit) for monitoring.
++
++## Acceptance Criteria
++- [ ] Global rate limit of 60/minute is enforced across all endpoints.
++- [ ] LLM generation endpoints are restricted to 5/minute per user/IP.
++- [ ] Exceeding a limit returns a `429` status code.
++- [ ] Authenticated users are tracked by their unique ID.
++- [ ] Unauthenticated users are tracked by IP.
++- [ ] Unit tests verify rate limiting logic and identifier extraction.
++
++## Documentation Updates
++- Update `README.md` to mention rate limiting features.
++- Update `docs/design.md` to document the rate limiting architecture and policies.
++
++## Out of Scope
++- Distributed rate limiting using Redis (will use in-memory storage for now).
++- Complex tiered pricing/limit models.
++- IP Whitelisting/Blacklisting management UI.
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+POSITION 2
+SHA: 188d542d5ca97dc2654c3e5a73f56471f3c9a8aa
+chore(deps): Add slowapi dependency
+----------------------------------------------------------------------------------------------------
+POSITION 3
+SHA: 7b6a90b8cc0a4bf232cef499cf5bf3b12db8c554
+conductor(plan): Mark task 'Add slowapi to pyproject.toml dependencies' as complete
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: 785d22029441368d74ad588f9fda946fe74eb405
+
+COMMIT MESSAGE:
+feat(api): Create central limiter instance
+
+IMPLEMENTATION FILES:
+FILE: src/rickbot_utils/rate_limit.py
+STATUS: added
+ADDITIONS: 8
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,8 @@
++from slowapi import Limiter
++from slowapi.util import get_remote_address
++
++# Initialize the Limiter
++# We use get_remote_address as a default fallback, but we will likely override this
++# with a custom key function in the main app or via dependency injection to handle
++# authenticated users correctly.
++limiter = Limiter(key_func=get_remote_address)
+
+----------------------------------------------------------------------------------------------------
+FILE: src/tests/unit/test_rate_limit.py
+STATUS: added
+ADDITIONS: 13
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,13 @@
++from slowapi import Limiter
++from slowapi.util import get_remote_address
++
++def test_limiter_exists():
++    from rickbot_utils.rate_limit import limiter
++    assert isinstance(limiter, Limiter)
++
++def test_limiter_configuration():
++    from rickbot_utils.rate_limit import limiter
++    # Verify default key func is get_remote_address (as a fallback, though we'll customize it later)
++    # Note: slowapi/limits might not expose storage_uri directly on the instance easily without accessing internal _storage
++    # But we can check if enabled is True by default
++    assert limiter.enabled is True
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

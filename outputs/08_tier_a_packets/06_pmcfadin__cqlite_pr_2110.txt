@@ -1,0 +1,3340 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 6/15
+Repository: pmcfadin/cqlite
+PR: #2110
+Tool: openspec
+Language: Rust
+
+First specification commit position: 2
+First implementation commit position: 3
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: a25719137a9249a30b6a6190893756901b236d4d
+
+COMMIT MESSAGE:
+spec(#1583/#1644/#1940): Value v2 joint design — layout + Bytes substrate + zero-copy decode
+
+OpenSpec change value-representation-v2. Seam 1 (spec + design) for the joint
+'Value representation v2' train: E1 enum layout (box fat cold variants, size_of
+<=40), #1940 window-as-Bytes substrate (<=1 alloc/chunk), K5 zero-copy decode
+(Bytes-backed Text/Blob/Varint/Decimal + retention copy-out policy). Awaiting
+owner approval before implement.
+
+FILE: openspec/changes/value-representation-v2/design.md
+STATUS: added
+ADDITIONS: 126
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,126 @@
++# Design — Value Representation v2
++
++This is the E1-owned joint design doc for the "Value v2" train (#1583 layout · #1644 decode ·
++#1940 substrate). It is deliberately one document because the three seams are coupled: the decode side
++(#1644) can only borrow from the chunk once the window hands out `Bytes` (#1940), and the borrowed
++payload must fit inside the enum-layout budget (#1583). Design-review together; ship as one train
++(order below).
++
++## Context / measured anchors
++- `size_of::<Value>() == 88` bytes today (`cqlite-core/src/types.rs`; the pin is
++  `const _: () = assert!(std::mem::size_of::<Value>() <= 88);`). Fat inline variants: `Tombstone(88)`,
++  `Udt(72)`, `Json(72)`.
++- **436** match/construction sites reference `Value::{Tombstone,Udt,Json}` across the workspace
++  (`rg -c`), concentrated in core decode/write/serialization and the CLI/binding conversion layers.
++  This is the boxing blast radius — mechanical, but wide, so the layout change is sequenced FIRST and
++  landed on its own before the decode rework rides on top.
++- The scan window is a front-cursor `WindowCursor { buf: Vec<u8>, start: usize }`
++  (`reader/window_cursor.rs:28`, shipped by E7/#1589); the IO→parse channel still ships an owned
++  `Vec<u8>` per chunk (`scan_stream_windowed.rs:402` `mpsc::channel::<Vec<u8>>`); decompressed bytes
++  reach the window via `WindowCursor::refill` → `self.buf.extend_from_slice(chunk)`
++  (`window_cursor.rs:91`). The B1 chunk cache (`DecompressedChunkCache`, `reader/types.rs:379`) already
++  returns `Arc<[u8]>` on `.get()`/`.insert()`. `bytes` is already a workspace dependency and is unused
++  in the reader/decode hot path today (only export/test code uses `bytes::Bytes`).
++- E3 (#1585, merged PR #1955) shipped the single-payload+CRC-read-per-chunk win and a read-op counter;
++  it explicitly deferred the ≤1-alloc/chunk `Bytes` substrate to #1940.
++
++## The three coupled decisions
++
++### D1 — `Value` enum layout (E1 / #1583)
++**Chosen: box the three fat rare variants** — `Tombstone(Box<TombstoneInfo>)`, `Udt(Box<UdtValue>)`,
++`Json(Box<serde_json::Value>)` — re-measuring first and boxing whatever is the new widest inline
++payload until `size_of::<Value>() <= 40`. Tighten the A4 pin `<= 88` → `<= 40`. Enable
++`clippy::large_enum_variant` (deny) at the crate root so nothing re-inlines a fat variant silently.
++
++Why this over the alternatives:
++- **Box only the rare variants (chosen).** The three are cold (tombstone markers, UDTs, embedded JSON);
++  the hot scalar/text/blob path never touches the box. One pointer-chase on a cold path in exchange for
++  a 2.75× shrink of every hot `Value` slot/clone/`Vec`. Match ergonomics stay mechanical (box patterns
++  / `ref`).
++- **Rejected — box everything / newtype-per-variant.** Uniform indirection taxes the hot path (Text,
++  Integer, etc.) for no layout win, and churns far more than 436 sites.
++- **Rejected — split `Value` into hot/cold enums.** A public-API break with a large ripple through
++  bindings, serde, and every consumer; disproportionate to a constant-factor fix.
++
++Guardrail (JOINT-OWNER): E1 changes ONLY the enum layout and its match sites — NOT how values are
++decoded (that is D3). No semantic change: `Display`/serde/comparison byte-identical.
++
++### D2 — window-as-`Bytes` substrate (#1940 / E3 follow-up)
++**Chosen: carry `bytes::Bytes` through the windowed-scan hot seam**, decompressing in the IO half:
++- **mmap backend:** decompress from / expose a **zero-copy `Bytes` view** of the mapped compressed
++  region where the codec allows; otherwise decompress into a `Bytes`-owned buffer once.
++- **buffered backend:** reuse ONE per-cursor compressed scratch (clear+reuse, no realloc), decompress
++  once into an `Arc<[u8]>`/`Bytes` shipped on the channel.
++- `WindowCursor` becomes able to hand out `Bytes` subslices (a refcounted view) so the borrow path
++  replaces the `extend_from_slice`-into-`Vec<u8>` copy at `window_cursor.rs:91` — the B1 `Arc<[u8]>`
++  the cache already returns (`scan_stream_windowed.rs:719`, `bti.rs:752`, `data_access/mod.rs:586`) is
++  the natural refcounted carrier to align the window fill with.
++
++Preserved invariants (inviolable): **CRC is verified before decompression output is trusted, in the
++same order as today**; the windowed scan's bounded-memory discipline and window-size semantics are
++unchanged; `uncompressed_len` comes from `CompressionInfo` (authoritative — no guessing); the B1 chunk
++cache `Arc` contract is not broken (the window-fill site aligns with the cached `Arc`).
++
++Why: this is the enabling substrate D3 borrows from, and independently reaches ≤1 alloc/chunk on the
++steady-state scan (A5 already cut reads to 1). Rejected: leaving the window as `Vec<u8>` and copying in
++D3 anyway — that would make K5 "zero-copy" a copy, defeating the point.
++
++### D3 — zero-copy value extraction (K5 / #1644)
++**Chosen: `Bytes`-backed payloads for the borrowable scalar-bytes variants** (`Text`, `Blob`, `Varint`,
++`Decimal.unscaled`) — a `Bytes::slice_ref`/subslice of the decompressed chunk. UTF-8 for `Text` is
++validated in place with `str::from_utf8` on the borrowed slice (validate without copy), storing the
++validated `Bytes`. This replaces `String::from_utf8(bytes.to_vec())` / `.to_vec()` extraction on the
++decode paths.
++
++**Retention policy (named design concern — the 1-byte-value/64KB-chunk hazard).** A `Bytes` subslice
++keeps its parent chunk alive by refcount. To prevent a tiny, long-lived value from pinning a whole
++chunk, extraction applies a **copy-out threshold**: values at or below a small byte threshold (and any
++value that outlives the scan window, e.g. materialized/collected results) are copied into their own
++small allocation instead of borrowing. The threshold and the "long-lived → copy" rule are documented at
++the extraction site and covered by a test. Short-lived, large values on the streaming path borrow;
++tiny/retained values copy. This keeps steady-state RSS bounded while still eliminating the dominant
++per-cell copy on text-heavy scans.
++
++**Interim S-win (independent, can land first):** on any decode path where a copy must remain for now,
++replace `String::from_utf8(bytes.to_vec())` with `str::from_utf8(bytes)?.to_owned()` — validates on the
++borrowed slice, dropping the throwaway `Vec` on the error path and one intermediate. This is guarded by
++an allocation-count test on the UTF-8 path and does not depend on D2.
++
++Guardrail: no decoded value changes for any CQL type; the dispatch tag / type is never inferred from
++value bytes (no-heuristics). Byte-parity across all four compression algorithms is the net.
++
++## How `Value` layout interacts with a `Bytes` payload (the coupling)
++`Bytes` is 32 bytes (ptr+len+cap+vtable ≈ 3 words + atomic). Replacing `Text(String)` (24B) /
++`Blob(Vec<u8>)` (24B) with `Bytes` (32B) does NOT by itself exceed the ≤40 target, but it makes the
++`Bytes`-carrying variants the layout floor — which is exactly why D1 (boxing the fat cold variants) is
++required for D3 to stay inside budget. The `size_of` pin (≤40) is the compile-time guard that keeps
++D1 and D3 mutually consistent; if D3's `Bytes` payloads push the max, D1 boxes the next-widest variant.
++This is the single reason the three cannot be designed independently.
++
++## Sequencing (one train, staged PRs on one branch)
++1. **D1 layout** first (box fat variants + tighten pin ≤40 + enable `large_enum_variant`) — mechanical,
++   436 sites, lands and goes green on its own.
++2. **D2 substrate** (`Bytes` window seam) next — the 33-table byte-parity harness across all four codecs
++   is the load-bearing net; ≤1-alloc/chunk dhat lane proves it.
++3. **D3 decode** last, borrowing from D2's window, staying inside D1's budget — H2 text-heavy dhat shows
++   bytes-copied-into-values ≈ 0; retention test proves the tiny-value/big-chunk case copies out.
++   (D3's interim S-win may land at step 1 independently.)
++
++## Wiring-evidence / test strategy (red-then-green, must fail on `main`)
++- `size_of::<Value>() <= 40` compile-time pin (fails today at 88).
++- `clippy::large_enum_variant` deny (would fire today).
++- Steady-state scan **allocs/chunk ≤ 1** dhat lane (fails today ≥2–3).
++- Text-heavy scan **bytes-copied-into-values ≈ 0** dhat lane (fails today: ~1× payload/value).
++- UTF-8-path allocation-count test guarding the interim S-win.
++- Chunk-**retention** test: a tiny long-lived value does not retain its 64KB chunk (copy-out threshold).
++- **33-table byte-parity** across LZ4/Snappy/Deflate/Zstd + Python + Node binding suites — unchanged.
++- Predicate-eval + sort throughput micro-bench (values move through both) posted.
++
++## Risks
++- **Blast radius (436 sites).** Mitigated by sequencing D1 alone first and keeping edits mechanical
++  (box patterns), plus the binding conversion layers (PyO3/napi match on the three variants) updated and
++  both binding suites run.
++- **Retention leak** if D3 borrows without the copy-out threshold — explicitly designed against and
++  tested (the named `Do NOT` in #1644).
++- **CRC-order or bounded-memory regression** in D2 — guarded by the byte-parity harness and the
++  unchanged window-size semantics; CRC-before-decompress is a hard invariant restated in the tasks.
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/value-representation-v2/proposal.md
+STATUS: added
+ADDITIONS: 73
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,73 @@
++# Value Representation v2 — joint decode/emit train (E1 + K5 + E3-follow-up)
++
++## Milestone
++0.14 (read-path performance). Design-driven — this change is the **shared design** the three
++Ready/In-Progress issues explicitly require before any implementation:
++
++- **#1583 (E1)** — box the fat, rare `Value` variants; owns the `Value` enum layout. Target
++  `size_of::<Value>() <= 40` (measured 88 today).
++- **#1644 (K5)** — zero-copy value extraction: text/blob/varint/decimal decode into refcounted
++  slices of the decompressed chunk instead of a per-cell copy. This is the **decode side** of the
++  same enum layout.
++- **#1940 (E3 follow-up)** — the **window-as-`Bytes` substrate**: carry chunk bytes through the scan
++  as refcounted `Bytes`/`Arc<[u8]>` so a decoded value can borrow the chunk (the enabling substrate
++  K5 depends on; reaches ≤1 alloc/chunk on the steady-state scan).
++
++Both #1583 and #1644 state in their own bodies that "the three must be designed together and shipped
++as one train; do not start implementation before the joint design exists." E3 (#1585) already shipped
++the single-read-per-chunk win (PR #1955) but **deferred** the `Bytes` substrate to #1940. This change
++is that joint design.
++
++## Why (measured problem)
++Source of truth: `docs/reports/read-path-performance-audit-2026-07-01.md` §Epic E (E1/E3) and
++`docs/reports/parser-performance-audit-2026-07-01.md` §K5.
++
++1. **`size_of::<Value>() == 88` bytes (measured, `types.rs`).** Three rare variants are inline and fat
++   (`Tombstone`, `Udt`, `Json`). Every `Vec<Value>`, `Option<Value>`, row slot, and clone on every path
++   pays 2.75× the necessary size. Boxing the three rare variants brings `Value` to ≤40B (audit: 32B).
++2. **Every text/blob/varint/decimal value is copied out of the decompressed chunk per cell**
++   (`String::from_utf8(bytes.to_vec())` etc. on the decode paths). A text-heavy scan pays one full
++   payload copy per value — plus a throwaway pre-validation `Vec` on the `from_utf8` path.
++3. **The scan window is a plain `Vec<u8>`** the parse half copies decompressed bytes into
++   (`extend_from_slice`), and the IO→parse channel ships an **owned `Vec<u8>` per chunk**. There is no
++   refcounted/borrowed path a decoded value could hold, so zero-copy decode (item 2) is impossible
++   until the window hands out `Bytes`. Steady-state scan floors at ≥2 allocs/chunk today.
++
++Individually small; collectively 2–5× on scan throughput and steady-state allocation load.
++
++## What changes (one train, three seams)
++- **Layout (E1):** box `Tombstone`/`Udt`/`Json` (re-measure first; box whatever the new max is until
++  `Value <= 40`). Tighten the A4 compile-time pin `<= 88` → `<= 40`. Enable
++  `clippy::large_enum_variant` (deny) so the regression class is closed permanently.
++- **Substrate (#1940):** the windowed-scan hot seam carries `bytes::Bytes` (mmap backend: a zero-copy
++  view of the map; buffered backend: a reused per-cursor scratch decompressed once into an
++  `Arc<[u8]>`/`Bytes`). CRC-before-decompress order is unchanged; the B1 chunk-cache `Arc` contract is
++  preserved. Reaches ≤1 alloc/chunk on the steady-state scan.
++- **Decode (K5):** text/blob/varint/decimal `Value` payloads become `Bytes`-backed subslices of the
++  chunk (`Bytes::slice_ref`), UTF-8 validated in place via `str::from_utf8` (validate without copy).
++  A documented **retention policy** governs the 1-byte-value/64KB-chunk hazard (a copy-out threshold so
++  a tiny long-lived value never pins a whole chunk).
++
++## Non-goals
++- **No change to how values are *decoded* semantically** (byte-parity is inviolable). Only the enum
++  layout, its match sites, the extraction mechanism (copy → borrow), and the window buffer type change.
++- **No comparator / `Display` / serde / ordering behavior change.** Float/NaN Cassandra ordering,
++  signed-zero, and every JSONL golden stay byte-identical (comparator behavior is parity-pinned).
++- **No new public `Value` variant** and no change to the public `QueryRow.values` map contract.
++- **Not** the positional-row rework (E2/#1584/#1817 — separate), the shared chunk cache B1/B2
++  (separate), or E4/E5/E6/E7/E8.
++- **No pre-`na` format support** introduced or revisited (version floor unchanged).
++
++## Doctrine impact
++- No-heuristics unaffected — nothing here infers type from bytes; UTF-8 validation is not type
++  inference. `uncompressed_len` continues to come from `CompressionInfo` (authoritative).
++- Wiring-evidence: every claim is proven by a work-counter / allocation-budget / `size_of` test that
++  fails on `main` and passes after (red-then-green), plus the 33-table byte-parity harness across
++  LZ4/Snappy/Deflate/Zstd as the load-bearing correctness net.
++- CLAUDE.md / website `agents-developing/`: no doctrine text change; this is an internal representation
++  change with no user-facing surface.
++
++## Definition of done
++`scripts/agent-gate.sh` PASS (SUMMARY pasted) + spec-auditor **C** PASS (every requirement satisfied
++with a public-surface test) + roborev clean; `RUSTFLAGS="-D warnings"` clean; no `unwrap()`/`expect()`
++in library code; 33-table parity + Python + Node binding suites green. Then archive.
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/value-representation-v2/specs/scan-window-substrate/spec.md
+STATUS: added
+ADDITIONS: 49
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,49 @@
++# scan-window-substrate
++
++## ADDED Requirements
++
++### Requirement: The windowed scan carries chunk bytes as a refcounted substrate
++
++The streaming windowed scan SHALL make decompressed chunk bytes available to the parse half as a
++refcounted, borrowable substrate (`bytes::Bytes` / the existing B1 `Arc<[u8]>`) rather than only as
++bytes copied into an owned `Vec<u8>` window. This applies to `WindowCursor`
++(`reader/window_cursor.rs`) and the `scan_stream_windowed.rs` fill path. Decompression SHALL occur such that the window can hand out a refcounted subslice
++view of a chunk (a `Bytes` slice) without an intervening full copy on the borrow path. The B1
++`DecompressedChunkCache` `Arc<[u8]>` contract SHALL be preserved (the window fill site aligns with the
++cached `Arc`; a cache hit remains a refcount bump, never a memcpy).
++
++#### Scenario: Steady-state scan allocates at most one buffer per chunk
++
++- **GIVEN** the dhat allocation lane running a steady-state windowed scan over a present multi-chunk
++  fixture
++- **WHEN** the scan decompresses and parses K chunks
++- **THEN** the allocation count attributable to chunk handling is ≤ 1 per chunk (on `main` it is ≥ 2)
++- **AND** the read-op work-counter remains exactly 1 read per chunk (the E3/A5 invariant is not
++  regressed).
++
++#### Scenario: The window can hand out a borrowed chunk subslice
++
++- **WHEN** the parse half needs the bytes for a value that lies within the current window
++- **THEN** it can obtain a refcounted `Bytes` subslice of the chunk substrate (a view), not only a copy
++  into the owned window buffer.
++
++### Requirement: CRC ordering, bounded memory, and byte-parity are preserved
++
++The substrate change SHALL NOT alter correctness. CRC verification SHALL still happen before any
++decompressed output is trusted, in the same order as today. The windowed scan's bounded-memory
++discipline and window-size semantics SHALL be unchanged. `uncompressed_len` SHALL continue to come from
++`CompressionInfo` (authoritative — no guessing / no-heuristics). Decoded bytes SHALL be byte-identical
++across all four compression algorithms.
++
++#### Scenario: 33-table byte-parity holds across every compression algorithm
++
++- **WHEN** the 33-table byte-parity harness runs over LZ4, Snappy, Deflate, and Zstd fixtures after the
++  substrate change
++- **THEN** every decoded value matches the sstabledump/JSONL golden output for all four algorithms
++- **AND** the windowed scan's documented worst-case memory bound (window size) is unchanged.
++
++#### Scenario: CRC is verified before decompressed bytes are trusted
++
++- **WHEN** a chunk with a deliberately corrupted CRC is read on the substrate path
++- **THEN** the read fails on the CRC check before any decompressed bytes are handed to the parse half
++  (the check order matches `main`).
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/value-representation-v2/specs/sstable-value-decode/spec.md
+STATUS: added
+ADDITIONS: 60
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,60 @@
++# sstable-value-decode
++
++## ADDED Requirements
++
++### Requirement: Scalar byte-payload values are extracted without a per-cell copy
++
++Byte-carrying scalar values SHALL be extracted as refcounted subslices of the decompressed chunk
++substrate rather than copied out per cell. This covers the `Text`, `Blob`, `Varint`, and
++`Decimal`-unscaled payloads: the decoder SHALL slice the chunk (`bytes::Bytes` / `Bytes::slice_ref`)
++instead of calling `.to_vec()` or `String::from_utf8(bytes.to_vec())`. This applies to the decode paths
++in `reader/parsing/v5_compressed_legacy/` (`cell_value`, `raw_value`, `raw_type_value`, `udt`,
++`complex_column`) and `parsing/comparator_value_parsing.rs`. UTF-8 validation for `Text` SHALL
++be performed in place on the borrowed slice (`str::from_utf8`) — validation without a copy — and the
++validated `Bytes` stored. The extracted value SHALL never be inferred from byte patterns; the decode
++tag continues to come from authoritative column metadata (no-heuristics, issue #28).
++
++#### Scenario: A text-heavy scan copies ≈ zero payload bytes into values
++
++- **WHEN** the H2 dhat text-heavy lane runs a full scan over a present text-heavy fixture after the
++  change
++- **THEN** the bytes-copied-into-`Value`-payloads metric is ≈ 0 (borrowed / refcounted), versus ~1×
++  the scanned payload on `main`
++- **AND** the scan returns a non-zero number of rows with byte-identical values.
++
++#### Scenario: Interim UTF-8 win removes the throwaway pre-validation Vec
++
++- **WHEN** a decode path that still copies is exercised (any path not yet on the borrow substrate)
++- **THEN** it uses `str::from_utf8(bytes)?.to_owned()` (validate-then-own), not
++  `String::from_utf8(bytes.to_vec())`
++- **AND** an allocation-count test on the UTF-8 decode path confirms the throwaway pre-validation `Vec`
++  is gone (this interim win is independent of the window substrate and may land first).
++
++### Requirement: Chunk retention is bounded (no tiny value pins a whole chunk)
++
++Borrowing a `Bytes` subslice keeps its parent chunk alive by refcount. The extraction path SHALL apply
++a documented copy-out policy so a small and/or long-lived value does not pin its entire decompressed
++chunk: values at or below a documented byte threshold, and any value that outlives the scan window
++(e.g. a materialized/collected result), SHALL be copied into their own allocation rather than borrowing
++the chunk. The threshold and the long-lived-copy rule SHALL be documented at the extraction site.
++
++#### Scenario: A tiny long-lived value does not retain its chunk
++
++- **GIVEN** a decoded value at or below the copy-out threshold that is retained beyond the scan window
++  (e.g. collected into a materialized result), decoded from a large (e.g. 64 KB) chunk
++- **WHEN** the scan advances past that chunk
++- **THEN** the chunk buffer is released (the retained tiny value does not hold a strong reference to the
++  whole chunk) — asserted by a retention test.
++
++### Requirement: Decoded values remain byte-for-byte unchanged (parity preserved)
++
++Zero-copy extraction SHALL NOT change any decoded value for any CQL type across any compression
++algorithm. Scalar, collection, UDT, frozen, and tuple decode SHALL remain byte-identical, and the
++binding conversion layers SHALL produce identical converted values.
++
++#### Scenario: 33-table parity and binding suites are unchanged after zero-copy decode
++
++- **WHEN** the 33-table JSONL/sstabledump parity suite (all four compression algorithms) and the Python
++  and Node binding suites run after the change
++- **THEN** every decoded value matches the pre-change / sstabledump golden output
++- **AND** both binding suites pass with byte-identical converted values.
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/value-representation-v2/specs/value-representation/spec.md
+STATUS: added
+ADDITIONS: 49
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,49 @@
++# value-representation
++
++## ADDED Requirements
++
++### Requirement: The `Value` enum fits within a bounded inline size
++
++The public `Value` enum SHALL NOT inline its rare, large variants. The fat cold variants
++(`Tombstone`, `Udt`, `Json`, and any other variant whose inline payload is the layout maximum) SHALL be
++boxed so that `size_of::<Value>() <= 40` bytes. The compile-time size pin in `cqlite-core/src/types.rs`
++SHALL be tightened from `<= 88` to `<= 40`. The crate SHALL enable `clippy::large_enum_variant` at deny
++level so a future fat inline variant fails the build rather than silently regressing the layout.
++
++#### Scenario: The layout pin enforces the 40-byte ceiling
++
++- **GIVEN** the `Value` enum after boxing the fat cold variants
++- **WHEN** the crate is compiled
++- **THEN** the compile-time assertion `size_of::<Value>() <= 40` holds (on `main` this assertion fails
++  at 88 bytes)
++- **AND** `clippy::large_enum_variant` reports no violation for `Value` under `-D warnings` (on `main`
++  the lint would fire).
++
++#### Scenario: A `size_of` regression fails closed
++
++- **WHEN** a change re-inlines a fat variant (or adds a new one) that pushes `size_of::<Value>()` above
++  40 bytes
++- **THEN** the build fails at the compile-time pin (the regression cannot merge silently).
++
++### Requirement: Boxing the rare variants preserves all observable value behavior
++
++Boxing SHALL be representation-internal only. Decoded values, `Display` output, serde
++(serialize/deserialize round-trip), and comparison/ordering behavior SHALL be byte-identical before and
++after the change. Cassandra float/NaN ordering and signed-zero comparison semantics SHALL be unchanged.
++The public `QueryRow.values` map contract and every existing public API SHALL be unchanged (no new
++public variant, no removed variant).
++
++#### Scenario: 33-table parity and binding suites are unchanged
++
++- **WHEN** the read path is exercised against the test datasets after boxing, and the Python and Node
++  binding test suites run
++- **THEN** all 33-table sstabledump/JSONL parity tests pass with byte-identical values
++- **AND** both binding suites pass (the PyO3 and napi conversion layers that match on `Tombstone`/`Udt`/
++  `Json` are updated and produce identical converted values).
++
++#### Scenario: Ordering and serde are byte-identical
++
++- **WHEN** a set of `Value`s spanning the boxed and unboxed variants is sorted with the production
++  comparator and round-tripped through serde
++- **THEN** the sort order and the serialized bytes are identical to `main` (including NaN-last and
++  `-0.0 < +0.0` semantics).
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/value-representation-v2/tasks.md
+STATUS: added
+ADDITIONS: 75
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,75 @@
++# Tasks — Value Representation v2
++
++Sequenced as one train on branch `issue-1583-value-v2-boxing` (staged commits). Each stage names the
++surface it exercises and carries a red-then-green test. Anchors are `main`-relative and will drift; the
++implementer re-greps before editing.
++
++## Stage 0 — measurement + guards (write tests FIRST, must fail on main)
++- [ ] 0.1 Add a `size_of::<Value>()` measurement test and tighten the pin
++  `cqlite-core/src/types.rs:96` from `<= 88` to `<= 40` (fails today at 88). (value-representation)
++- [ ] 0.2 Enable `#![deny(clippy::large_enum_variant)]` (or crate-attr equivalent) for `cqlite-core`;
++  confirm it fires on `main`'s `Value`. (value-representation)
++- [ ] 0.3 Add the dhat lanes that must fail on `main`: steady-state scan **allocs/chunk ≤ 1**
++  (scan-window-substrate) and text-heavy scan **bytes-copied-into-values ≈ 0** (sstable-value-decode);
++  plus a UTF-8-path allocation-count test and a chunk-**retention** test.
++
++## Stage 1 — D1 layout (E1 / #1583): box the fat cold variants
++- [ ] 1.1 Re-measure, then box: `Tombstone(Box<TombstoneInfo>)`, `Udt(Box<UdtValue>)`,
++  `Json(Box<serde_json::Value>)` in `cqlite-core/src/types.rs:30-85` (TombstoneInfo `types.rs:304-328`
++  is the widest → drives the 88B pin; UdtValue `types.rs:250-257`). Box the next-widest if the pin
++  still exceeds 40. (value-representation)
++- [ ] 1.2 Fix the ~436 match/construction sites (`rg -n "Value::(Tombstone|Udt|Json)"`), keeping edits
++  mechanical (box patterns / `ref`). Heaviest core files: `storage/write_engine/merge/mod.rs`,
++  `storage/serialization/types.rs`, `parser/types/udt.rs`,
++  `storage/sstable/reader/parsing/v5_compressed_legacy/udt.rs`,
++  `.../custom_scalar.rs`, `export/arrow_convert.rs`, `parser/types/tombstones.rs`. (value-representation)
++- [ ] 1.3 Update binding conversion arms (payload now boxed → deref): Python
++  `bindings/python/src/value.rs:55,60,63,109,507`; Node `bindings/node/src/value.rs:236,251,257` +
++  `bindings/node/src/database.rs` (Udt×1, Json×2, Tombstone×1). Run BOTH binding suites.
++  (value-representation)
++- [ ] 1.4 CLI arms: `cqlite-cli/src/output/json.rs`, `cqlite-cli/src/data_parser.rs`.
++  (value-representation)
++- [ ] 1.5 Verify `Display`/serde/comparator byte-identical (ordering + serde scenarios). `--lite` green.
++  (value-representation)
++
++## Stage 2 — D2 substrate (#1940): window-as-`Bytes`
++- [ ] 2.1 Make `WindowCursor` (`reader/window_cursor.rs:28`) able to hand out a refcounted `Bytes`
++  subslice; align the fill site `window_cursor.rs:91` (`extend_from_slice`, called from
++  `scan_stream_windowed.rs:715,734,736`) with the B1 `Arc<[u8]>` the cache already returns
++  (`scan_stream_windowed.rs:719`, `data_access/bti.rs:752`, `data_access/mod.rs:586`).
++  (scan-window-substrate)
++- [ ] 2.2 Decompress in the IO half; carry `Bytes`/`Arc<[u8]>` on the chunk channel
++  (`scan_stream_windowed.rs:402` `mpsc::channel::<Vec<u8>>`). mmap backend: zero-copy `Bytes` view;
++  buffered backend: one reused per-cursor scratch. Keep the B1 `Arc` contract (hit = refcount bump).
++  (scan-window-substrate)
++- [ ] 2.3 Preserve invariants: CRC-before-decompress order unchanged; window-size/bounded-memory
++  semantics unchanged; `uncompressed_len` from `CompressionInfo`. (scan-window-substrate)
++- [ ] 2.4 Prove: allocs/chunk ≤ 1 dhat lane green; read-op counter still 1/chunk; 33-table byte-parity
++  across LZ4/Snappy/Deflate/Zstd green; CRC-corruption scenario. (scan-window-substrate)
++
++## Stage 3 — D3 decode (K5 / #1644): zero-copy extraction
++- [ ] 3.1 **Interim S-win (may land at Stage 1, independent of D2):** replace
++  `String::from_utf8(bytes.to_vec())` with `str::from_utf8(bytes)?.to_owned()` at the decode sites —
++  `v5_compressed_legacy/raw_type_value.rs:58,118`; `raw_value.rs:139`; `cell_value.rs:369`;
++  `row_framing.rs:1398`; `udt.rs:298,550,833`; `complex_column.rs:1338`;
++  `comparator_value_parsing.rs:168,229`. Guard with the UTF-8 alloc-count test. (sstable-value-decode)
++- [ ] 3.2 Borrow scalar byte payloads from the Stage-2 substrate as `Bytes::slice_ref`: Text/Blob/
++  Varint/Decimal.unscaled at the `.to_vec()` copy sites — `raw_value.rs:147,324,334,337,480`;
++  `cell_value.rs:301,441,923`; `raw_type_value.rs:419,445,499,538,999,1018,1039,1063,1126,1157`;
++  `udt.rs:641,642,672,914,923,989,1000`; `complex_column.rs:940,1422`;
++  `comparator_value_parsing.rs:172,216,224`; `custom_scalar.rs:48,64`; `value_parsing.rs:414`. Route via
++  the per-column dispatch already resolved (`sstable-value-decode` existing spec — no per-cell type
++  inference). (sstable-value-decode)
++- [ ] 3.3 Implement + document the **retention copy-out policy** (threshold + long-lived→copy) at the
++  extraction site; retention test proves a tiny long-lived value releases its chunk. (sstable-value-decode)
++- [ ] 3.4 Prove: H2 text-heavy dhat bytes-copied ≈ 0; 33-table parity (4 codecs) + Python + Node suites
++  green. (sstable-value-decode)
++
++## Stage 4 — gate + audit + review (definition of done)
++- [ ] 4.1 Full `scripts/agent-gate.sh` ONCE → PASS (paste SUMMARY verbatim). `RUSTFLAGS="-D warnings"`
++  clean; no `unwrap()`/`expect()` in library code.
++- [ ] 4.2 spec-auditor **C** anchored to `openspec/changes/value-representation-v2/specs/**` → PASS
++  (every requirement satisfied with a public-surface test).
++- [ ] 4.3 roborev clean (fix findings; test/docs-only rounds re-certify with `--delta`).
++- [ ] 4.4 Predicate-eval + sort throughput micro-bench posted (E1 acceptance).
++- [ ] 4.5 Close #1583, #1644, #1940 on merge; archive the change.
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+[No commits in between]
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: cf16d72fe7f6a39143f487986e6acec8d02ff5e7
+
+COMMIT MESSAGE:
+feat(#1583): box fat cold Value variants (D1 layout)
+
+Value-representation-v2 Stage 0 + Stage 1 (D1):
+- Box the three fat cold variants Tombstone/Udt/Json so size_of::<Value>()
+  drops 88 -> 32 bytes; tighten the compile-time pin 88 -> 40.
+- Enable #![deny(clippy::large_enum_variant)] at the cqlite-core crate root so a
+  future re-inlined fat variant fails the build.
+- Fix all construction/match sites across the workspace (ast-grep for call
+  exprs, compiler-span-driven wrap for macro-body constructions, manual deref at
+  the by-value clone arms in query/result.rs, cli/output/json.rs,
+  node database.rs).
+- Layout-only: Display, serde round-trip, and comparator/ordering behavior are
+  byte-identical. New public-surface tests: value_layout_is_bounded and
+  boxed_variants_preserve_serde_and_display.
+
+IMPLEMENTATION FILES:
+FILE: bindings/node/src/database.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -1664,8 +1664,8 @@ fn value_to_json(value: &cqlite_core::types::Value) -> serde_json::Value {
+         }
+         Value::Frozen(inner) => value_to_json(inner),
+         Value::Json(json_value) => {
+-            // Value::Json contains serde_json::Value, return it directly
+-            json_value.clone()
++            // Value::Json contains a boxed serde_json::Value, return it directly
++            (**json_value).clone()
+         }
+         Value::Tombstone(_) => serde_json::Value::Null,
+         Value::Counter(c) => serde_json::Value::Number((*c).into()),
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-cli/src/output/json.rs
+STATUS: modified
+ADDITIONS: 7
+DELETIONS: 7
+
+PATCH:
+@@ -180,7 +180,7 @@ impl JSONWriter {
+             Value::Decimal { .. } => JsonValue::String(ValueFormatter::format_value(value)),
+             // Use ValueFormatter for human-readable Duration (XmoYdZns format)
+             Value::Duration { .. } => JsonValue::String(ValueFormatter::format_value(value)),
+-            Value::Json(j) => j.clone(),
++            Value::Json(j) => (**j).clone(),
+             Value::List(list) => {
+                 let json_list: Vec<JsonValue> = list.iter().map(Self::value_to_json).collect();
+                 JsonValue::Array(json_list)
+@@ -876,14 +876,14 @@ mod tests {
+     fn test_cell_tombstone_renders_as_null() {
+         use cqlite_core::types::{TombstoneInfo, TombstoneType};
+ 
+-        let tombstone = Value::Tombstone(TombstoneInfo {
++        let tombstone = Value::Tombstone(Box::new(TombstoneInfo {
+             deletion_time: 1673778645000000,
+             tombstone_type: TombstoneType::CellTombstone,
+             local_deletion_time: 0,
+             ttl: None,
+             range_start: None,
+             range_end: None,
+-        });
++        }));
+ 
+         let json_val = JSONWriter::value_to_json(&tombstone);
+         assert!(
+@@ -896,14 +896,14 @@ mod tests {
+     fn test_row_tombstone_renders_as_null() {
+         use cqlite_core::types::{TombstoneInfo, TombstoneType};
+ 
+-        let tombstone = Value::Tombstone(TombstoneInfo {
++        let tombstone = Value::Tombstone(Box::new(TombstoneInfo {
+             deletion_time: 1673778645000000,
+             tombstone_type: TombstoneType::RowTombstone,
+             local_deletion_time: 0,
+             ttl: None,
+             range_start: None,
+             range_end: None,
+-        });
++        }));
+ 
+         let json_val = JSONWriter::value_to_json(&tombstone);
+         assert!(
+@@ -927,14 +927,14 @@ mod tests {
+         let mut values = HashMap::new();
+         values.insert(
+             "deleted_col".to_string(),
+-            Value::Tombstone(TombstoneInfo {
++            Value::Tombstone(Box::new(TombstoneInfo {
+                 deletion_time: 0,
+                 tombstone_type: TombstoneType::CellTombstone,
+                 local_deletion_time: 0,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            }),
++            })),
+         );
+         let row = QueryRow::with_values(RowKey::new(vec![1]), values);
+         result.rows.push(row);
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-cli/tests/output_format_tests.rs
+STATUS: modified
+ADDITIONS: 12
+DELETIONS: 12
+
+PATCH:
+@@ -277,7 +277,7 @@ fn test_json_serializes_all_value_variants() {
+         ),
+         (
+             "json_val",
+-            Value::Json(serde_json::json!({"key": "value"})),
++            Value::Json(Box::new(serde_json::json!({"key": "value"}))),
+             DataType::Json,
+         ),
+         // Collection types - DataType::List/Set/Map are unit variants
+@@ -304,7 +304,7 @@ fn test_json_serializes_all_value_variants() {
+         // Complex types
+         (
+             "udt_val",
+-            Value::Udt(UdtValue {
++            Value::Udt(Box::new(UdtValue {
+                 type_name: "address".to_string(),
+                 keyspace: "test".to_string(),
+                 fields: vec![
+@@ -317,7 +317,7 @@ fn test_json_serializes_all_value_variants() {
+                         value: Some(Value::Text("Springfield".to_string())),
+                     },
+                 ],
+-            }),
++            })),
+             DataType::Udt,
+         ),
+         (
+@@ -327,14 +327,14 @@ fn test_json_serializes_all_value_variants() {
+         ),
+         (
+             "tombstone_val",
+-            Value::Tombstone(TombstoneInfo {
++            Value::Tombstone(Box::new(TombstoneInfo {
+                 deletion_time: 1673778645000000,
+                 tombstone_type: TombstoneType::RowTombstone,
+                 local_deletion_time: 0,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            }),
++            })),
+             DataType::Tombstone,
+         ),
+     ];
+@@ -428,7 +428,7 @@ fn test_csv_serializes_all_value_variants() {
+         ),
+         (
+             "json_val",
+-            Value::Json(serde_json::json!({"key": "value"})),
++            Value::Json(Box::new(serde_json::json!({"key": "value"}))),
+             DataType::Json,
+         ),
+         (
+@@ -453,7 +453,7 @@ fn test_csv_serializes_all_value_variants() {
+         ),
+         (
+             "udt_val",
+-            Value::Udt(UdtValue {
++            Value::Udt(Box::new(UdtValue {
+                 type_name: "address".to_string(),
+                 keyspace: "test".to_string(),
+                 fields: vec![
+@@ -466,7 +466,7 @@ fn test_csv_serializes_all_value_variants() {
+                         value: Some(Value::Text("Springfield".to_string())),
+                     },
+                 ],
+-            }),
++            })),
+             DataType::Udt,
+         ),
+         (
+@@ -476,14 +476,14 @@ fn test_csv_serializes_all_value_variants() {
+         ),
+         (
+             "tombstone_val",
+-            Value::Tombstone(TombstoneInfo {
++            Value::Tombstone(Box::new(TombstoneInfo {
+                 deletion_time: 1673778645000000,
+                 tombstone_type: TombstoneType::RowTombstone,
+                 local_deletion_time: 0,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            }),
++            })),
+             DataType::Tombstone,
+         ),
+     ];
+@@ -673,7 +673,7 @@ fn test_udt_renders_field_names_not_indices() {
+         ],
+     };
+ 
+-    let result = create_single_value_result("address_col", Value::Udt(udt), DataType::Udt);
++    let result = create_single_value_result("address_col", Value::Udt(Box::new(udt)), DataType::Udt);
+ 
+     let json = JSONWriter::write(&result, &default_config()).unwrap();
+ 
+@@ -729,7 +729,7 @@ fn test_udt_with_null_field() {
+         ],
+     };
+ 
+-    let result = create_single_value_result("person_col", Value::Udt(udt), DataType::Udt);
++    let result = create_single_value_result("person_col", Value::Udt(Box::new(udt)), DataType::Udt);
+ 
+     let json = JSONWriter::write(&result, &default_config()).unwrap();
+ 
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-cli/tests/parquet_writer_tests.rs
+STATUS: modified
+ADDITIONS: 31
+DELETIONS: 31
+
+PATCH:
+@@ -183,7 +183,7 @@ fn test_parquet_json_values() {
+         "nested": {"key": "value"}
+     });
+     let result =
+-        create_single_value_result("json_col", Value::Json(json_value.clone()), DataType::Json);
++        create_single_value_result("json_col", Value::Json(Box::new(json_value.clone())), DataType::Json);
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+     verify_parquet_magic(&bytes);
+@@ -417,7 +417,7 @@ fn test_parquet_tuple_values() {
+ #[test]
+ fn test_parquet_udt_values() {
+     // User-defined type with named fields
+-    let udt = Value::Udt(UdtValue {
++    let udt = Value::Udt(Box::new(UdtValue {
+         keyspace: "test_ks".to_string(),
+         type_name: "address".to_string(),
+         fields: vec![
+@@ -434,7 +434,7 @@ fn test_parquet_udt_values() {
+                 value: Some(Value::Integer(12345)),
+             },
+         ],
+-    });
++    }));
+     let result = create_single_value_result("udt_col", udt, DataType::Udt);
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -457,7 +457,7 @@ fn test_parquet_udt_values() {
+ #[test]
+ fn test_parquet_udt_with_collections() {
+     // UDT containing a list field
+-    let udt_with_list = Value::Udt(UdtValue {
++    let udt_with_list = Value::Udt(Box::new(UdtValue {
+         keyspace: "test_ks".to_string(),
+         type_name: "user_info".to_string(),
+         fields: vec![
+@@ -473,7 +473,7 @@ fn test_parquet_udt_with_collections() {
+                 ])),
+             },
+         ],
+-    });
++    }));
+     let result = create_single_value_result("udt_list_col", udt_with_list, DataType::Udt);
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -885,14 +885,14 @@ fn test_parquet_mixed_null_and_values() {
+ #[test]
+ fn test_parquet_tombstone_value() {
+     // Tombstone (deletion marker) should serialize as string
+-    let tombstone = Value::Tombstone(TombstoneInfo {
++    let tombstone = Value::Tombstone(Box::new(TombstoneInfo {
+         deletion_time: 1673778645,
+         tombstone_type: TombstoneType::CellTombstone,
+         local_deletion_time: 0,
+         ttl: None,
+         range_start: None,
+         range_end: None,
+-    });
++    }));
+     let result = create_single_value_result("tombstone_col", tombstone, DataType::Tombstone);
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -3692,7 +3692,7 @@ fn test_udt_schema_has_named_fields() {
+ 
+     let result = single_cql_typed_result(
+         col,
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "address".to_string(),
+             fields: vec![
+@@ -3705,7 +3705,7 @@ fn test_udt_schema_has_named_fields() {
+                     value: Some(Value::Integer(90210)),
+                 },
+             ],
+-        }),
++        })),
+     );
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -3749,7 +3749,7 @@ fn test_udt_roundtrip_named_fields() {
+ 
+     let result = single_cql_typed_result(
+         col,
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "address".to_string(),
+             fields: vec![
+@@ -3762,7 +3762,7 @@ fn test_udt_roundtrip_named_fields() {
+                     value: Some(Value::Integer(12345)),
+                 },
+             ],
+-        }),
++        })),
+     );
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -3845,7 +3845,7 @@ fn test_udt_unset_field_is_null() {
+     // "age" field is unset (None value)
+     let result = single_cql_typed_result(
+         col,
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "person".to_string(),
+             fields: vec![
+@@ -3858,7 +3858,7 @@ fn test_udt_unset_field_is_null() {
+                     value: None, // unset
+                 },
+             ],
+-        }),
++        })),
+     );
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -3911,15 +3911,15 @@ fn test_udt_missing_field_is_null() {
+ 
+     let result = single_cql_typed_result(
+         col,
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "point".to_string(),
+             fields: vec![UdtField {
+                 name: "x".to_string(),
+                 value: Some(Value::Integer(10)),
+                 // "y" field is entirely absent from the UdtValue
+             }],
+-        }),
++        })),
+     );
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -3971,7 +3971,7 @@ fn test_udt_multi_row_null_and_value() {
+     let result = single_col_multi_row_result(
+         col,
+         vec![
+-            Value::Udt(UdtValue {
++            Value::Udt(Box::new(UdtValue {
+                 keyspace: "ks".to_string(),
+                 type_name: "point".to_string(),
+                 fields: vec![
+@@ -3984,9 +3984,9 @@ fn test_udt_multi_row_null_and_value() {
+                         value: Some(Value::Integer(2)),
+                     },
+                 ],
+-            }),
++            })),
+             Value::Null,
+-            Value::Udt(UdtValue {
++            Value::Udt(Box::new(UdtValue {
+                 keyspace: "ks".to_string(),
+                 type_name: "point".to_string(),
+                 fields: vec![
+@@ -3999,7 +3999,7 @@ fn test_udt_multi_row_null_and_value() {
+                         value: Some(Value::Integer(20)),
+                     },
+                 ],
+-            }),
++            })),
+         ],
+     );
+ 
+@@ -4066,7 +4066,7 @@ fn test_frozen_udt_schema_and_roundtrip() {
+ 
+     let result = single_cql_typed_result(
+         col,
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "point".to_string(),
+             fields: vec![
+@@ -4079,7 +4079,7 @@ fn test_frozen_udt_schema_and_roundtrip() {
+                     value: Some(Value::Integer(4)),
+                 },
+             ],
+-        }),
++        })),
+     );
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -4140,7 +4140,7 @@ fn test_udt_with_list_field_roundtrip() {
+ 
+     let result = single_cql_typed_result(
+         col,
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "user_info".to_string(),
+             fields: vec![
+@@ -4156,7 +4156,7 @@ fn test_udt_with_list_field_roundtrip() {
+                     ])),
+                 },
+             ],
+-        }),
++        })),
+     );
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -4205,11 +4205,11 @@ fn test_udt_zero_fields_fallback_to_utf8() {
+     );
+     let result = single_cql_typed_result(
+         col,
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "empty".to_string(),
+             fields: vec![],
+-        }),
++        })),
+     );
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -4271,14 +4271,14 @@ fn test_udt_is_not_stringified_with_cql_type() {
+     );
+     let result = single_cql_typed_result(
+         col,
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "point".to_string(),
+             fields: vec![UdtField {
+                 name: "x".to_string(),
+                 value: Some(Value::Integer(42)),
+             }],
+-        }),
++        })),
+     );
+ 
+     let bytes = ParquetWriter::write(&result, &default_config()).unwrap();
+@@ -4358,14 +4358,14 @@ fn test_udt_legacy_path_no_cql_type() {
+     let mut values = HashMap::new();
+     values.insert(
+         "u".into(),
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "point".to_string(),
+             fields: vec![UdtField {
+                 name: "x".to_string(),
+                 value: Some(Value::Integer(7)),
+             }],
+-        }),
++        })),
+     );
+     let row = QueryRow {
+         values,
+@@ -4593,7 +4593,7 @@ fn make_parity_fixture() -> QueryResult {
+     );
+     values.insert(
+         "udt_col".into(),
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             keyspace: "ks".to_string(),
+             type_name: "point".to_string(),
+             fields: vec![
+@@ -4606,7 +4606,7 @@ fn make_parity_fixture() -> QueryResult {
+                     value: Some(Value::Text("north".to_string())),
+                 },
+             ],
+-        }),
++        })),
+     );
+ 
+     let row = QueryRow {
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/export/arrow_convert.rs
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -2224,7 +2224,7 @@ mod tests {
+     #[test]
+     fn authoritative_text_column_rejects_json() {
+         let columns = vec![col("s", DataType::Text, Some(CqlType::Text))];
+-        let rows = vec![row_one("s", Value::Json(serde_json::json!({"a": 1})))];
++        let rows = vec![row_one("s", Value::Json(Box::new(serde_json::json!({"a": 1}))))];
+         assert!(is_invalid_value(rows_to_record_batch(&columns, &rows)));
+     }
+ 
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/lib.rs
+STATUS: modified
+ADDITIONS: 7
+DELETIONS: 0
+
+PATCH:
+@@ -3,6 +3,13 @@
+ //! A high-performance, embeddable database engine with SSTable-based storage,
+ //! supporting both native and WASM deployments.
+ 
++// Value-representation-v2 (D1, issue #1583): keep the public `Value` enum's
++// inline layout bounded. `large_enum_variant` fails the build if a future change
++// re-inlines a fat variant (e.g. un-boxing `Tombstone`/`Udt`/`Json`) instead of
++// boxing it, so the `size_of::<Value>() <= 40` pin in `types.rs` cannot silently
++// regress.
++#![deny(clippy::large_enum_variant)]
++
+ pub mod config;
+ pub mod cql;
+ pub mod error;
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/parser/types/mod.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -277,10 +277,10 @@ pub(super) fn create_empty_value_for_cql_type(cql_type: &CqlType) -> Result<Valu
+         CqlType::Set(_) => Ok(Value::Set(Vec::new())),
+         CqlType::Map(_, _) => Ok(Value::Map(Vec::new())),
+         CqlType::Tuple(_) => Ok(Value::Tuple(Vec::new())),
+-        CqlType::Udt(name, _) => Ok(Value::Udt(UdtValue::new(
++        CqlType::Udt(name, _) => Ok(Value::Udt(Box::new(UdtValue::new(
+             name.clone(),
+             "unknown".to_string(),
+-        ))),
++        )))),
+         CqlType::Frozen(inner) => create_empty_value_for_cql_type(inner),
+         _ => Ok(Value::Null),
+     }
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/parser/types/tombstones.rs
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 5
+
+PATCH:
+@@ -70,7 +70,7 @@ pub fn parse_tombstone(input: &[u8]) -> IResult<&[u8], Value> {
+         range_end: range_end.map(RowKey::new),
+     };
+ 
+-    Ok((input, Value::Tombstone(tombstone_info)))
++    Ok((input, Value::Tombstone(Box::new(tombstone_info))))
+ }
+ 
+ #[cfg(test)]
+@@ -131,15 +131,15 @@ mod tests {
+         // A length of 1 encodes as ZigZag 0x02; decoding it as UNSIGNED would
+         // yield 2 and corrupt the round-trip (take too many bytes / mismatch).
+         use crate::types::{TombstoneInfo, TombstoneType};
+-        let range_tombstone = Value::Tombstone(TombstoneInfo {
++        let range_tombstone = Value::Tombstone(Box::new(TombstoneInfo {
+             deletion_time: 4242,
+             tombstone_type: TombstoneType::RangeTombstone,
+             local_deletion_time: 0,
+             ttl: None,
+             // Byte length exactly 1 so ZigZag (0x02) vs unsigned (0x01) disagree.
+             range_start: Some(RowKey::new(vec![0xAB])),
+             range_end: Some(RowKey::new(vec![0xCD])),
+-        });
++        }));
+         let serialized = serialize_cql_value(&range_tombstone).unwrap();
+ 
+         let (remaining, parsed) = parse_tombstone(&serialized[1..]).unwrap(); // Skip type ID
+@@ -172,14 +172,14 @@ mod tests {
+         // Serializing one must return an explicit error, not silently alias to
+         // RowTombstone (byte 0) — that would be a silent lossy round-trip.
+         use crate::types::{TombstoneInfo, TombstoneType};
+-        let partition_tombstone = Value::Tombstone(TombstoneInfo {
++        let partition_tombstone = Value::Tombstone(Box::new(TombstoneInfo {
+             deletion_time: 9999,
+             tombstone_type: TombstoneType::PartitionTombstone,
+             local_deletion_time: 0,
+             ttl: None,
+             range_start: None,
+             range_end: None,
+-        });
++        }));
+         let result = serialize_cql_value(&partition_tombstone);
+         assert!(
+             result.is_err(),
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/parser/types/udt.rs
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -140,7 +140,7 @@ pub fn parse_udt(input: &[u8]) -> IResult<&[u8], Value> {
+         fields,
+     };
+ 
+-    Ok((remaining, Value::Udt(udt)))
++    Ok((remaining, Value::Udt(Box::new(udt))))
+ }
+ 
+ /// Parse UDT value with schema context (preferred method for production)
+@@ -192,7 +192,7 @@ pub fn parse_udt_with_schema<'a>(
+         fields,
+     };
+ 
+-    Ok((remaining, Value::Udt(udt)))
++    Ok((remaining, Value::Udt(Box::new(udt))))
+ }
+ 
+ /// Parse UDT value by looking up schema from registry with enhanced dependency resolution
+@@ -346,7 +346,7 @@ pub fn parse_udt_with_schema_and_registry<'a>(
+         fields,
+     };
+ 
+-    Ok((remaining, Value::Udt(udt)))
++    Ok((remaining, Value::Udt(Box::new(udt))))
+ }
+ 
+ /// Parse CQL value for a specific CQL type with registry support for nested UDTs
+@@ -512,7 +512,7 @@ mod tests {
+             ],
+         };
+ 
+-        let serialized = serialize_cql_value(&Value::Udt(udt)).unwrap();
++        let serialized = serialize_cql_value(&Value::Udt(Box::new(udt))).unwrap();
+         assert!(!serialized.is_empty());
+ 
+         // Should start with UDT type ID
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/parser/udt_tests.rs
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 6
+
+PATCH:
+@@ -362,7 +362,7 @@ mod tests {
+ 
+         // Create a list of address UDTs
+         let addresses = vec![
+-            Value::Udt(create_sample_address_udt()),
++            Value::Udt(Box::new(create_sample_address_udt())),
+             Value::Udt({
+                 let mut addr = create_sample_address_udt();
+                 addr.set_field(
+@@ -373,7 +373,7 @@ mod tests {
+                     "city".to_string(),
+                     Some(Value::Text("Other City".to_string())),
+                 );
+-                addr
++                Box::new(addr)
+             }),
+         ];
+ 
+@@ -402,7 +402,7 @@ mod tests {
+         let people_map = vec![
+             (
+                 Value::Text("employee1".to_string()),
+-                Value::Udt(create_sample_person_udt()),
++                Value::Udt(Box::new(create_sample_person_udt())),
+             ),
+             (
+                 Value::Text("employee2".to_string()),
+@@ -416,7 +416,7 @@ mod tests {
+                         "last_name".to_string(),
+                         Some(Value::Text("Smith".to_string())),
+                     );
+-                    person
++                    Box::new(person)
+                 }),
+             ),
+         ];
+@@ -450,11 +450,11 @@ mod tests {
+         let empty_list = Value::List(Vec::new());
+         assert_eq!(empty_list, Value::List(Vec::new()));
+ 
+-        let empty_udt = Value::Udt(UdtValue {
++        let empty_udt = Value::Udt(Box::new(UdtValue {
+             type_name: "test".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![],
+-        });
++        }));
+         if let Value::Udt(udt) = &empty_udt {
+             assert_eq!(udt.type_name, "test");
+             assert_eq!(udt.fields.len(), 0);
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/query/result.rs
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -1049,7 +1049,7 @@ impl ToJson for Value {
+             Value::Float(f) => float_to_json(*f),
+             Value::Float32(f) => float_to_json(*f as f64),
+             Value::Text(s) => json!(s),
+-            Value::Json(value) => value.clone(),
++            Value::Json(value) => (**value).clone(),
+             Value::Blob(bytes) | Value::Varint(bytes) | Value::Inet(bytes) => json!(b64(bytes)),
+             Value::Uuid(uuid) => json!(b64(uuid)),
+             Value::List(items) | Value::Set(items) | Value::Tuple(items) => {
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/schema/parser.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -448,11 +448,11 @@ impl SchemaParser {
+         }
+ 
+         Ok((
+-            Value::Udt(crate::types::UdtValue {
++            Value::Udt(Box::new(crate::types::UdtValue {
+                 type_name: type_name.to_string(),
+                 keyspace: self.context.schema.keyspace.clone(),
+                 fields: field_values,
+-            }),
++            })),
+             offset,
+         ))
+     }
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/serialization/types.rs
+STATUS: modified
+ADDITIONS: 20
+DELETIONS: 20
+
+PATCH:
+@@ -921,7 +921,7 @@ mod tests {
+                 Some(Value::Text("Main St".to_string())),
+             );
+ 
+-        let bytes = ser.serialize_udt(&Value::Udt(udt), &schema).unwrap();
++        let bytes = ser.serialize_udt(&Value::Udt(Box::new(udt)), &schema).unwrap();
+ 
+         // CRITICAL: Must be in schema order (street, city), NOT value order (city, street)
+         let expected = vec![
+@@ -951,7 +951,7 @@ mod tests {
+                 Some(Value::Text("john@example.com".to_string())),
+             );
+ 
+-        let bytes = ser.serialize_udt(&Value::Udt(udt), &schema).unwrap();
++        let bytes = ser.serialize_udt(&Value::Udt(Box::new(udt)), &schema).unwrap();
+ 
+         let expected = vec![
+             0x00, 0x00, 0x00, 0x04, // name len = 4
+@@ -993,11 +993,11 @@ mod tests {
+ 
+         let _person = UdtValue::new("person".to_string(), "test_ks".to_string())
+             .with_field("name".to_string(), Some(Value::Text("John".to_string())))
+-            .with_field("address".to_string(), Some(Value::Udt(address.clone())));
++            .with_field("address".to_string(), Some(Value::Udt(Box::new(address.clone()))));
+ 
+         // Serialize inner UDT first
+         let address_bytes = ser
+-            .serialize_udt(&Value::Udt(address), &address_schema)
++            .serialize_udt(&Value::Udt(Box::new(address)), &address_schema)
+             .unwrap();
+ 
+         // Serialize outer UDT manually
+@@ -1030,7 +1030,7 @@ mod tests {
+             .with_field("field_b".to_string(), Some(Value::Integer(2)))
+             .with_field("field_a".to_string(), Some(Value::Integer(1)));
+ 
+-        let bytes = ser.serialize_udt(&Value::Udt(udt), &schema).unwrap();
++        let bytes = ser.serialize_udt(&Value::Udt(Box::new(udt)), &schema).unwrap();
+ 
+         // CRITICAL: Must serialize in schema order (a, b, c), not value order (c, b, a)
+         let expected = vec![
+@@ -1067,7 +1067,7 @@ mod tests {
+                 ])),
+             );
+ 
+-        let bytes = ser.serialize_udt(&Value::Udt(udt), &schema).unwrap();
++        let bytes = ser.serialize_udt(&Value::Udt(Box::new(udt)), &schema).unwrap();
+ 
+         // Serialize list manually for expected
+         let mut list_bytes = Vec::new();
+@@ -1149,41 +1149,41 @@ mod tests {
+             .with_field(
+                 "phone_numbers".to_string(),
+                 Some(Value::List(vec![Value::Frozen(Box::new(Value::Udt(
+-                    phone.clone(),
++                    Box::new(phone.clone()),
+                 )))])),
+             )
+             .with_field(
+                 "home_address".to_string(),
+-                Some(Value::Frozen(Box::new(Value::Udt(address.clone())))),
++                Some(Value::Frozen(Box::new(Value::Udt(Box::new(address.clone()))))),
+             );
+         let company = UdtValue::new("company".to_string(), "test_ks".to_string())
+             .with_field("name".to_string(), Some(Value::Text("Acme".to_string())))
+             .with_field(
+                 "employees".to_string(),
+                 Some(Value::List(vec![Value::Frozen(Box::new(Value::Udt(
+-                    person.clone(),
++                    Box::new(person.clone()),
+                 )))])),
+             )
+             .with_field(
+                 "departments".to_string(),
+                 Some(Value::Map(vec![(
+                     Value::Text("platform".to_string()),
+                     Value::Frozen(Box::new(Value::List(vec![Value::Frozen(Box::new(
+-                        Value::Udt(person.clone()),
++                        Value::Udt(Box::new(person.clone())),
+                     ))]))),
+                 )])),
+             );
+ 
+         let bytes = ser
+-            .serialize_udt(&Value::Udt(company.clone()), &company_schema)
++            .serialize_udt(&Value::Udt(Box::new(company.clone())), &company_schema)
+             .unwrap();
+ 
+         let person_bytes = ser
+-            .serialize_udt(&Value::Udt(person.clone()), &person_schema)
++            .serialize_udt(&Value::Udt(Box::new(person.clone())), &person_schema)
+             .unwrap();
+         let employees_bytes = ser
+             .serialize_typed_value(
+-                &Value::List(vec![Value::Frozen(Box::new(Value::Udt(person.clone())))]),
++                &Value::List(vec![Value::Frozen(Box::new(Value::Udt(Box::new(person.clone()))))]),
+                 &CqlType::List(Box::new(CqlType::Frozen(Box::new(CqlType::Udt(
+                     "person".to_string(),
+                     vec![],
+@@ -1195,7 +1195,7 @@ mod tests {
+                 &Value::Map(vec![(
+                     Value::Text("platform".to_string()),
+                     Value::Frozen(Box::new(Value::List(vec![Value::Frozen(Box::new(
+-                        Value::Udt(person),
++                        Value::Udt(Box::new(person)),
+                     ))]))),
+                 )]),
+                 &CqlType::Map(
+@@ -1218,11 +1218,11 @@ mod tests {
+         assert_eq!(hex(&bytes), hex(&expected));
+         assert!(!person_bytes.is_empty());
+         assert!(!ser
+-            .serialize_udt(&Value::Udt(address), &address_schema)
++            .serialize_udt(&Value::Udt(Box::new(address)), &address_schema)
+             .unwrap()
+             .is_empty());
+         assert!(!ser
+-            .serialize_udt(&Value::Udt(phone), &phone_schema)
++            .serialize_udt(&Value::Udt(Box::new(phone)), &phone_schema)
+             .unwrap()
+             .is_empty());
+     }
+@@ -1244,21 +1244,21 @@ mod tests {
+                 Some(Value::Text("Sao Paulo".to_string())),
+             );
+         let address_bytes = ser
+-            .serialize_udt(&Value::Udt(address), &address_schema)
++            .serialize_udt(&Value::Udt(Box::new(address)), &address_schema)
+             .unwrap();
+ 
+         let value = Value::Map(vec![(
+             Value::Text("cidade_日本".to_string()),
+             Value::Frozen(Box::new(Value::Udt(
+-                UdtValue::new("address".to_string(), "test_ks".to_string())
++                Box::new(UdtValue::new("address".to_string(), "test_ks".to_string())
+                     .with_field(
+                         "street".to_string(),
+                         Some(Value::Text("Rua Sao Joao".to_string())),
+                     )
+                     .with_field(
+                         "city".to_string(),
+                         Some(Value::Text("Sao Paulo".to_string())),
+-                    ),
++                    )),
+             ))),
+         )]);
+ 
+@@ -1414,7 +1414,7 @@ mod tests {
+             Some(Value::Text("Main St".to_string())),
+         );
+ 
+-        let result = ser.serialize_udt(&Value::Udt(udt), &schema);
++        let result = ser.serialize_udt(&Value::Udt(Box::new(udt)), &schema);
+         assert!(result.is_err());
+         assert!(result
+             .unwrap_err()
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/comparator_value_parsing.rs
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -230,7 +230,7 @@ fn parse_value_with_comparator_at_depth(
+                 .map_err(|_| Error::corruption("Invalid UTF-8 in JSON value"))?;
+             let json_value: serde_json::Value = serde_json::from_str(&json_text)
+                 .map_err(|_| Error::corruption("Invalid JSON value"))?;
+-            Ok(Value::Json(json_value))
++            Ok(Value::Json(Box::new(json_value)))
+         }
+         // Structural types route through the ONE shared structural body in
+         // `value_parsing` (issue #1636 / J2). Non-frozen collections use VInt
+@@ -272,11 +272,11 @@ fn parse_value_with_comparator_at_depth(
+             )?;
+             // Preserve decoder #2's provenance (type_name/keyspace from the
+             // comparator) rather than the helper's "unknown" placeholders.
+-            Ok(Value::Udt(UdtValue {
++            Ok(Value::Udt(Box::new(UdtValue {
+                 keyspace: keyspace.clone().unwrap_or_else(|| "unknown".to_string()),
+                 type_name: type_name.to_string(),
+                 fields: udt.fields,
+-            }))
++            })))
+         }
+         ComparatorType::Frozen(inner_comparator) => {
+             let inner_value =
+@@ -643,7 +643,7 @@ mod tests {
+             result,
+             Value::Map(vec![(
+                 Value::Text("k".to_string()),
+-                Value::Json(serde_json::json!([1, 2, 3])),
++                Value::Json(Box::new(serde_json::json!([1, 2, 3]))),
+             )])
+         );
+     }
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/custom_scalar.rs
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 3
+
+PATCH:
+@@ -58,7 +58,7 @@ pub(super) fn decode_custom_scalar(name: &str, value_data: &[u8]) -> Result<Valu
+                 .map_err(|_| Error::corruption("Invalid UTF-8 in JSON value"))?;
+             let json_value: serde_json::Value = serde_json::from_str(json_text)
+                 .map_err(|_| Error::corruption("Invalid JSON value"))?;
+-            Ok(Value::Json(json_value))
++            Ok(Value::Json(Box::new(json_value)))
+         }
+         // Genuinely-unknown custom type: preserve raw bytes verbatim.
+         _ => Ok(Value::Blob(value_data.to_vec())),
+@@ -108,11 +108,11 @@ mod tests {
+     fn json_decodes_to_typed_value() {
+         assert_eq!(
+             decode_custom_scalar("json", br#"{"a":1}"#).unwrap(),
+-            Value::Json(serde_json::json!({"a": 1}))
++            Value::Json(Box::new(serde_json::json!({"a": 1})))
+         );
+         assert_eq!(
+             decode_custom_scalar("json", b"[1,2,3]").unwrap(),
+-            Value::Json(serde_json::json!([1, 2, 3]))
++            Value::Json(Box::new(serde_json::json!([1, 2, 3])))
+         );
+     }
+ 
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/v5_compressed_legacy/cell_value.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -202,7 +202,7 @@ impl V5CompressedLegacyParser {
+                 column.name, deletion_time
+             );
+             return Ok((
+-                Value::Tombstone(TombstoneInfo {
++                Value::Tombstone(Box::new(TombstoneInfo {
+                     deletion_time,
+                     tombstone_type: TombstoneType::CellTombstone,
+                     // On-disk `localDeletionTime` (GC clock, seconds) for the cell
+@@ -211,7 +211,7 @@ impl V5CompressedLegacyParser {
+                     ttl: None,
+                     range_start: None,
+                     range_end: None,
+-                }),
++                })),
+                 cell_timestamp,
+                 cell_expiration,
+                 offset,
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/v5_compressed_legacy/complex_column.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -680,11 +680,11 @@ impl V5CompressedLegacyParser {
+                     value,
+                 })
+                 .collect();
+-            Value::Udt(UdtValue {
++            Value::Udt(Box::new(UdtValue {
+                 type_name: udt_name,
+                 keyspace: udt_keyspace,
+                 fields,
+-            })
++            }))
+         } else {
+             // Unknown complex column type, skip cells
+             for i in 0..cell_count_usize {
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/v5_compressed_legacy/mod.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -452,7 +452,7 @@ impl RowHeader {
+     /// merger's LWW ordering meaningful rather than defaulting to 0.
+     fn row_tombstone(&self) -> Value {
+         let deletion_time = self.row_tombstone_deletion_time();
+-        Value::Tombstone(TombstoneInfo {
++        Value::Tombstone(Box::new(TombstoneInfo {
+             deletion_time,
+             tombstone_type: TombstoneType::RowTombstone,
+             // Carry the on-disk `localDeletionTime` (GC clock, seconds) so the
+@@ -462,7 +462,7 @@ impl RowHeader {
+             ttl: None,
+             range_start: None,
+             range_end: None,
+-        })
++        }))
+     }
+ 
+     /// Authoritative reconciliation timestamp (microseconds) for a row tombstone.
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/v5_compressed_legacy/raw_type_value.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -906,7 +906,7 @@ impl V5CompressedLegacyParser {
+                 // Update offset to point after the UDT data we consumed
+                 offset += current_offset;
+ 
+-                Value::Udt(udt_value)
++                Value::Udt(Box::new(udt_value))
+             }
+ 
+             // Default: check if it's a short UDT name in the registry, otherwise treat as blob
+@@ -1095,7 +1095,7 @@ impl V5CompressedLegacyParser {
+                         };
+ 
+                         offset += current_offset;
+-                        Value::Udt(udt_value)
++                        Value::Udt(Box::new(udt_value))
+                     } else {
+                         // Not found in registry - parse as blob
+                         log::debug!(
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/v5_compressed_legacy/udt.rs
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 5
+
+PATCH:
+@@ -540,7 +540,7 @@ impl V5CompressedLegacyParser {
+             fields,
+         };
+ 
+-        Ok((Value::Udt(udt_value), current_offset))
++        Ok((Value::Udt(Box::new(udt_value)), current_offset))
+     }
+ 
+     /// Parse a UDT field value based on its CqlType.
+@@ -1059,11 +1059,11 @@ impl V5CompressedLegacyParser {
+             });
+         }
+ 
+-        Ok(Value::Udt(UdtValue {
++        Ok(Value::Udt(Box::new(UdtValue {
+             type_name: udt_def.name.clone(),
+             keyspace: udt_def.keyspace.clone(),
+             fields,
+-        }))
++        })))
+     }
+ 
+     /// Parse a UDT using inline field definitions from CqlType::Udt
+@@ -1171,11 +1171,11 @@ impl V5CompressedLegacyParser {
+             });
+         }
+ 
+-        Ok(Value::Udt(UdtValue {
++        Ok(Value::Udt(Box::new(UdtValue {
+             type_name: type_name.to_string(),
+             keyspace: self.keyspace.clone(),
+             fields,
+-        }))
++        })))
+     }
+ 
+     /// Returns true if the column type is a complex column (non-frozen collection).
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/value_parsing.rs
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -569,11 +569,11 @@ impl SSTableReader {
+                     offset += field_len;
+                 }
+ 
+-                Ok(Value::Udt(UdtValue {
++                Ok(Value::Udt(Box::new(UdtValue {
+                     keyspace: keyspace.clone().unwrap_or_else(|| "unknown".to_string()),
+                     type_name: type_name.clone(),
+                     fields,
+-                }))
++                })))
+             }
+             ComparatorType::Frozen(inner_comparator) => {
+                 let inner_value = self.parse_value_with_comparator_at_depth(
+@@ -718,11 +718,11 @@ impl SSTableReader {
+                 // Legacy formats can use generic UDT fabrication as last resort
+                 #[cfg(feature = "legacy-heuristics")]
+                 {
+-                    Ok(Value::Udt(UdtValue {
++                    Ok(Value::Udt(Box::new(UdtValue {
+                         keyspace: "unknown".to_string(),
+                         type_name: "unknown".to_string(),
+                         fields,
+-                    }))
++                    })))
+                 }
+                 #[cfg(not(feature = "legacy-heuristics"))]
+                 {
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/reader/parsing/value_parsing_schema_type_tests.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -328,7 +328,7 @@ mod always_run {
+         // Json: UTF-8 JSON text parsed to a serde_json::Value.
+         assert_eq!(
+             parse_value_with_comparator(b"123", &ComparatorType::Json).unwrap(),
+-            Value::Json(serde_json::json!(123)),
++            Value::Json(Box::new(serde_json::json!(123))),
+         );
+ 
+         // time: 8-byte big-endian nanoseconds-since-midnight (Custom("time")).
+@@ -352,7 +352,7 @@ mod always_run {
+         // Custom dispatch must route it to the typed JSON decoder, not a blob.
+         assert_eq!(
+             decode_custom_scalar("json", br#"{"a":1}"#).unwrap(),
+-            Value::Json(serde_json::json!({"a": 1})),
++            Value::Json(Box::new(serde_json::json!({"a": 1}))),
+         );
+     }
+ 
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/writer/data_writer/collection_order/composite.rs
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -376,7 +376,7 @@ mod tests {
+     #[test]
+     fn udt_orders_field_by_field_declared_order() {
+         fn udt(a: i32, b: &str) -> Value {
+-            Value::Udt(UdtValue {
++            Value::Udt(Box::new(UdtValue {
+                 type_name: "t".into(),
+                 keyspace: "ks".into(),
+                 fields: vec![
+@@ -389,7 +389,7 @@ mod tests {
+                         value: Some(Value::Text(b.into())),
+                     },
+                 ],
+-            })
++            }))
+         }
+         // Field 0 signed: -1 < 1 even though raw bytes of -1 are larger.
+         assert_eq!(
+@@ -408,14 +408,14 @@ mod tests {
+     #[test]
+     fn udt_null_field_sorts_first() {
+         fn udt(a: Option<i32>) -> Value {
+-            Value::Udt(UdtValue {
++            Value::Udt(Box::new(UdtValue {
+                 type_name: "t".into(),
+                 keyspace: "ks".into(),
+                 fields: vec![UdtField {
+                     name: "a".into(),
+                     value: a.map(Value::Integer),
+                 }],
+-            })
++            }))
+         }
+         assert_eq!(
+             compare_collection_elements(&udt(None), &udt(Some(-100))),
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/writer/data_writer/tests/scenarios_3.rs
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 8
+
+PATCH:
+@@ -1278,9 +1278,9 @@ fn test_serialize_udt_with_nested_collections_matches_schema_aware_bytes() {
+     let serializer = TypeSerializer::new();
+     let company = phase3_company_value();
+ 
+-    let bytes = serialize_value(&Value::Udt(company.clone())).unwrap();
++    let bytes = serialize_value(&Value::Udt(Box::new(company.clone()))).unwrap();
+     let expected = serializer
+-        .serialize_udt(&Value::Udt(company), &phase3_company_schema())
++        .serialize_udt(&Value::Udt(Box::new(company)), &phase3_company_schema())
+         .unwrap();
+ 
+     assert_eq!(bytes, expected);
+@@ -1291,12 +1291,12 @@ fn test_serialize_collection_containing_nested_udts() {
+     let serializer = TypeSerializer::new();
+     let company = phase3_company_value();
+     let company_bytes = serializer
+-        .serialize_udt(&Value::Udt(company.clone()), &phase3_company_schema())
++        .serialize_udt(&Value::Udt(Box::new(company.clone())), &phase3_company_schema())
+         .unwrap();
+ 
+     let value = Value::Map(vec![(
+         Value::Text("empresa_日本".to_string()),
+-        Value::Frozen(Box::new(Value::Udt(company))),
++        Value::Frozen(Box::new(Value::Udt(Box::new(company)))),
+     )]);
+     let bytes = serialize_value(&value).unwrap();
+ 
+@@ -1317,10 +1317,10 @@ fn test_serialize_tuple_with_collection_fields_and_udt() {
+     let address = phase3_address_value();
+     let person = phase3_person_value("Tuple User");
+     let address_bytes = serializer
+-        .serialize_udt(&Value::Udt(address.clone()), &phase3_address_schema())
++        .serialize_udt(&Value::Udt(Box::new(address.clone())), &phase3_address_schema())
+         .unwrap();
+     let person_bytes = serializer
+-        .serialize_udt(&Value::Udt(person.clone()), &phase3_person_schema())
++        .serialize_udt(&Value::Udt(Box::new(person.clone())), &phase3_person_schema())
+         .unwrap();
+ 
+     let tuple = Value::Tuple(vec![
+@@ -1332,9 +1332,9 @@ fn test_serialize_tuple_with_collection_fields_and_udt() {
+         ]))),
+         Value::Frozen(Box::new(Value::Map(vec![(
+             Value::Text("home".to_string()),
+-            Value::Frozen(Box::new(Value::Udt(address))),
++            Value::Frozen(Box::new(Value::Udt(Box::new(address)))),
+         )]))),
+-        Value::Frozen(Box::new(Value::Udt(person))),
++        Value::Frozen(Box::new(Value::Udt(Box::new(person)))),
+     ]);
+     let bytes = serialize_value(&tuple).unwrap();
+ 
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/writer/data_writer/tests/scenarios_5.rs
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 8
+
+PATCH:
+@@ -1258,14 +1258,14 @@ fn udt_whole_write_roundtrips_sparse_out_of_order() {
+     let writer = DataWriter::new(create_test_stats());
+     let col = udt_column("addr", &person_udt_marshal());
+     // Literal lists email THEN name (out of order) and OMITS age (sparse).
+-    let udt = Value::Udt(crate::types::UdtValue {
++    let udt = Value::Udt(Box::new(crate::types::UdtValue {
+         type_name: "person".to_string(),
+         keyspace: "test_ks".to_string(),
+         fields: vec![
+             udt_field("email", Some(Value::Text("a@b.com".to_string()))),
+             udt_field("name", Some(Value::Text("Alice".to_string()))),
+         ],
+-    });
++    }));
+ 
+     let row_ts = 1_005_000i64;
+     let mut buf = Vec::new();
+@@ -1319,14 +1319,14 @@ fn udt_whole_write_roundtrips_sparse_out_of_order() {
+ fn udt_whole_write_propagates_row_ttl() {
+     let writer = DataWriter::new(create_test_stats());
+     let col = udt_column("addr", &person_udt_marshal());
+-    let udt = Value::Udt(crate::types::UdtValue {
++    let udt = Value::Udt(Box::new(crate::types::UdtValue {
+         type_name: "person".to_string(),
+         keyspace: "test_ks".to_string(),
+         fields: vec![
+             udt_field("name", Some(Value::Text("Bob".to_string()))),
+             udt_field("age", Some(Value::Integer(42))),
+         ],
+-    });
++    }));
+ 
+     let mut buf = Vec::new();
+     writer
+@@ -1353,11 +1353,11 @@ fn udt_whole_write_propagates_row_ttl() {
+ fn udt_whole_write_rejects_unknown_field() {
+     let writer = DataWriter::new(create_test_stats());
+     let col = udt_column("addr", &person_udt_marshal());
+-    let udt = Value::Udt(crate::types::UdtValue {
++    let udt = Value::Udt(Box::new(crate::types::UdtValue {
+         type_name: "person".to_string(),
+         keyspace: "test_ks".to_string(),
+         fields: vec![udt_field("nope", Some(Value::Text("x".to_string())))],
+-    });
++    }));
+     let mut buf = Vec::new();
+     let err = writer
+         .write_complex_column(&mut buf, &col, &udt, 1_005_000, None)
+@@ -1425,11 +1425,11 @@ fn udt_mixed_stream_reconciliation_newer_wins() {
+         None,
+         vec![CellOperation::Write {
+             column: "addr".to_string(),
+-            value: Value::Udt(crate::types::UdtValue {
++            value: Value::Udt(Box::new(crate::types::UdtValue {
+                 type_name: "person".to_string(),
+                 keyspace: "test_ks".to_string(),
+                 fields: vec![udt_field("name", Some(Value::Text("Old".to_string())))],
+-            }),
++            })),
+         }],
+         1_000_000,
+         None,
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/writer/data_writer/tests/scenarios_6.rs
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 6
+
+PATCH:
+@@ -1418,14 +1418,14 @@ fn bare_udt_with_registry_roundtrips_sparse_out_of_order() {
+     let col = schema.columns[0].clone();
+     let writer = DataWriter::new(create_test_stats());
+     // Literal lists email THEN name (out of order) and OMITS age (sparse).
+-    let udt = Value::Udt(crate::types::UdtValue {
++    let udt = Value::Udt(Box::new(crate::types::UdtValue {
+         type_name: "person".to_string(),
+         keyspace: "test_ks".to_string(),
+         fields: vec![
+             udt_field("email", Some(Value::Text("a@b.com".to_string()))),
+             udt_field("name", Some(Value::Text("Alice".to_string()))),
+         ],
+-    });
++    }));
+ 
+     let row_ts = 1_005_000i64;
+     let mut buf = Vec::new();
+@@ -1503,11 +1503,11 @@ fn bare_udt_without_registry_is_single_simple_cell() {
+     // A whole-UDT write must not panic on the simple-cell path.
+     let col = schema.columns[0].clone();
+     let writer = DataWriter::new(create_test_stats());
+-    let udt = Value::Udt(crate::types::UdtValue {
++    let udt = Value::Udt(Box::new(crate::types::UdtValue {
+         type_name: "person".to_string(),
+         keyspace: "test_ks".to_string(),
+         fields: vec![udt_field("name", Some(Value::Text("Alice".to_string())))],
+-    });
++    }));
+     let mut buf = Vec::new();
+     let res = writer.write_cell(&mut buf, &col.name, &udt, 1_005_000);
+     assert!(
+@@ -1662,14 +1662,14 @@ fn frozen_list_of_udt_value_is_canonicalized_after_normalization() {
+     normalize_schema_udts(&mut schema, &collections_registry());
+ 
+     // Out-of-order element fields (age, first_name), last_name omitted.
+-    let element = Value::Udt(UdtValue {
++    let element = Value::Udt(Box::new(UdtValue {
+         type_name: "person".to_string(),
+         keyspace: "test_compactionparityudt".to_string(),
+         fields: vec![
+             udt_field("age", Some(Value::Integer(41))),
+             udt_field("first_name", Some(Value::Text("Alan".to_string()))),
+         ],
+-    });
++    }));
+     let v = Value::Frozen(Box::new(Value::List(vec![element])));
+ 
+     let canon = canonicalize_udt_value(&schema.columns[0].data_type, &v)
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/writer/data_writer/tests/support.rs
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -211,12 +211,12 @@ pub(super) fn phase3_person_value(name: &str) -> UdtValue {
+         .with_field(
+             "phone_numbers".to_string(),
+             Some(Value::List(vec![Value::Frozen(Box::new(Value::Udt(
+-                phase3_phone_value(),
++                Box::new(phase3_phone_value()),
+             )))])),
+         )
+         .with_field(
+             "home_address".to_string(),
+-            Some(Value::Frozen(Box::new(Value::Udt(phase3_address_value())))),
++            Some(Value::Frozen(Box::new(Value::Udt(Box::new(phase3_address_value()))))),
+         )
+ }
+ 
+@@ -227,15 +227,15 @@ pub(super) fn phase3_company_value() -> UdtValue {
+         .with_field(
+             "employees".to_string(),
+             Some(Value::List(vec![Value::Frozen(Box::new(Value::Udt(
+-                person.clone(),
++                Box::new(person.clone()),
+             )))])),
+         )
+         .with_field(
+             "departments".to_string(),
+             Some(Value::Map(vec![(
+                 Value::Text("platform".to_string()),
+                 Value::Frozen(Box::new(Value::List(vec![Value::Frozen(Box::new(
+-                    Value::Udt(person),
++                    Value::Udt(Box::new(person)),
+                 ))]))),
+             )])),
+         )
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/writer/data_writer/udt_canon.rs
+STATUS: modified
+ADDITIONS: 12
+DELETIONS: 12
+
+PATCH:
+@@ -271,11 +271,11 @@ fn canonicalize_udt(user_type_marshal: &str, value: &Value) -> Result<Value> {
+         });
+     }
+ 
+-    Ok(Value::Udt(UdtValue {
++    Ok(Value::Udt(Box::new(UdtValue {
+         type_name: udt.type_name.clone(),
+         keyspace: udt.keyspace.clone(),
+         fields,
+-    }))
++    })))
+ }
+ 
+ fn canonicalize_seq(value: &Value, elem_marshal: &str, kind: SeqKind) -> Result<Value> {
+@@ -717,7 +717,7 @@ mod tests {
+     }
+ 
+     fn udt(fields: Vec<(&str, Option<Value>)>) -> Value {
+-        Value::Frozen(Box::new(Value::Udt(UdtValue {
++        Value::Frozen(Box::new(Value::Udt(Box::new(UdtValue {
+             type_name: "person".into(),
+             keyspace: KS.into(),
+             fields: fields
+@@ -727,7 +727,7 @@ mod tests {
+                     value,
+                 })
+                 .collect(),
+-        })))
++        }))))
+     }
+ 
+     fn declared_order(v: &Value) -> Vec<(String, Option<Value>)> {
+@@ -882,7 +882,7 @@ mod tests {
+              66697273745f6e616d65:{p}UTF8Type,6c6173745f6e616d65:{p}UTF8Type,616765:{p}Int32Type)))",
+             p = MARSHAL_PREFIX
+         );
+-        let person = Value::Udt(UdtValue {
++        let person = Value::Udt(Box::new(UdtValue {
+             type_name: "person".into(),
+             keyspace: KS.into(),
+             // out-of-order fields
+@@ -896,7 +896,7 @@ mod tests {
+                     value: Some(Value::Text("Grace".into())),
+                 },
+             ],
+-        });
++        }));
+         let v = Value::Frozen(Box::new(Value::Tuple(vec![Value::Integer(1), person])));
+         let canon = canonicalize_udt_value(&tuple_marshal, &v).unwrap();
+         let Value::Frozen(inner) = canon.as_ref() else {
+@@ -927,7 +927,7 @@ mod tests {
+              66697273745f6e616d65:{p}UTF8Type,6c6173745f6e616d65:{p}UTF8Type,616765:{p}Int32Type)))",
+             p = MARSHAL_PREFIX
+         );
+-        let element = Value::Udt(UdtValue {
++        let element = Value::Udt(Box::new(UdtValue {
+             type_name: "person".into(),
+             keyspace: KS.into(),
+             // out-of-order element fields
+@@ -941,7 +941,7 @@ mod tests {
+                     value: Some(Value::Text("Alan".into())),
+                 },
+             ],
+-        });
++        }));
+         let v = Value::Frozen(Box::new(Value::List(vec![element])));
+         let canon = canonicalize_udt_value(&list_marshal, &v).unwrap();
+         let Value::Frozen(inner) = canon.as_ref() else {
+@@ -1018,14 +1018,14 @@ mod tests {
+     }
+ 
+     fn person_value() -> Value {
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             type_name: "person".into(),
+             keyspace: KS.into(),
+             fields: vec![UdtField {
+                 name: "first_name".into(),
+                 value: Some(Value::Text("Ada".into())),
+             }],
+-        })
++        }))
+     }
+ 
+     #[test]
+@@ -1063,14 +1063,14 @@ mod tests {
+     }
+ 
+     fn named_person(first: &str) -> Value {
+-        Value::Udt(UdtValue {
++        Value::Udt(Box::new(UdtValue {
+             type_name: "person".into(),
+             keyspace: KS.into(),
+             fields: vec![UdtField {
+                 name: "first_name".into(),
+                 value: Some(Value::Text(first.into())),
+             }],
+-        })
++        }))
+     }
+ 
+     #[test]
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/sstable/writer/mod.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -1259,7 +1259,7 @@ mod tests {
+ 
+         let table_id = TableId::new("test_ks", "test_table");
+         let pk = PartitionKey::single("id", Value::Integer(1));
+-        let udt = Value::Udt(UdtValue {
++        let udt = Value::Udt(Box::new(UdtValue {
+             type_name: "person".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![
+@@ -1272,7 +1272,7 @@ mod tests {
+                     value: Some(Value::Integer(30)),
+                 },
+             ],
+-        });
++        }));
+         let mutation = Mutation::new(
+             table_id,
+             pk,
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/write_engine/cql_to_mutation/codec.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -353,11 +353,11 @@ fn udt_to_value(udt: &CqlUdtLiteral, target: &CqlType) -> Result<Value, Error> {
+                     value: Some(value),
+                 });
+             }
+-            Ok(Value::Udt(UdtValue {
++            Ok(Value::Udt(Box::new(UdtValue {
+                 type_name: type_name.clone(),
+                 keyspace: String::new(),
+                 fields,
+-            }))
++            })))
+         }
+         _ => Err(type_mismatch("udt", target)),
+     }
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/write_engine/memtable.rs
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 5
+
+PATCH:
+@@ -759,7 +759,7 @@ mod tests {
+                     value: Some(nested_value),
+                 }],
+             };
+-            nested_value = Value::Udt(udt);
++            nested_value = Value::Udt(Box::new(udt));
+         }
+ 
+         let size = Memtable::estimate_value_size(&nested_value);
+@@ -801,14 +801,14 @@ mod tests {
+                 1 => Value::Set(vec![nested_value]),
+                 2 => Value::Map(vec![(Value::Integer(i), nested_value)]),
+                 3 => Value::Tuple(vec![nested_value]),
+-                4 => Value::Udt(UdtValue {
++                4 => Value::Udt(Box::new(UdtValue {
+                     type_name: format!("type_{}", i),
+                     keyspace: "test_ks".to_string(),
+                     fields: vec![UdtField {
+                         name: "f".to_string(),
+                         value: Some(nested_value),
+                     }],
+-                }),
++                })),
+                 _ => unreachable!(),
+             };
+         }
+@@ -1011,7 +1011,7 @@ mod tests {
+         assert_eq!(Memtable::estimate_value_size(&map), usize::MAX);
+ 
+         // UDT enqueue site (field values).
+-        let udt = Value::Udt(UdtValue {
++        let udt = Value::Udt(Box::new(UdtValue {
+             type_name: "t".to_string(),
+             keyspace: "ks".to_string(),
+             fields: (0..over)
+@@ -1020,7 +1020,7 @@ mod tests {
+                     value: Some(Value::Integer(i as i32)),
+                 })
+                 .collect(),
+-        });
++        }));
+         assert_eq!(Memtable::estimate_value_size(&udt), usize::MAX);
+     }
+ 
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/write_engine/merge/mod.rs
+STATUS: modified
+ADDITIONS: 32
+DELETIONS: 32
+
+PATCH:
+@@ -835,7 +835,7 @@ impl SSTableRowIteratorAdapter {
+                     // so the writer reproduces it byte-for-byte).
+                     for elem in col.elements {
+                         let value = if elem.is_deleted {
+-                            Value::Tombstone(crate::types::TombstoneInfo {
++                            Value::Tombstone(Box::new(crate::types::TombstoneInfo {
+                                 deletion_time: elem.timestamp,
+                                 tombstone_type: crate::types::TombstoneType::CellTombstone,
+                                 // Element's on-disk localDeletionTime (GC clock,
+@@ -844,7 +844,7 @@ impl SSTableRowIteratorAdapter {
+                                 ttl: None,
+                                 range_start: None,
+                                 range_end: None,
+-                            })
++                            }))
+                         } else {
+                             elem.value.unwrap_or(Value::Null)
+                         };
+@@ -4345,14 +4345,14 @@ mod tests {
+             RowData::Live {
+                 cells: vec![CellData {
+                     column: "score".to_string(),
+-                    value: Value::Tombstone(TombstoneInfo {
++                    value: Value::Tombstone(Box::new(TombstoneInfo {
+                         deletion_time: 100,
+                         tombstone_type: TombstoneType::CellTombstone,
+                         local_deletion_time: 0,
+                         ttl: None,
+                         range_start: None,
+                         range_end: None,
+-                    }),
++                    })),
+                     timestamp: 100,
+                     ttl: None,
+                     cell_path: None,
+@@ -6913,14 +6913,14 @@ mod issue_823_complex_column_merge {
+     #[test]
+     fn nonfrozen_udt_collapses_whole_column_not_per_field() {
+         let mk_udt = |field: &str, v: &str| {
+-            Value::Udt(UdtValue {
++            Value::Udt(Box::new(UdtValue {
+                 type_name: "addr".to_string(),
+                 keyspace: "ks".to_string(),
+                 fields: vec![UdtField {
+                     name: field.to_string(),
+                     value: Some(Value::Text(v.to_string())),
+                 }],
+-            })
++            }))
+         };
+ 
+         // Newer run wrote field "city"; older run wrote field "zip".
+@@ -7055,14 +7055,14 @@ mod issue_823_complex_column_merge {
+             100,
+             vec![CellData {
+                 column: "tags".to_string(),
+-                value: Value::Tombstone(TombstoneInfo {
++                value: Value::Tombstone(Box::new(TombstoneInfo {
+                     deletion_time: 100,
+                     tombstone_type: TombstoneType::CellTombstone,
+                     local_deletion_time: 0,
+                     ttl: None,
+                     range_start: None,
+                     range_end: None,
+-                }),
++                })),
+                 timestamp: 100,
+                 ttl: None,
+                 cell_path: None,
+@@ -7119,14 +7119,14 @@ mod issue_823_complex_column_merge {
+     fn cell_tombstone(ts: i64, ldt: i32) -> CellData {
+         CellData {
+             column: "v".to_string(),
+-            value: Value::Tombstone(TombstoneInfo {
++            value: Value::Tombstone(Box::new(TombstoneInfo {
+                 deletion_time: ts,
+                 tombstone_type: TombstoneType::CellTombstone,
+                 local_deletion_time: ldt as i64,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            }),
++            })),
+             timestamp: ts,
+             ttl: None,
+             cell_path: None,
+@@ -8792,14 +8792,14 @@ mod issue_822_merge_ordering_semantics {
+                     ck_cell(),
+                     CellData {
+                         column: "v".to_string(),
+-                        value: Value::Tombstone(TombstoneInfo {
++                        value: Value::Tombstone(Box::new(TombstoneInfo {
+                             deletion_time: TS,
+                             tombstone_type: TombstoneType::CellTombstone,
+                             local_deletion_time: 0,
+                             ttl: None,
+                             range_start: None,
+                             range_end: None,
+-                        }),
++                        })),
+                         timestamp: TS,
+                         ttl: None,
+                         cell_path: None,
+@@ -8873,14 +8873,14 @@ mod issue_822_merge_ordering_semantics {
+                     ck_cell(),
+                     CellData {
+                         column: "v".to_string(),
+-                        value: Value::Tombstone(TombstoneInfo {
++                        value: Value::Tombstone(Box::new(TombstoneInfo {
+                             deletion_time: TS,
+                             tombstone_type: TombstoneType::CellTombstone,
+                             local_deletion_time: 0,
+                             ttl: None,
+                             range_start: None,
+                             range_end: None,
+-                        }),
++                        })),
+                         timestamp: TS,
+                         ttl: None,
+                         cell_path: None,
+@@ -9202,14 +9202,14 @@ mod issue_822_merge_ordering_semantics {
+     fn issue_3_merge_layer_tombstone_carries_no_ttl_precondition() {
+         let tomb = CellData {
+             column: "v".to_string(),
+-            value: Value::Tombstone(TombstoneInfo {
++            value: Value::Tombstone(Box::new(TombstoneInfo {
+                 deletion_time: 1,
+                 tombstone_type: TombstoneType::CellTombstone,
+                 local_deletion_time: 0,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            }),
++            })),
+             timestamp: 1,
+             ttl: None,
+             cell_path: None,
+@@ -10304,14 +10304,14 @@ mod issue_845_gc_grace_purge {
+     fn cell_tombstone(ts: i64, ldt: i32) -> CellData {
+         CellData {
+             column: "v".to_string(),
+-            value: Value::Tombstone(TombstoneInfo {
++            value: Value::Tombstone(Box::new(TombstoneInfo {
+                 deletion_time: ts,
+                 tombstone_type: TombstoneType::CellTombstone,
+                 local_deletion_time: ldt as i64,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            }),
++            })),
+             timestamp: ts,
+             ttl: None,
+             cell_path: None,
+@@ -11429,7 +11429,7 @@ mod issue_929_bare_udt_compaction {
+                 Some(&registry),
+             )
+             .expect("input writer");
+-        let udt = Value::Udt(UdtValue {
++        let udt = Value::Udt(Box::new(UdtValue {
+             type_name: "person".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![
+@@ -11442,7 +11442,7 @@ mod issue_929_bare_udt_compaction {
+                     value: Some(Value::Integer(30)),
+                 },
+             ],
+-        });
++        }));
+         let mutation = Mutation::new(
+             TableId::new("test_ks", "test_table"),
+             PartitionKey::single("id", Value::Integer(1)),
+@@ -11578,14 +11578,14 @@ mod issue_929_bare_udt_compaction {
+             1,
+         )
+         .expect("input writer");
+-        let udt = Value::Udt(UdtValue {
++        let udt = Value::Udt(Box::new(UdtValue {
+             type_name: "person".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![UdtField {
+                 name: "name".to_string(),
+                 value: Some(Value::Text("Bob".to_string())),
+             }],
+-        });
++        }));
+         let mutation = Mutation::new(
+             TableId::new("test_ks", "test_table"),
+             PartitionKey::single("id", Value::Integer(2)),
+@@ -11655,14 +11655,14 @@ mod issue_929_bare_udt_compaction {
+                 Some(&registry),
+             )
+             .expect("writer a");
+-        let udt = Value::Udt(UdtValue {
++        let udt = Value::Udt(Box::new(UdtValue {
+             type_name: "person".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![UdtField {
+                 name: "name".to_string(),
+                 value: Some(Value::Text("Carol".to_string())),
+             }],
+-        });
++        }));
+         let ma = Mutation::new(
+             TableId::new("test_ks", "test_table"),
+             PartitionKey::single("id", Value::Integer(1)),
+@@ -11782,14 +11782,14 @@ mod issue_929_bare_udt_compaction {
+                 Some(&registry),
+             )
+             .expect("writer a");
+-        let udt = Value::Udt(UdtValue {
++        let udt = Value::Udt(Box::new(UdtValue {
+             type_name: "person".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![UdtField {
+                 name: "name".to_string(),
+                 value: Some(Value::Text("Dave".to_string())),
+             }],
+-        });
++        }));
+         let ma = Mutation::new(
+             TableId::new("test_ks", "test_table"),
+             PartitionKey::single("id", Value::Integer(1)),
+@@ -11814,14 +11814,14 @@ mod issue_929_bare_udt_compaction {
+             1,
+         )
+         .expect("writer b");
+-        let udt_b = Value::Udt(UdtValue {
++        let udt_b = Value::Udt(Box::new(UdtValue {
+             type_name: "person".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![UdtField {
+                 name: "name".to_string(),
+                 value: Some(Value::Text("Eve".to_string())),
+             }],
+-        });
++        }));
+         let mb = Mutation::new(
+             TableId::new("test_ks", "test_table"),
+             PartitionKey::single("id", Value::Integer(2)),
+@@ -11922,21 +11922,21 @@ mod issue_929_bare_udt_compaction {
+         )
+         .expect("input writer");
+         // `addr` = outer{ i: inner{ x: 5 } }.
+-        let addr = Value::Udt(UdtValue {
++        let addr = Value::Udt(Box::new(UdtValue {
+             type_name: "outer".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![UdtField {
+                 name: "i".to_string(),
+-                value: Some(Value::Udt(UdtValue {
++                value: Some(Value::Udt(Box::new(UdtValue {
+                     type_name: "inner".to_string(),
+                     keyspace: "test_ks".to_string(),
+                     fields: vec![UdtField {
+                         name: "x".to_string(),
+                         value: Some(Value::Integer(5)),
+                     }],
+-                })),
++                }))),
+             }],
+-        });
++        }));
+         let mutation = Mutation::new(
+             TableId::new("test_ks", "test_table"),
+             PartitionKey::single("id", Value::Integer(1)),
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/storage/write_engine/merge/reconcile.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -447,14 +447,14 @@ impl ReconcileState {
+             // timestamp (unchanged). Step 3c then purges it exactly like any other
+             // cell tombstone once its LDT is < gcBefore and the overlap gate
+             // allows. `ttl` is cleared: a tombstone carries no TTL.
+-            cell.value = crate::types::Value::Tombstone(crate::types::TombstoneInfo {
++            cell.value = crate::types::Value::Tombstone(Box::new(crate::types::TombstoneInfo {
+                 deletion_time: cell.timestamp,
+                 tombstone_type: crate::types::TombstoneType::CellTombstone,
+                 local_deletion_time: tombstone_ldt,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            });
++            }));
+             cell.ttl = None;
+             // A complex ELEMENT additionally carries its deletion via the
+             // authoritative IS_DELETED flag (epic #899). Set it so the per-element
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/types.rs
+STATUS: modified
+ADDITIONS: 94
+DELETIONS: 26
+
+PATCH:
+@@ -58,8 +58,8 @@ pub enum Value {
+     Decimal { scale: i32, unscaled: Vec<u8> },
+     /// Duration value with months, days, and nanoseconds
+     Duration { months: i32, days: i32, nanos: i64 },
+-    /// JSON value
+-    Json(serde_json::Value),
++    /// JSON value (boxed: rare/large cold variant, kept off the hot inline path — #1583)
++    Json(Box<serde_json::Value>),
+     /// 8-bit signed integer (for exact Cassandra compatibility)
+     TinyInt(i8),
+     /// 16-bit signed integer (for exact Cassandra compatibility)
+@@ -74,26 +74,28 @@ pub enum Value {
+     Map(Vec<(Value, Value)>),
+     /// Tuple with fixed-size heterogeneous types
+     Tuple(Vec<Value>),
+-    /// User defined type with structured fields
+-    Udt(UdtValue),
++    /// User defined type with structured fields (boxed: rare/large cold variant — #1583)
++    Udt(Box<UdtValue>),
+     /// Frozen wrapper for collections (immutable)
+     Frozen(Box<Value>),
+-    /// Tombstone marker indicating deleted data
+-    Tombstone(TombstoneInfo),
++    /// Tombstone marker indicating deleted data (boxed: rare/large cold variant — #1583)
++    Tombstone(Box<TombstoneInfo>),
+     /// IP address (4 bytes for IPv4, 16 bytes for IPv6)
+     Inet(Vec<u8>),
+ }
+ 
+-// size_of::<Value>() layout pin (issue #1565, Epic A A4 ratchet). Measured 88
+-// bytes today; Epic E #1517 E1 shrinks the three inlined rare variants (Decimal,
+-// Duration, the widest inline payload) toward <= 40. If Value grows past this,
+-// the build fails — measure and tighten, do not just bump.
++// size_of::<Value>() layout pin (issue #1565, Epic A A4 ratchet; tightened by
++// Epic E #1583 / value-representation-v2 D1). The three fat cold variants
++// (`Tombstone`, `Udt`, `Json`) are boxed so every hot `Value` slot/clone stays
++// small. Measured 32 bytes after boxing (`Text(String)`/`Blob(Vec<u8>)` are the
++// 24-byte inline floor + tag). If Value grows past this ceiling the build fails
++// — measure and box the next-widest variant, do not just bump the pin.
+ //
+ // Epic H/H3 (issue #1616) deliberately does NOT duplicate this `Value` pin —
+ // the parser-side struct-size guards live next to their own types
+ // (ComparatorType, ParseStep, ScanCursor, and the BTI SizedPointer/Transition/
+ // PayloadRef). This assertion remains the single owner of the `Value` layout.
+-const _: () = assert!(std::mem::size_of::<Value>() <= 88);
++const _: () = assert!(std::mem::size_of::<Value>() <= 40);
+ 
+ /// Ordered interned cells of a single decoded row (issue #1334).
+ ///
+@@ -644,15 +646,15 @@ impl Value {
+         range_start: Option<RowKey>,
+         range_end: Option<RowKey>,
+     ) -> Self {
+-        Value::Tombstone(TombstoneInfo {
++        Value::Tombstone(Box::new(TombstoneInfo {
+             deletion_time,
+             tombstone_type,
+             // No GC-clock LDT is supplied by this constructor; default to 0.
+             local_deletion_time: 0,
+             ttl,
+             range_start,
+             range_end,
+-        })
++        }))
+     }
+ 
+     /// Create a row tombstone with the given timestamp
+@@ -1320,25 +1322,25 @@ impl DataType {
+             DataType::Blob => Value::Blob(Vec::new()),
+             DataType::Timestamp => Value::Timestamp(0),
+             DataType::Uuid => Value::Uuid([0; 16]),
+-            DataType::Json => Value::Json(serde_json::Value::Null),
++            DataType::Json => Value::Json(Box::new(serde_json::Value::Null)),
+             DataType::List => Value::List(Vec::new()),
+             DataType::Set => Value::Set(Vec::new()),
+             DataType::Map => Value::Map(Vec::new()),
+             DataType::Tuple => Value::Tuple(Vec::new()),
+-            DataType::Udt => Value::Udt(UdtValue {
++            DataType::Udt => Value::Udt(Box::new(UdtValue {
+                 type_name: String::new(),
+                 keyspace: String::new(),
+                 fields: Vec::new(),
+-            }),
++            })),
+             DataType::Frozen => Value::Frozen(Box::new(Value::Null)),
+-            DataType::Tombstone => Value::Tombstone(TombstoneInfo {
++            DataType::Tombstone => Value::Tombstone(Box::new(TombstoneInfo {
+                 deletion_time: 0,
+                 tombstone_type: TombstoneType::RowTombstone,
+                 local_deletion_time: 0,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            }),
++            })),
+         }
+     }
+ }
+@@ -1577,6 +1579,72 @@ impl std::hash::Hash for TombstoneInfo {
+ mod tests {
+     use super::*;
+ 
++    /// Value-representation-v2 D1 (issue #1583): the boxed layout keeps every hot
++    /// `Value` slot small. This runtime measurement mirrors the compile-time pin
++    /// in `types.rs` and fails on `main` (88 bytes) before the fat cold variants
++    /// (`Tombstone`, `Udt`, `Json`) are boxed.
++    #[test]
++    fn value_layout_is_bounded() {
++        let sz = std::mem::size_of::<Value>();
++        assert!(
++            sz <= 40,
++            "size_of::<Value>() = {sz}, expected <= 40 (box the next-widest variant)"
++        );
++        // The boxed fat variants must not re-inflate the enum: each carries a
++        // single pointer, so it can never be the layout maximum.
++        assert!(std::mem::size_of::<Box<TombstoneInfo>>() <= 8);
++        assert!(std::mem::size_of::<Box<UdtValue>>() <= 8);
++        assert!(std::mem::size_of::<Box<serde_json::Value>>() <= 8);
++    }
++
++    /// Value-representation-v2 D1 (issue #1583): boxing the fat cold variants is
++    /// representation-internal ONLY. `serde` serializes `Box<T>` transparently as
++    /// `T`, so the wire bytes, the round-trip, and `Display` are byte-identical to
++    /// the pre-boxing enum. This locks the spec scenario "Ordering and serde are
++    /// byte-identical".
++    #[test]
++    fn boxed_variants_preserve_serde_and_display() {
++        let udt = Value::Udt(Box::new(
++            UdtValue::new("Person".to_string(), "ks".to_string())
++                .with_field("name".to_string(), Some(Value::Text("Jo".to_string()))),
++        ));
++        let json = Value::Json(Box::new(serde_json::json!({"a": 1, "b": [true, null]})));
++        let tomb = Value::row_tombstone(1234);
++
++        for v in [&udt, &json, &tomb] {
++            // serde_json round-trip is lossless and preserves Display.
++            let s = serde_json::to_string(v).expect("serialize");
++            let back: Value = serde_json::from_str(&s).expect("deserialize");
++            assert_eq!(&back, v, "serde round-trip must be identity");
++            assert_eq!(back.to_string(), v.to_string(), "Display must be stable");
++        }
++
++        // bincode round-trip (the RowKey path) is lossless for the non-self-
++        // describing boxed variants. `Value::Json` is intentionally excluded: a
++        // `serde_json::Value` needs `deserialize_any` (a self-describing format),
++        // which bincode does not support — this is a pre-existing property of the
++        // inner type, unchanged by boxing.
++        for v in [&udt, &tomb] {
++            let b = bincode::serialize(v).expect("bincode serialize");
++            let back2: Value = bincode::deserialize(&b).expect("bincode deserialize");
++            assert_eq!(&back2, v);
++        }
++
++        // `serde` serializes `Box<T>` transparently, so the externally-tagged
++        // `Json` payload is byte-identical to the unboxed enum's: the inner JSON
++        // rides directly under the `Json` tag with no `Box` wrapper.
++        assert_eq!(
++            serde_json::to_string(&json).unwrap(),
++            "{\"Json\":{\"a\":1,\"b\":[true,null]}}"
++        );
++
++        // Ordering is unchanged: complex variants fall back to Display-string order,
++        // and a scalar still sorts against them exactly as before boxing.
++        let mut vals = vec![tomb.clone(), udt.clone(), json.clone(), Value::Integer(5)];
++        vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        assert_eq!(vals[0], Value::Integer(5));
++    }
++
+     #[test]
+     fn test_value_types() {
+         assert_eq!(Value::Integer(42).data_type(), CqlType::Int);
+@@ -1661,7 +1729,7 @@ mod tests {
+         assert_eq!(tuple.to_string(), "(42, 'hello', true)");
+ 
+         // Test UDT
+-        let udt = Value::Udt(UdtValue {
++        let udt = Value::Udt(Box::new(UdtValue {
+             type_name: "Person".to_string(),
+             keyspace: "test".to_string(),
+             fields: vec![
+@@ -1674,7 +1742,7 @@ mod tests {
+                     value: Some(Value::Integer(30)),
+                 },
+             ],
+-        });
++        }));
+         assert!(matches!(udt.data_type(), CqlType::Udt(_, _)));
+         assert!(udt.to_string().contains("Person{"));
+ 
+@@ -1699,7 +1767,7 @@ mod tests {
+         assert_eq!(DataType::Tuple.default_value(), Value::Tuple(Vec::new()));
+         assert_eq!(
+             DataType::Udt.default_value(),
+-            Value::Udt(UdtValue::new(String::new(), String::new()))
++            Value::Udt(Box::new(UdtValue::new(String::new(), String::new())))
+         );
+         assert_eq!(
+             DataType::Frozen.default_value(),
+@@ -1735,7 +1803,7 @@ mod tests {
+                 days: 30,
+                 nanos: 1000000000,
+             },
+-            Value::Json(serde_json::Value::String("test".to_string())),
++            Value::Json(Box::new(serde_json::Value::String("test".to_string()))),
+             Value::TinyInt(127i8),
+             Value::SmallInt(32767i16),
+             Value::Float32(std::f32::consts::PI),
+@@ -1746,16 +1814,16 @@ mod tests {
+             ]),
+             Value::Map(vec![(Value::Text("key".to_string()), Value::Integer(42))]),
+             Value::Tuple(vec![Value::Integer(1), Value::Text("test".to_string())]),
+-            Value::Udt(UdtValue::new("TestType".to_string(), "test_ks".to_string())),
++            Value::Udt(Box::new(UdtValue::new("TestType".to_string(), "test_ks".to_string()))),
+             Value::Frozen(Box::new(Value::Integer(42))),
+-            Value::Tombstone(TombstoneInfo {
++            Value::Tombstone(Box::new(TombstoneInfo {
+                 deletion_time: 1000,
+                 tombstone_type: TombstoneType::RowTombstone,
+                 local_deletion_time: 0,
+                 ttl: None,
+                 range_start: None,
+                 range_end: None,
+-            }),
++            })),
+         ];
+ 
+         // Test data_type() for all variants
+@@ -2121,7 +2189,7 @@ mod tests {
+             ],
+         };
+ 
+-        let data_type = Value::Udt(udt).data_type();
++        let data_type = Value::Udt(Box::new(udt)).data_type();
+ 
+         match data_type {
+             CqlType::Udt(name, fields) => {
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/src/util/value_fmt.rs
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -616,7 +616,7 @@ mod tests {
+ 
+     #[test]
+     fn test_udt() {
+-        let udt = Value::Udt(UdtValue {
++        let udt = Value::Udt(Box::new(UdtValue {
+             type_name: "person".to_string(),
+             keyspace: "test_ks".to_string(),
+             fields: vec![
+@@ -633,7 +633,7 @@ mod tests {
+                     value: None,
+                 },
+             ],
+-        });
++        }));
+         assert_eq!(
+             ValueFormatter::format_value(&udt),
+             "{name: Alice, age: 30, email: null}"
+@@ -683,10 +683,10 @@ mod tests {
+ 
+     #[test]
+     fn test_json() {
+-        let json = Value::Json(serde_json::json!({
++        let json = Value::Json(Box::new(serde_json::json!({
+             "name": "Alice",
+             "age": 30
+-        }));
++        })));
+         let formatted = ValueFormatter::format_value(&json);
+         assert!(formatted.contains("Alice"));
+         assert!(formatted.contains("30"));
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/contract_stability_tests.rs
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 3
+
+PATCH:
+@@ -287,10 +287,10 @@ fn contract_value_duration() {
+ 
+ #[test]
+ fn contract_value_json() {
+-    insta::assert_json_snapshot!(Value::Json(serde_json::json!({
++    insta::assert_json_snapshot!(Value::Json(Box::new(serde_json::json!({
+         "key": "value",
+         "number": 42
+-    })));
++    }))));
+ }
+ 
+ #[test]
+@@ -347,7 +347,7 @@ fn contract_value_udt() {
+     let udt = UdtValue::new("Person".to_string(), "test_keyspace".to_string())
+         .with_field("name".to_string(), Some(Value::Text("John".to_string())))
+         .with_field("age".to_string(), Some(Value::Integer(30)));
+-    insta::assert_json_snapshot!(Value::Udt(udt));
++    insta::assert_json_snapshot!(Value::Udt(Box::new(udt)));
+ }
+ 
+ #[test]
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/issue_1020_udt_frozen_compaction_byte_parity.rs
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 8
+
+PATCH:
+@@ -379,7 +379,7 @@ fn collections_schema() -> TableSchema {
+ // ── Value builders ───────────────────────────────────────────────────────────
+ 
+ fn person(first: Option<&str>, last: Option<&str>, age: Option<i32>) -> Value {
+-    Value::Frozen(Box::new(Value::Udt(UdtValue {
++    Value::Frozen(Box::new(Value::Udt(Box::new(UdtValue {
+         type_name: "person".into(),
+         keyspace: KEYSPACE.into(),
+         fields: vec![
+@@ -396,12 +396,12 @@ fn person(first: Option<&str>, last: Option<&str>, age: Option<i32>) -> Value {
+                 value: age.map(Value::Integer),
+             },
+         ],
+-    })))
++    }))))
+ }
+ 
+ /// A bare (non-Frozen-wrapped) person UDT for use as a collection ELEMENT.
+ fn person_inner(first: &str, last: &str, age: i32) -> Value {
+-    Value::Udt(UdtValue {
++    Value::Udt(Box::new(UdtValue {
+         type_name: "person".into(),
+         keyspace: KEYSPACE.into(),
+         fields: vec![
+@@ -418,11 +418,11 @@ fn person_inner(first: &str, last: &str, age: i32) -> Value {
+                 value: Some(Value::Integer(age)),
+             },
+         ],
+-    })
++    }))
+ }
+ 
+ fn address_inner(street: &str, city: Option<&str>, zip: &str) -> Value {
+-    Value::Udt(UdtValue {
++    Value::Udt(Box::new(UdtValue {
+         type_name: "address".into(),
+         keyspace: KEYSPACE.into(),
+         fields: vec![
+@@ -439,11 +439,11 @@ fn address_inner(street: &str, city: Option<&str>, zip: &str) -> Value {
+                 value: Some(Value::Text(zip.into())),
+             },
+         ],
+-    })
++    }))
+ }
+ 
+ fn employee(name: &str, home: Value, level: i32) -> Value {
+-    Value::Frozen(Box::new(Value::Udt(UdtValue {
++    Value::Frozen(Box::new(Value::Udt(Box::new(UdtValue {
+         type_name: "employee".into(),
+         keyspace: KEYSPACE.into(),
+         fields: vec![
+@@ -460,7 +460,7 @@ fn employee(name: &str, home: Value, level: i32) -> Value {
+                 value: Some(Value::Integer(level)),
+             },
+         ],
+-    })))
++    }))))
+ }
+ 
+ fn flist(ns: &[i32]) -> Value {
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/issue_1234_frozen_udt_compaction_dataloss.rs
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 6
+
+PATCH:
+@@ -88,7 +88,7 @@ fn registry() -> UdtRegistry {
+ // ── Value builders ──────────────────────────────────────────────────────────────
+ 
+ fn person_value(name: &str, age: i32) -> Value {
+-    Value::Udt(UdtValue {
++    Value::Udt(Box::new(UdtValue {
+         type_name: "person".to_string(),
+         keyspace: KS.to_string(),
+         fields: vec![
+@@ -101,11 +101,11 @@ fn person_value(name: &str, age: i32) -> Value {
+                 value: Some(Value::Integer(age)),
+             },
+         ],
+-    })
++    }))
+ }
+ 
+ fn address_value(street: &str, zip: i32) -> Value {
+-    Value::Udt(UdtValue {
++    Value::Udt(Box::new(UdtValue {
+         type_name: "address".to_string(),
+         keyspace: KS.to_string(),
+         fields: vec![
+@@ -118,11 +118,11 @@ fn address_value(street: &str, zip: i32) -> Value {
+                 value: Some(Value::Integer(zip)),
+             },
+         ],
+-    })
++    }))
+ }
+ 
+ fn employee_value(name: &str, street: &str, zip: i32) -> Value {
+-    Value::Udt(UdtValue {
++    Value::Udt(Box::new(UdtValue {
+         type_name: "employee".to_string(),
+         keyspace: KS.to_string(),
+         fields: vec![
+@@ -135,7 +135,7 @@ fn employee_value(name: &str, street: &str, zip: i32) -> Value {
+                 value: Some(address_value(street, zip)),
+             },
+         ],
+-    })
++    }))
+ }
+ 
+ // ── Schema builders ─────────────────────────────────────────────────────────────
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/issue_1240_nested_frozen_collection_udt_parity.rs
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 6
+
+PATCH:
+@@ -259,7 +259,7 @@ fn collections_schema() -> TableSchema {
+ // ── Value builders (must match the #1020 fixture inputs exactly) ──────────────
+ 
+ fn person_inner(first: &str, last: &str, age: i32) -> Value {
+-    Value::Udt(UdtValue {
++    Value::Udt(Box::new(UdtValue {
+         type_name: "person".into(),
+         keyspace: KEYSPACE.into(),
+         fields: vec![
+@@ -276,11 +276,11 @@ fn person_inner(first: &str, last: &str, age: i32) -> Value {
+                 value: Some(Value::Integer(age)),
+             },
+         ],
+-    })
++    }))
+ }
+ 
+ fn address_inner(street: &str, city: Option<&str>, zip: &str) -> Value {
+-    Value::Udt(UdtValue {
++    Value::Udt(Box::new(UdtValue {
+         type_name: "address".into(),
+         keyspace: KEYSPACE.into(),
+         fields: vec![
+@@ -297,7 +297,7 @@ fn address_inner(street: &str, city: Option<&str>, zip: &str) -> Value {
+                 value: Some(Value::Text(zip.into())),
+             },
+         ],
+-    })
++    }))
+ }
+ 
+ fn flist(ns: &[i32]) -> Value {
+@@ -524,7 +524,7 @@ fn null_inner_groups() -> (Vec<Mutation>, Vec<Mutation>) {
+ /// A `person` with a NULL `last_name` middle field (the absent-field encoding
+ /// under test on the winning side of the merge).
+ fn person_null_last(first: &str, age: i32) -> Value {
+-    Value::Udt(UdtValue {
++    Value::Udt(Box::new(UdtValue {
+         type_name: "person".into(),
+         keyspace: KEYSPACE.into(),
+         fields: vec![
+@@ -541,7 +541,7 @@ fn person_null_last(first: &str, age: i32) -> Value {
+                 value: Some(Value::Integer(age)),
+             },
+         ],
+-    })
++    }))
+ }
+ 
+ // ════════════════════════════════════════════════════════════════════════════
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/issue_1404_memtable_invariants.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -280,7 +280,7 @@ fn estimate_of(m: Mutation) -> usize {
+ 
+ #[test]
+ fn estimate_within_documented_factor_for_representative_corpus() {
+-    let udt = Value::Udt(UdtValue {
++    let udt = Value::Udt(Box::new(UdtValue {
+         type_name: "addr".to_string(),
+         keyspace: "ks_1404".to_string(),
+         fields: vec![
+@@ -293,7 +293,7 @@ fn estimate_within_documented_factor_for_representative_corpus() {
+                 value: Some(Value::Integer(94105)),
+             },
+         ],
+-    });
++    }));
+ 
+     // A corpus of representative mutations (text / blob / collections / UDT /
+     // tombstones). Each entry is (label, mutation).
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/issue_823_complex_column_merge.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -130,7 +130,7 @@ fn nonfrozen_udt_is_one_nested_cell_value() {
+     let row = RowData::Live {
+         cells: vec![CellData {
+             column: "address".to_string(),
+-            value: Value::Udt(UdtValue {
++            value: Value::Udt(Box::new(UdtValue {
+                 type_name: "addr".to_string(),
+                 keyspace: "ks".to_string(),
+                 fields: vec![
+@@ -143,7 +143,7 @@ fn nonfrozen_udt_is_one_nested_cell_value() {
+                         value: Some(Value::Text("94105".to_string())),
+                     },
+                 ],
+-            }),
++            })),
+             timestamp: 10,
+             ttl: None,
+             cell_path: None,
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/sstableloader_integration.rs
+STATUS: modified
+ADDITIONS: 33
+DELETIONS: 41
+
+PATCH:
+@@ -3614,57 +3614,49 @@ CREATE TABLE test_phase3.issue_434_complex_types (
+ }
+ 
+ fn issue_434_address_value(street: &str, city: &str) -> Value {
+-    Value::Udt(
+-        cqlite_core::types::UdtValue::new("address".to_string(), "test_phase3".to_string())
+-            .with_field("street".to_string(), Some(Value::Text(street.to_string())))
+-            .with_field("city".to_string(), Some(Value::Text(city.to_string()))),
+-    )
++    Value::Udt(Box::new(cqlite_core::types::UdtValue::new("address".to_string(), "test_phase3".to_string())
++        .with_field("street".to_string(), Some(Value::Text(street.to_string())))
++        .with_field("city".to_string(), Some(Value::Text(city.to_string())))))
+ }
+ 
+ fn issue_434_phone_value(label: &str, number: &str) -> Value {
+-    Value::Udt(
+-        cqlite_core::types::UdtValue::new("phone_number".to_string(), "test_phase3".to_string())
+-            .with_field("label".to_string(), Some(Value::Text(label.to_string())))
+-            .with_field("number".to_string(), Some(Value::Text(number.to_string()))),
+-    )
++    Value::Udt(Box::new(cqlite_core::types::UdtValue::new("phone_number".to_string(), "test_phase3".to_string())
++        .with_field("label".to_string(), Some(Value::Text(label.to_string())))
++        .with_field("number".to_string(), Some(Value::Text(number.to_string())))))
+ }
+ 
+ fn issue_434_person_value(name: &str) -> Value {
+-    Value::Udt(
+-        cqlite_core::types::UdtValue::new("person".to_string(), "test_phase3".to_string())
+-            .with_field("name".to_string(), Some(Value::Text(name.to_string())))
+-            .with_field(
+-                "phone_numbers".to_string(),
+-                Some(Value::List(vec![Value::Frozen(Box::new(
+-                    issue_434_phone_value("mobile", "+1-555-0101"),
+-                ))])),
+-            )
+-            .with_field(
+-                "home_address".to_string(),
+-                Some(Value::Frozen(Box::new(issue_434_address_value(
+-                    "Main St", "Seattle",
+-                )))),
+-            ),
+-    )
++    Value::Udt(Box::new(cqlite_core::types::UdtValue::new("person".to_string(), "test_phase3".to_string())
++        .with_field("name".to_string(), Some(Value::Text(name.to_string())))
++        .with_field(
++            "phone_numbers".to_string(),
++            Some(Value::List(vec![Value::Frozen(Box::new(
++                issue_434_phone_value("mobile", "+1-555-0101"),
++            ))])),
++        )
++        .with_field(
++            "home_address".to_string(),
++            Some(Value::Frozen(Box::new(issue_434_address_value(
++                "Main St", "Seattle",
++            )))),
++        )))
+ }
+ 
+ fn issue_434_company_value() -> Value {
+     let person = issue_434_person_value("Alice");
+-    Value::Udt(
+-        cqlite_core::types::UdtValue::new("company".to_string(), "test_phase3".to_string())
+-            .with_field("name".to_string(), Some(Value::Text("Acme".to_string())))
+-            .with_field(
+-                "employees".to_string(),
+-                Some(Value::List(vec![Value::Frozen(Box::new(person.clone()))])),
+-            )
+-            .with_field(
+-                "departments".to_string(),
+-                Some(Value::Map(vec![(
+-                    Value::Text("platform".to_string()),
+-                    Value::Frozen(Box::new(Value::List(vec![Value::Frozen(Box::new(person))]))),
+-                )])),
+-            ),
+-    )
++    Value::Udt(Box::new(cqlite_core::types::UdtValue::new("company".to_string(), "test_phase3".to_string())
++        .with_field("name".to_string(), Some(Value::Text("Acme".to_string())))
++        .with_field(
++            "employees".to_string(),
++            Some(Value::List(vec![Value::Frozen(Box::new(person.clone()))])),
++        )
++        .with_field(
++            "departments".to_string(),
++            Some(Value::Map(vec![(
++                Value::Text("platform".to_string()),
++                Value::Frozen(Box::new(Value::List(vec![Value::Frozen(Box::new(person))]))),
++            )])),
++        )))
+ }
+ 
+ fn issue_434_phase3_complex_mutation(id: &str, timestamp_micros: i64) -> Mutation {
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/type_invariant_tests.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -165,7 +165,7 @@ fn test_null_udt_field_returns_text() {
+         ],
+     };
+ 
+-    let data_type = Value::Udt(udt).data_type();
++    let data_type = Value::Udt(Box::new(udt)).data_type();
+ 
+     match data_type {
+         CqlType::Udt(name, fields) => {
+@@ -208,7 +208,7 @@ fn test_udt_with_values_preserves_types() {
+         ],
+     };
+ 
+-    let data_type = Value::Udt(udt).data_type();
++    let data_type = Value::Udt(Box::new(udt)).data_type();
+ 
+     match data_type {
+         CqlType::Udt(name, fields) => {
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/write_integration.rs
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -415,7 +415,7 @@ async fn test_udt_types() -> Result<()> {
+     let pk = PartitionKey::single("id", Value::Integer(1));
+     let ops = vec![CellOperation::Write {
+         column: "value".to_string(),
+-        value: Value::Udt(udt_value),
++        value: Value::Udt(Box::new(udt_value)),
+     }];
+ 
+     let mutation = Mutation::new(table_id, pk, None, ops, 1000000, None);
+
+----------------------------------------------------------------------------------------------------
+FILE: cqlite-core/tests/write_read_roundtrip/type_coverage.rs
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -1399,7 +1399,7 @@ async fn test_type_frozen_udt() {
+     udt_registry.register_udt(udt_def);
+ 
+     // Build a simple two-field UDT value.
+-    let inner_udt = Value::Udt(UdtValue {
++    let inner_udt = Value::Udt(Box::new(UdtValue {
+         type_name: "person".to_string(),
+         keyspace: "test_types".to_string(),
+         fields: vec![
+@@ -1412,7 +1412,7 @@ async fn test_type_frozen_udt() {
+                 value: Some(Value::Integer(30)),
+             },
+         ],
+-    });
++    }));
+     let original = Value::Frozen(Box::new(inner_udt.clone()));
+ 
+     let info = write_single_value(&temp_dir, &schema, "frozen_col", original.clone()).await;
+
+----------------------------------------------------------------------------------------------------
+FILE: tests/src/comparator_type_tests.rs
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -372,7 +372,7 @@ mod complex_type_tests {
+             field_comparators,
+         };
+ 
+-        let udt1 = Value::Udt(UdtValue {
++        let udt1 = Value::Udt(Box::new(UdtValue {
+             type_name: "Person".to_string(),
+             keyspace: "test".to_string(),
+             fields: vec![
+@@ -385,9 +385,9 @@ mod complex_type_tests {
+                     value: Some(Value::Integer(30)),
+                 },
+             ],
+-        });
++        }));
+ 
+-        let udt2 = Value::Udt(UdtValue {
++        let udt2 = Value::Udt(Box::new(UdtValue {
+             type_name: "Person".to_string(),
+             keyspace: "test".to_string(),
+             fields: vec![
+@@ -400,7 +400,7 @@ mod complex_type_tests {
+                     value: Some(Value::Integer(25)),
+                 },
+             ],
+-        });
++        }));
+ 
+         // Compare field by field in definition order
+         assert_eq!(
+
+----------------------------------------------------------------------------------------------------
+FILE: tests/src/integration_e2e.rs
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 3
+
+PATCH:
+@@ -103,7 +103,7 @@ async fn test_complete_workflow() -> Result<(), Box<dyn std::error::Error>> {
+         row_data.insert("age".to_string(), Value::Integer(age as i32));
+ 
+         // Store as JSON for simplicity in this test
+-        let row_value = Value::Json(serde_json::to_value(row_data)?);
++        let row_value = Value::Json(Box::new(serde_json::to_value(row_data)?));
+ 
+         storage.put(&table_id, key, row_value).await?;
+     }
+@@ -531,7 +531,7 @@ async fn test_large_dataset_processing() -> Result<(), Box<dyn std::error::Error
+                 }),
+             );
+ 
+-            let value = Value::Json(serde_json::to_value(row_data)?);
++            let value = Value::Json(Box::new(serde_json::to_value(row_data)?));
+             batch_ops.push((key, value));
+         }
+ 
+@@ -678,7 +678,7 @@ async fn test_concurrent_round_trip_operations() -> Result<(), Box<dyn std::erro
+                     ]),
+                 );
+ 
+-                let value = Value::Json(serde_json::to_value(row_data).unwrap());
++                let value = Value::Json(Box::new(serde_json::to_value(row_data).unwrap()));
+ 
+                 // Write operation
+                 if let Err(e) = storage_clone.put(&table_id_clone, key.clone(), value).await {
+
+----------------------------------------------------------------------------------------------------
+FILE: tests/src/performance_complex_types_benchmark.rs
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -664,7 +664,7 @@ impl ComplexTypePerformanceBenchmark {
+                     .with_field("id".to_string(), Some(Value::Integer(i as i32)))
+                     .with_field("name".to_string(), Some(Value::Text(format!("user_{}", i))))
+                     .with_field("active".to_string(), Some(Value::Boolean(true)));
+-                Value::Udt(udt_value)
++                Value::Udt(Box::new(udt_value))
+             })
+             .collect()
+     }
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

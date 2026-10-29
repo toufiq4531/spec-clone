@@ -1,0 +1,218 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 2/15
+Repository: derailed-dash/rickbot-adk
+PR: #41
+Tool: conductor
+Language: Python
+
+First specification commit position: 5
+First implementation commit position: 6
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: 33d2f8c971b5c3c1cf96c4ab0d5b7e44ecc41dc9
+
+COMMIT MESSAGE:
+chore(conductor): archive track 'containerize_ui_api_20260130'
+
+FILE: conductor/archive/containerize_ui_api_20260130/spec.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+[No commits in between]
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: 467a99d39737a6cdfa1ca07be79f697100850cc5
+
+COMMIT MESSAGE:
+feat(auth): Add Firestore seeding script and dependencies
+
+IMPLEMENTATION FILES:
+FILE: pyproject.toml
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -22,6 +22,7 @@ dependencies = [
+     "limits",
+     "slowapi>=0.1.9",
+     "google-genai",
++    "google-cloud-firestore>=2.23.0",
+ ]
+ 
+ requires-python = ">=3.12"
+
+----------------------------------------------------------------------------------------------------
+FILE: scripts/seed_firestore.py
+STATUS: added
+ADDITIONS: 55
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,55 @@
++import os
++import argparse
++from google.cloud import firestore
++import google.auth
++
++def seed_firestore(project_id):
++    db = firestore.Client(project=project_id)
++
++    # 1. Seed persona_tiers
++    # Standard: Rick, Yoda, Donald, Jack
++    # Supporter: Yasmin, Dazbo
++    persona_tiers = {
++        "rick": "standard",
++        "yoda": "standard",
++        "donald": "standard",
++        "jack": "standard",
++        "yasmin": "supporter",
++        "dazbo": "supporter"
++    }
++
++    print("Seeding persona_tiers collection...")
++    for persona_id, required_role in persona_tiers.items():
++        doc_ref = db.collection("persona_tiers").document(persona_id)
++        doc_ref.set({"required_role": required_role})
++        print(f"  Set {persona_id} -> {required_role}")
++
++    # 2. Seed users (for testing)
++    # We'll seed the current user as a supporter for testing
++    # In a real app, users would be created during signup/login
++    users = [
++        {"id": "derailed-dash", "role": "supporter"}, # GitHub handle from GEMINI.md
++        {"id": "test-standard-user", "role": "standard"}
++    ]
++
++    print("\nSeeding users collection...")
++    for user in users:
++        doc_ref = db.collection("users").document(user["id"])
++        doc_ref.set({"role": user["role"]})
++        print(f"  Set user {user['id']} -> {user['role']}")
++
++    print("\nFirestore seeding complete.")
++
++if __name__ == "__main__":
++    _, default_project_id = google.auth.default()
++    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", default_project_id)
++
++    parser = argparse.ArgumentParser(description="Seed Firestore with persona tiers and test users.")
++    parser.add_argument("--project", default=project_id, help="Google Cloud Project ID")
++    args = parser.parse_args()
++
++    if not args.project:
++        print("Error: GOOGLE_CLOUD_PROJECT environment variable not set and --project not provided.")
++        exit(1)
++
++    seed_firestore(args.project)
+\ No newline at end of file
+
+----------------------------------------------------------------------------------------------------
+FILE: uv.lock
+STATUS: modified
+ADDITIONS: 18
+DELETIONS: 0
+
+PATCH:
+@@ -1485,6 +1485,22 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/93/70/607f6011648f603d35e60a16c34aee68a0b39510e4268d4859f3268684f9/google_cloud_discoveryengine-0.13.12-py3-none-any.whl", hash = "sha256:295f8c6df3fb26b90fb82c2cd6fbcf4b477661addcb19a94eea16463a5c4e041", size = 3337248 },
+ ]
+ 
++[[package]]
++name = "google-cloud-firestore"
++version = "2.23.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "google-api-core", extra = ["grpc"] },
++    { name = "google-auth" },
++    { name = "google-cloud-core" },
++    { name = "proto-plus" },
++    { name = "protobuf" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/7c/9c/ec28ca4ec88fa89e41366316cf92c037feaa2c4200aa5d9da69fe011d2f6/google_cloud_firestore-2.23.0.tar.gz", hash = "sha256:a9cffba7cdc6101111d6d54cde22d521c98f9e7d415e67486b137fa16f06aa03", size = 615238 }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/6e/99/2a627c8ea7ae72a686dda8bf2b79747362b425c237d2729eb76bcee55a25/google_cloud_firestore-2.23.0-py3-none-any.whl", hash = "sha256:19f2326cb466b0d52aed9fabbd89758be431f6ce18c422966cfdb8326b424314", size = 411195 },
++]
++
+ [[package]]
+ name = "google-cloud-iam"
+ version = "2.21.0"
+@@ -4668,6 +4684,7 @@ dependencies = [
+     { name = "fastapi", extra = ["standard"] },
+     { name = "google-adk" },
+     { name = "google-cloud-aiplatform", extra = ["adk", "agent-engines", "evaluation"] },
++    { name = "google-cloud-firestore" },
+     { name = "google-cloud-logging" },
+     { name = "google-cloud-secret-manager" },
+     { name = "google-genai" },
+@@ -4719,6 +4736,7 @@ requires-dist = [
+     { name = "fastapi", extras = ["standard"] },
+     { name = "google-adk" },
+     { name = "google-cloud-aiplatform", extras = ["adk", "evaluation", "agent-engines"] },
++    { name = "google-cloud-firestore", specifier = ">=2.23.0" },
+     { name = "google-cloud-logging" },
+     { name = "google-cloud-secret-manager" },
+     { name = "google-genai" },
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

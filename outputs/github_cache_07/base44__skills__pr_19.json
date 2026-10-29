@@ -1,0 +1,1758 @@
+{
+  "repo_name": "base44/skills",
+  "pr_number": 19,
+  "pr_status": "ok",
+  "pr": {
+    "url": "https://api.github.com/repos/base44/skills/pulls/19",
+    "id": 3208011938,
+    "node_id": "PR_kwDOQ8ohGc6_NmCi",
+    "html_url": "https://github.com/base44/skills/pull/19",
+    "diff_url": "https://github.com/base44/skills/pull/19.diff",
+    "patch_url": "https://github.com/base44/skills/pull/19.patch",
+    "issue_url": "https://api.github.com/repos/base44/skills/issues/19",
+    "number": 19,
+    "state": "closed",
+    "locked": false,
+    "title": "Migrate commands to skills",
+    "user": {
+      "login": "ozsay",
+      "id": 3464930,
+      "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/ozsay",
+      "html_url": "https://github.com/ozsay",
+      "followers_url": "https://api.github.com/users/ozsay/followers",
+      "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+      "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+      "organizations_url": "https://api.github.com/users/ozsay/orgs",
+      "repos_url": "https://api.github.com/users/ozsay/repos",
+      "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/ozsay/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "This pull request primarily reorganizes and updates the skill review and synchronization documentation and scripts to improve clarity, maintain consistency, and support a new directory structure. The most significant changes include moving and renaming skill documentation files, updating reference paths for improved portability, enhancing the cache download script to better detect the project root, and removing outdated documentation.\r\n\r\n**Documentation and Structure Updates:**\r\n\r\n* Renamed and moved skill documentation files from `.cursor/commands/` to `.claude/skills/`, updating frontmatter and descriptions for `review-skills`, `sync-cli-skill`, and `sync-sdk-skill` to improve clarity and consistency. [[1]](diffhunk://#diff-82c644c9ab095f023b51eb15f42077ab0310667507d536109ea53f4100e303f1R1-R29) [[2]](diffhunk://#diff-795a2541e5c5ca38de8079123218cf524cdc0744ee4e0a19a77052898a713bbaR1-R6) [[3]](diffhunk://#diff-480f01e537e158b6d87efbf6f329c80eca12a5798f2ccce571224a2d8674c878R1-R6)\r\n* Updated all internal documentation and reference paths in `SKILL.md` files to use relative paths compatible with the new directory structure (e.g., switching from `.cursor/references/...` to `references/...` or `./references/...`). [[1]](diffhunk://#diff-82c644c9ab095f023b51eb15f42077ab0310667507d536109ea53f4100e303f1R1-R29) [[2]](diffhunk://#diff-82c644c9ab095f023b51eb15f42077ab0310667507d536109ea53f4100e303f1L51-R57) [[3]](diffhunk://#diff-82c644c9ab095f023b51eb15f42077ab0310667507d536109ea53f4100e303f1L78-R84)\r\n\r\n**Cache Download Script Improvements:**\r\n\r\n* Moved and updated the Anthropic skills cache download script, changing the default cache directory from `.cursor/cache/anthropics-skills` to `./.cache/anthropics-skills` and improving project root detection by checking for `.claude`, `.cursor`, or `.git` directories. [[1]](diffhunk://#diff-f6890ab097bf0706a48903577fdbaea13bac40b118a54501bd76be2fe2540624L6-R16) [[2]](diffhunk://#diff-f6890ab097bf0706a48903577fdbaea13bac40b118a54501bd76be2fe2540624L38-R40) [[3]](diffhunk://#diff-f6890ab097bf0706a48903577fdbaea13bac40b118a54501bd76be2fe2540624L69-R80)\r\n\r\n**Cleanup:**\r\n\r\n* Removed the obsolete `update-skills-cache.md` documentation, as its content is now covered in the updated skill review documentation and script usage.",
+    "created_at": "2026-01-25T08:19:37Z",
+    "updated_at": "2026-01-27T07:44:10Z",
+    "closed_at": "2026-01-25T08:19:45Z",
+    "merged_at": "2026-01-25T08:19:45Z",
+    "assignees": [],
+    "requested_reviewers": [],
+    "requested_teams": [],
+    "labels": [],
+    "milestone": null,
+    "draft": false,
+    "commits_url": "https://api.github.com/repos/base44/skills/pulls/19/commits",
+    "review_comments_url": "https://api.github.com/repos/base44/skills/pulls/19/comments",
+    "review_comment_url": "https://api.github.com/repos/base44/skills/pulls/comments{/number}",
+    "comments_url": "https://api.github.com/repos/base44/skills/issues/19/comments",
+    "statuses_url": "https://api.github.com/repos/base44/skills/statuses/e5dd746d13584faecb8e769812594916da822722",
+    "head": {
+      "label": "base44:migrate-commands-to-skills",
+      "ref": "migrate-commands-to-skills",
+      "sha": "e5dd746d13584faecb8e769812594916da822722",
+      "user": {
+        "login": "base44",
+        "id": 234699998,
+        "node_id": "O_kgDODf083g",
+        "avatar_url": "https://avatars.githubusercontent.com/u/234699998?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/base44",
+        "html_url": "https://github.com/base44",
+        "followers_url": "https://api.github.com/users/base44/followers",
+        "following_url": "https://api.github.com/users/base44/following{/other_user}",
+        "gists_url": "https://api.github.com/users/base44/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/base44/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/base44/subscriptions",
+        "organizations_url": "https://api.github.com/users/base44/orgs",
+        "repos_url": "https://api.github.com/users/base44/repos",
+        "events_url": "https://api.github.com/users/base44/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/base44/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "repo": {
+        "id": 1137320217,
+        "node_id": "R_kgDOQ8ohGQ",
+        "name": "skills",
+        "full_name": "base44/skills",
+        "private": false,
+        "owner": {
+          "login": "base44",
+          "id": 234699998,
+          "node_id": "O_kgDODf083g",
+          "avatar_url": "https://avatars.githubusercontent.com/u/234699998?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/base44",
+          "html_url": "https://github.com/base44",
+          "followers_url": "https://api.github.com/users/base44/followers",
+          "following_url": "https://api.github.com/users/base44/following{/other_user}",
+          "gists_url": "https://api.github.com/users/base44/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/base44/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/base44/subscriptions",
+          "organizations_url": "https://api.github.com/users/base44/orgs",
+          "repos_url": "https://api.github.com/users/base44/repos",
+          "events_url": "https://api.github.com/users/base44/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/base44/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/base44/skills",
+        "description": null,
+        "fork": false,
+        "url": "https://api.github.com/repos/base44/skills",
+        "forks_url": "https://api.github.com/repos/base44/skills/forks",
+        "keys_url": "https://api.github.com/repos/base44/skills/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/base44/skills/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/base44/skills/teams",
+        "hooks_url": "https://api.github.com/repos/base44/skills/hooks",
+        "issue_events_url": "https://api.github.com/repos/base44/skills/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/base44/skills/events",
+        "assignees_url": "https://api.github.com/repos/base44/skills/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/base44/skills/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/base44/skills/tags",
+        "blobs_url": "https://api.github.com/repos/base44/skills/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/base44/skills/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/base44/skills/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/base44/skills/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/base44/skills/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/base44/skills/languages",
+        "stargazers_url": "https://api.github.com/repos/base44/skills/stargazers",
+        "contributors_url": "https://api.github.com/repos/base44/skills/contributors",
+        "subscribers_url": "https://api.github.com/repos/base44/skills/subscribers",
+        "subscription_url": "https://api.github.com/repos/base44/skills/subscription",
+        "commits_url": "https://api.github.com/repos/base44/skills/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/base44/skills/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/base44/skills/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/base44/skills/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/base44/skills/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/base44/skills/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/base44/skills/merges",
+        "archive_url": "https://api.github.com/repos/base44/skills/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/base44/skills/downloads",
+        "issues_url": "https://api.github.com/repos/base44/skills/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/base44/skills/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/base44/skills/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/base44/skills/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/base44/skills/labels{/name}",
+        "releases_url": "https://api.github.com/repos/base44/skills/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/base44/skills/deployments",
+        "created_at": "2026-01-19T08:07:41Z",
+        "updated_at": "2026-10-08T08:16:48Z",
+        "pushed_at": "2026-10-08T08:16:46Z",
+        "git_url": "git://github.com/base44/skills.git",
+        "ssh_url": "git@github.com:base44/skills.git",
+        "clone_url": "https://github.com/base44/skills.git",
+        "svn_url": "https://github.com/base44/skills",
+        "homepage": null,
+        "size": 621,
+        "stargazers_count": 90,
+        "watchers_count": 90,
+        "language": "Python",
+        "has_issues": true,
+        "has_projects": true,
+        "has_wiki": true,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 17,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 25,
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 17,
+        "open_issues": 25,
+        "watchers": 90,
+        "default_branch": "main"
+      }
+    },
+    "base": {
+      "label": "base44:main",
+      "ref": "main",
+      "sha": "2b7c0d675a3b41e522ea43cc128164ac7588b96f",
+      "user": {
+        "login": "base44",
+        "id": 234699998,
+        "node_id": "O_kgDODf083g",
+        "avatar_url": "https://avatars.githubusercontent.com/u/234699998?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/base44",
+        "html_url": "https://github.com/base44",
+        "followers_url": "https://api.github.com/users/base44/followers",
+        "following_url": "https://api.github.com/users/base44/following{/other_user}",
+        "gists_url": "https://api.github.com/users/base44/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/base44/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/base44/subscriptions",
+        "organizations_url": "https://api.github.com/users/base44/orgs",
+        "repos_url": "https://api.github.com/users/base44/repos",
+        "events_url": "https://api.github.com/users/base44/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/base44/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "repo": {
+        "id": 1137320217,
+        "node_id": "R_kgDOQ8ohGQ",
+        "name": "skills",
+        "full_name": "base44/skills",
+        "private": false,
+        "owner": {
+          "login": "base44",
+          "id": 234699998,
+          "node_id": "O_kgDODf083g",
+          "avatar_url": "https://avatars.githubusercontent.com/u/234699998?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/base44",
+          "html_url": "https://github.com/base44",
+          "followers_url": "https://api.github.com/users/base44/followers",
+          "following_url": "https://api.github.com/users/base44/following{/other_user}",
+          "gists_url": "https://api.github.com/users/base44/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/base44/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/base44/subscriptions",
+          "organizations_url": "https://api.github.com/users/base44/orgs",
+          "repos_url": "https://api.github.com/users/base44/repos",
+          "events_url": "https://api.github.com/users/base44/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/base44/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/base44/skills",
+        "description": null,
+        "fork": false,
+        "url": "https://api.github.com/repos/base44/skills",
+        "forks_url": "https://api.github.com/repos/base44/skills/forks",
+        "keys_url": "https://api.github.com/repos/base44/skills/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/base44/skills/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/base44/skills/teams",
+        "hooks_url": "https://api.github.com/repos/base44/skills/hooks",
+        "issue_events_url": "https://api.github.com/repos/base44/skills/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/base44/skills/events",
+        "assignees_url": "https://api.github.com/repos/base44/skills/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/base44/skills/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/base44/skills/tags",
+        "blobs_url": "https://api.github.com/repos/base44/skills/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/base44/skills/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/base44/skills/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/base44/skills/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/base44/skills/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/base44/skills/languages",
+        "stargazers_url": "https://api.github.com/repos/base44/skills/stargazers",
+        "contributors_url": "https://api.github.com/repos/base44/skills/contributors",
+        "subscribers_url": "https://api.github.com/repos/base44/skills/subscribers",
+        "subscription_url": "https://api.github.com/repos/base44/skills/subscription",
+        "commits_url": "https://api.github.com/repos/base44/skills/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/base44/skills/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/base44/skills/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/base44/skills/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/base44/skills/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/base44/skills/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/base44/skills/merges",
+        "archive_url": "https://api.github.com/repos/base44/skills/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/base44/skills/downloads",
+        "issues_url": "https://api.github.com/repos/base44/skills/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/base44/skills/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/base44/skills/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/base44/skills/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/base44/skills/labels{/name}",
+        "releases_url": "https://api.github.com/repos/base44/skills/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/base44/skills/deployments",
+        "created_at": "2026-01-19T08:07:41Z",
+        "updated_at": "2026-10-08T08:16:48Z",
+        "pushed_at": "2026-10-08T08:16:46Z",
+        "git_url": "git://github.com/base44/skills.git",
+        "ssh_url": "git@github.com:base44/skills.git",
+        "clone_url": "https://github.com/base44/skills.git",
+        "svn_url": "https://github.com/base44/skills",
+        "homepage": null,
+        "size": 621,
+        "stargazers_count": 90,
+        "watchers_count": 90,
+        "language": "Python",
+        "has_issues": true,
+        "has_projects": true,
+        "has_wiki": true,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 17,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 25,
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 17,
+        "open_issues": 25,
+        "watchers": 90,
+        "default_branch": "main"
+      }
+    },
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/base44/skills/pulls/19"
+      },
+      "html": {
+        "href": "https://github.com/base44/skills/pull/19"
+      },
+      "issue": {
+        "href": "https://api.github.com/repos/base44/skills/issues/19"
+      },
+      "comments": {
+        "href": "https://api.github.com/repos/base44/skills/issues/19/comments"
+      },
+      "review_comments": {
+        "href": "https://api.github.com/repos/base44/skills/pulls/19/comments"
+      },
+      "review_comment": {
+        "href": "https://api.github.com/repos/base44/skills/pulls/comments{/number}"
+      },
+      "commits": {
+        "href": "https://api.github.com/repos/base44/skills/pulls/19/commits"
+      },
+      "statuses": {
+        "href": "https://api.github.com/repos/base44/skills/statuses/e5dd746d13584faecb8e769812594916da822722"
+      }
+    },
+    "author_association": "COLLABORATOR",
+    "auto_merge": null,
+    "active_lock_reason": null,
+    "merged": true,
+    "mergeable": null,
+    "rebaseable": null,
+    "mergeable_state": "unknown",
+    "merged_by": {
+      "login": "ozsay",
+      "id": 3464930,
+      "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/ozsay",
+      "html_url": "https://github.com/ozsay",
+      "followers_url": "https://api.github.com/users/ozsay/followers",
+      "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+      "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+      "organizations_url": "https://api.github.com/users/ozsay/orgs",
+      "repos_url": "https://api.github.com/users/ozsay/repos",
+      "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/ozsay/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "comments": 0,
+    "review_comments": 0,
+    "maintainer_can_modify": false,
+    "commits": 5,
+    "additions": 42,
+    "deletions": 53,
+    "changed_files": 15
+  },
+  "commits_status": "ok",
+  "commits": [
+    {
+      "sha": "4bfbba31d8d83dd39e5ab1500561b982505714f8",
+      "node_id": "C_kwDOQ8ohGdoAKDRiZmJiYTMxZDhkODNkZDM5ZTVhYjE1MDA1NjFiOTgyNTA1NzE0Zjg",
+      "commit": {
+        "author": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:04:46Z"
+        },
+        "committer": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:04:46Z"
+        },
+        "message": "migration",
+        "tree": {
+          "sha": "3686939cfe822e97f3c3f827f1f596e600e687b3",
+          "url": "https://api.github.com/repos/base44/skills/git/trees/3686939cfe822e97f3c3f827f1f596e600e687b3"
+        },
+        "url": "https://api.github.com/repos/base44/skills/git/commits/4bfbba31d8d83dd39e5ab1500561b982505714f8",
+        "comment_count": 0,
+        "verification": {
+          "verified": true,
+          "reason": "valid",
+          "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXOnwAKCRC6zByxtckS\nA5puAQCQiQQbHUmea+MM8X7NpCNeuROFv7EJ/RtdXN1jwi6pLgD/euow8dbT+OvE\nROBNtTF75ufwSkVcktMSASF5mAF5CQs=\n=trsw\n-----END PGP SIGNATURE-----",
+          "payload": "tree 3686939cfe822e97f3c3f827f1f596e600e687b3\nparent 2b7c0d675a3b41e522ea43cc128164ac7588b96f\nauthor Oz Sayag <ozs@wix.com> 1769328286 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769328286 +0200\n\nmigration\n",
+          "verified_at": "2026-01-25T08:19:08Z"
+        }
+      },
+      "url": "https://api.github.com/repos/base44/skills/commits/4bfbba31d8d83dd39e5ab1500561b982505714f8",
+      "html_url": "https://github.com/base44/skills/commit/4bfbba31d8d83dd39e5ab1500561b982505714f8",
+      "comments_url": "https://api.github.com/repos/base44/skills/commits/4bfbba31d8d83dd39e5ab1500561b982505714f8/comments",
+      "author": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "2b7c0d675a3b41e522ea43cc128164ac7588b96f",
+          "url": "https://api.github.com/repos/base44/skills/commits/2b7c0d675a3b41e522ea43cc128164ac7588b96f",
+          "html_url": "https://github.com/base44/skills/commit/2b7c0d675a3b41e522ea43cc128164ac7588b96f"
+        }
+      ]
+    },
+    {
+      "sha": "86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+      "node_id": "C_kwDOQ8ohGdoAKDg2ZmVhN2VjNmEwZjc1NmE5ZTY2YzZmNzM3NTM0MGVmOWMwZTBkYTI",
+      "commit": {
+        "author": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:11:14Z"
+        },
+        "committer": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:11:14Z"
+        },
+        "message": "support claude code",
+        "tree": {
+          "sha": "05dc0d54382b8791ce06292454dbcef414451d99",
+          "url": "https://api.github.com/repos/base44/skills/git/trees/05dc0d54382b8791ce06292454dbcef414451d99"
+        },
+        "url": "https://api.github.com/repos/base44/skills/git/commits/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+        "comment_count": 0,
+        "verification": {
+          "verified": true,
+          "reason": "valid",
+          "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXQIgAKCRC6zByxtckS\nAyEUAQCglVgmJ9taJxSPUHAGZjNPrO/m8AYUYKr0rX+sd+dk5AD/ZD8pUbyVUxOs\ndUma/xd3GR9dDDmnsxWtOdW/wFXCNAE=\n=Rs5U\n-----END PGP SIGNATURE-----",
+          "payload": "tree 05dc0d54382b8791ce06292454dbcef414451d99\nparent 4bfbba31d8d83dd39e5ab1500561b982505714f8\nauthor Oz Sayag <ozs@wix.com> 1769328674 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769328674 +0200\n\nsupport claude code\n",
+          "verified_at": "2026-01-25T08:19:08Z"
+        }
+      },
+      "url": "https://api.github.com/repos/base44/skills/commits/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+      "html_url": "https://github.com/base44/skills/commit/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+      "comments_url": "https://api.github.com/repos/base44/skills/commits/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/comments",
+      "author": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "4bfbba31d8d83dd39e5ab1500561b982505714f8",
+          "url": "https://api.github.com/repos/base44/skills/commits/4bfbba31d8d83dd39e5ab1500561b982505714f8",
+          "html_url": "https://github.com/base44/skills/commit/4bfbba31d8d83dd39e5ab1500561b982505714f8"
+        }
+      ]
+    },
+    {
+      "sha": "f58ba815d5d8686039f60ecdf702a4472af5d51d",
+      "node_id": "C_kwDOQ8ohGdoAKGY1OGJhODE1ZDVkODY4NjAzOWY2MGVjZGY3MDJhNDQ3MmFmNWQ1MWQ",
+      "commit": {
+        "author": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:12:06Z"
+        },
+        "committer": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:12:06Z"
+        },
+        "message": "migrate reference to skill",
+        "tree": {
+          "sha": "159ab3409b0ee19bc3578c7b9f55d32f4da083ee",
+          "url": "https://api.github.com/repos/base44/skills/git/trees/159ab3409b0ee19bc3578c7b9f55d32f4da083ee"
+        },
+        "url": "https://api.github.com/repos/base44/skills/git/commits/f58ba815d5d8686039f60ecdf702a4472af5d51d",
+        "comment_count": 0,
+        "verification": {
+          "verified": true,
+          "reason": "valid",
+          "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXQVgAKCRC6zByxtckS\nA/VhAQCcKo7dbNMjKVlrU2Y2lOx2rbzf1QwE8xIKfjUCxELfKgD6A0ip2Kq68Vh4\nwgZULY0kxbc69NVsRarPNu4ee4CMhwg=\n=QElj\n-----END PGP SIGNATURE-----",
+          "payload": "tree 159ab3409b0ee19bc3578c7b9f55d32f4da083ee\nparent 86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2\nauthor Oz Sayag <ozs@wix.com> 1769328726 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769328726 +0200\n\nmigrate reference to skill\n",
+          "verified_at": "2026-01-25T08:19:08Z"
+        }
+      },
+      "url": "https://api.github.com/repos/base44/skills/commits/f58ba815d5d8686039f60ecdf702a4472af5d51d",
+      "html_url": "https://github.com/base44/skills/commit/f58ba815d5d8686039f60ecdf702a4472af5d51d",
+      "comments_url": "https://api.github.com/repos/base44/skills/commits/f58ba815d5d8686039f60ecdf702a4472af5d51d/comments",
+      "author": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+          "url": "https://api.github.com/repos/base44/skills/commits/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+          "html_url": "https://github.com/base44/skills/commit/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2"
+        }
+      ]
+    },
+    {
+      "sha": "04448e2dc48829d82bf26274378ab55e276c4497",
+      "node_id": "C_kwDOQ8ohGdoAKDA0NDQ4ZTJkYzQ4ODI5ZDgyYmYyNjI3NDM3OGFiNTVlMjc2YzQ0OTc",
+      "commit": {
+        "author": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:16:38Z"
+        },
+        "committer": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:16:38Z"
+        },
+        "message": "fix ignored files",
+        "tree": {
+          "sha": "2cf6dfa4157cf33a8366cfc35261d32cc2d532df",
+          "url": "https://api.github.com/repos/base44/skills/git/trees/2cf6dfa4157cf33a8366cfc35261d32cc2d532df"
+        },
+        "url": "https://api.github.com/repos/base44/skills/git/commits/04448e2dc48829d82bf26274378ab55e276c4497",
+        "comment_count": 0,
+        "verification": {
+          "verified": true,
+          "reason": "valid",
+          "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXRZgAKCRC6zByxtckS\nAwKhAP9uBQ23+C+6W45tVlCoyhWQjEPobt8ZoB4AAvtVcAz9nAD7BuUUJH4PTK5J\nHXLTY0SltMBzdu2gYE1dkkW4dZ2fWQ8=\n=iGTC\n-----END PGP SIGNATURE-----",
+          "payload": "tree 2cf6dfa4157cf33a8366cfc35261d32cc2d532df\nparent f58ba815d5d8686039f60ecdf702a4472af5d51d\nauthor Oz Sayag <ozs@wix.com> 1769328998 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769328998 +0200\n\nfix ignored files\n",
+          "verified_at": "2026-01-25T08:19:08Z"
+        }
+      },
+      "url": "https://api.github.com/repos/base44/skills/commits/04448e2dc48829d82bf26274378ab55e276c4497",
+      "html_url": "https://github.com/base44/skills/commit/04448e2dc48829d82bf26274378ab55e276c4497",
+      "comments_url": "https://api.github.com/repos/base44/skills/commits/04448e2dc48829d82bf26274378ab55e276c4497/comments",
+      "author": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "f58ba815d5d8686039f60ecdf702a4472af5d51d",
+          "url": "https://api.github.com/repos/base44/skills/commits/f58ba815d5d8686039f60ecdf702a4472af5d51d",
+          "html_url": "https://github.com/base44/skills/commit/f58ba815d5d8686039f60ecdf702a4472af5d51d"
+        }
+      ]
+    },
+    {
+      "sha": "e5dd746d13584faecb8e769812594916da822722",
+      "node_id": "C_kwDOQ8ohGdoAKGU1ZGQ3NDZkMTM1ODRmYWVjYjhlNzY5ODEyNTk0OTE2ZGE4MjI3MjI",
+      "commit": {
+        "author": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:18:27Z"
+        },
+        "committer": {
+          "name": "Oz Sayag",
+          "email": "ozs@wix.com",
+          "date": "2026-01-25T08:18:27Z"
+        },
+        "message": "update cache dir reference",
+        "tree": {
+          "sha": "87d7e5882586ee3f8e544bcbfe13a30913e85068",
+          "url": "https://api.github.com/repos/base44/skills/git/trees/87d7e5882586ee3f8e544bcbfe13a30913e85068"
+        },
+        "url": "https://api.github.com/repos/base44/skills/git/commits/e5dd746d13584faecb8e769812594916da822722",
+        "comment_count": 0,
+        "verification": {
+          "verified": true,
+          "reason": "valid",
+          "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXR0wAKCRC6zByxtckS\nA6p0AQC+j/xGtrigTAyoFfrtzDaE3WSFqJc14RvWHbTvNkOsxAEAxP+cUQYgBswD\n41XjC4+1OsPGAJX1QVf81mq//+kC9QU=\n=ebY9\n-----END PGP SIGNATURE-----",
+          "payload": "tree 87d7e5882586ee3f8e544bcbfe13a30913e85068\nparent 04448e2dc48829d82bf26274378ab55e276c4497\nauthor Oz Sayag <ozs@wix.com> 1769329107 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769329107 +0200\n\nupdate cache dir reference\n",
+          "verified_at": "2026-01-25T08:19:08Z"
+        }
+      },
+      "url": "https://api.github.com/repos/base44/skills/commits/e5dd746d13584faecb8e769812594916da822722",
+      "html_url": "https://github.com/base44/skills/commit/e5dd746d13584faecb8e769812594916da822722",
+      "comments_url": "https://api.github.com/repos/base44/skills/commits/e5dd746d13584faecb8e769812594916da822722/comments",
+      "author": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "ozsay",
+        "id": 3464930,
+        "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ozsay",
+        "html_url": "https://github.com/ozsay",
+        "followers_url": "https://api.github.com/users/ozsay/followers",
+        "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+        "organizations_url": "https://api.github.com/users/ozsay/orgs",
+        "repos_url": "https://api.github.com/users/ozsay/repos",
+        "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ozsay/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "04448e2dc48829d82bf26274378ab55e276c4497",
+          "url": "https://api.github.com/repos/base44/skills/commits/04448e2dc48829d82bf26274378ab55e276c4497",
+          "html_url": "https://github.com/base44/skills/commit/04448e2dc48829d82bf26274378ab55e276c4497"
+        }
+      ]
+    }
+  ],
+  "files_status": "ok",
+  "pr_files": [
+    {
+      "sha": "1a76b8cef25c8be605f70e93356290f25656cfd8",
+      "filename": ".claude/skills/review-skills/SKILL.md",
+      "status": "renamed",
+      "additions": 15,
+      "deletions": 9,
+      "changes": 24,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2FSKILL.md",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2FSKILL.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2FSKILL.md?ref=e5dd746d13584faecb8e769812594916da822722",
+      "patch": "@@ -1,26 +1,32 @@\n+---\n+name: review-skills\n+description: Review and analyze a skill against best practices for length, intent scope, and trigger patterns\n+disable-model-invocation: true\n+---\n+\n # Review Skills\n \n Review and analyze a skill against best practices for length, intent scope, and trigger patterns.\n \n ## Prerequisites\n \n Before analyzing, read these resources to understand skill writing principles:\n-1. `.cursor/references/skill-creator/SKILL.md` - Core principles, anatomy, and progressive disclosure\n-2. `.cursor/references/spec.md` - **Complete Agent Skills specification** (required for compliance checks)\n-3. `.cursor/references/validate.md` - **Validation checklist** (used in Step 2)\n-4. `.cursor/references/skill-creator/references/workflows.md` - Workflow patterns (if relevant)\n-5. `.cursor/references/skill-creator/references/output-patterns.md` - Output patterns (if relevant)\n+1. `./references/skill-creator/SKILL.md` - Core principles, anatomy, and progressive disclosure\n+2. `references/spec.md` - **Complete Agent Skills specification** (required for compliance checks)\n+3. `references/validate.md` - **Validation checklist** (used in Step 2)\n+4. `./references/skill-creator/references/workflows.md` - Workflow patterns (if relevant)\n+5. `./references/skill-creator/references/output-patterns.md` - Output patterns (if relevant)\n \n ### Reference Examples from Anthropic (REQUIRED)\n \n You MUST read reference skills from Anthropic's repository before analyzing. This is essential for calibrating your review.\n \n-1. **Ensure cache is available**: Check if `.cursor/cache/anthropics-skills/` exists. If not (or if stale), run:\n+1. **Ensure cache is available**: Check if `./.cache/anthropics-skills/` exists. If not (or if stale), run:\n    ```bash\n    python scripts/download_anthropics_skills.py\n    ```\n \n-2. **Read at least 3 reference skills**: Before analyzing, read these SKILL.md files from `.cursor/cache/anthropics-skills/skills/`:\n+2. **Read at least 3 reference skills**: Before analyzing, read these SKILL.md files from `./.cache/anthropics-skills/skills/`:\n \n    **Always read these high-quality examples:**\n    - `pdf/SKILL.md` - Well-structured workflow skill with clear triggers\n@@ -48,7 +54,7 @@ The user must provide a skill folder/path to review. If not provided, prompt:\n \n ### Step 2: Validate Skill Structure\n \n-Using the validation checklist (`.cursor/references/validate.md`), verify the skill passes all basic checks:\n+Using the validation checklist (`references/validate.md`), verify the skill passes all basic checks:\n \n 1. **File Structure**: SKILL.md exists\n 2. **Frontmatter Format**: Valid YAML between `---` delimiters\n@@ -75,7 +81,7 @@ Read the complete skill structure:\n \n ### Step 4: Verify Spec Compliance\n \n-Check that the skill follows the Agent Skills specification (`.cursor/references/spec.md`). Verify:\n+Check that the skill follows the Agent Skills specification (`references/spec.md`). Verify:\n \n #### Directory Structure\n - Skill is in a directory matching the `name` field",
+      "previous_filename": ".cursor/commands/review-skills.md"
+    },
+    {
+      "sha": "bebbc7960c148f907bc5ba97270233dfad182a89",
+      "filename": ".claude/skills/review-skills/references/spec.md",
+      "status": "renamed",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2Freferences%2Fspec.md",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2Freferences%2Fspec.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2Freferences%2Fspec.md?ref=e5dd746d13584faecb8e769812594916da822722",
+      "patch": "@@ -252,4 +252,4 @@ This checks that your `SKILL.md` frontmatter is valid and follows all naming con\n \n ---\n \n-> To find navigation and other pages in this documentation, fetch the llms.txt file at: https://agentskills.io/llms.txt\n\\ No newline at end of file\n+> To find navigation and other pages in this documentation, fetch the llms.txt file at: https://agentskills.io/llms.txt",
+      "previous_filename": ".cursor/references/spec.md"
+    },
+    {
+      "sha": "25b9121a1cdacdb2d4e5ad57be874f0d38986ca9",
+      "filename": ".claude/skills/review-skills/references/validate.md",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md?ref=e5dd746d13584faecb8e769812594916da822722",
+      "previous_filename": ".cursor/references/validate.md"
+    },
+    {
+      "sha": "c3c9b81b0098389ecf3dd9938b37996c7efe74c4",
+      "filename": ".claude/skills/review-skills/scripts/download_anthropics_skills.py",
+      "status": "renamed",
+      "additions": 13,
+      "deletions": 7,
+      "changes": 20,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py?ref=e5dd746d13584faecb8e769812594916da822722",
+      "patch": "@@ -3,15 +3,17 @@\n Download and filter anthropics/skills repository for skill review reference.\n \n Downloads the anthropics/skills repo as a ZIP from GitHub, extracts it to a cache\n-directory, and filters to keep only relevant files (SKILL.md and references).\n+directory in the project root, and filters to keep only relevant files (SKILL.md \n+and references). The project root is detected by looking for .claude, .cursor, or \n+.git directories.\n \n Usage:\n     python scripts/download_anthropics_skills.py [--force] [--clean] [--cache-dir PATH]\n \n Options:\n     --force         Force re-download even if cache is fresh (< 7 days old)\n     --clean         Clear the cache directory (without downloading)\n-    --cache-dir     Custom cache directory (default: .cursor/cache/anthropics-skills)\n+    --cache-dir     Custom cache directory (default: ./.cache/anthropics-skills)\n \n Examples:\n     python scripts/download_anthropics_skills.py\n@@ -35,7 +37,7 @@\n \n # Configuration\n REPO_URL = \"https://github.com/anthropics/skills/archive/refs/heads/main.zip\"\n-DEFAULT_CACHE_DIR = \".cursor/cache/anthropics-skills\"\n+DEFAULT_CACHE_DIR = \"./.cache/anthropics-skills\"\n CACHE_MAX_AGE_DAYS = 7\n METADATA_FILE = \".cache_metadata.json\"\n \n@@ -66,13 +68,17 @@\n \n \n def get_workspace_root() -> Path:\n-    \"\"\"Find the workspace root by looking for .cursor directory.\"\"\"\n+    \"\"\"Find the workspace root by looking for project marker directories.\"\"\"\n     current = Path.cwd()\n     \n-    # Walk up to find .cursor directory\n+    # Project root markers in priority order\n+    root_markers = [\".claude\", \".cursor\", \".git\"]\n+    \n+    # Walk up to find any project root marker\n     for parent in [current] + list(current.parents):\n-        if (parent / \".cursor\").exists():\n-            return parent\n+        for marker in root_markers:\n+            if (parent / marker).exists():\n+                return parent\n     \n     # Fallback to current directory\n     return current",
+      "previous_filename": "scripts/download_anthropics_skills.py"
+    },
+    {
+      "sha": "43f5cdf5630eb73ca7d4fe6f05dfe7dd087653a2",
+      "filename": ".claude/skills/sync-cli-skill/SKILL.md",
+      "status": "renamed",
+      "additions": 6,
+      "deletions": 0,
+      "changes": 6,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Fsync-cli-skill%2FSKILL.md",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Fsync-cli-skill%2FSKILL.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Fsync-cli-skill%2FSKILL.md?ref=e5dd746d13584faecb8e769812594916da822722",
+      "patch": "@@ -1,3 +1,9 @@\n+---\n+name: sync-cli-skill\n+description: Synchronize the base44-cli skill with the latest CLI source code from the Base44 CLI repository\n+disable-model-invocation: true\n+---\n+\n # Sync CLI Skill\n \n Synchronize the `skills/base44-cli/` skill with the latest CLI source code from the Base44 CLI repository.",
+      "previous_filename": ".cursor/commands/sync-cli-skill.md"
+    },
+    {
+      "sha": "867a1efa1243d0e1b271b60223118fe438b0bf4b",
+      "filename": ".claude/skills/sync-sdk-skill/SKILL.md",
+      "status": "renamed",
+      "additions": 6,
+      "deletions": 0,
+      "changes": 6,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Fsync-sdk-skill%2FSKILL.md",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Fsync-sdk-skill%2FSKILL.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Fsync-sdk-skill%2FSKILL.md?ref=e5dd746d13584faecb8e769812594916da822722",
+      "patch": "@@ -1,3 +1,9 @@\n+---\n+name: sync-sdk-skill\n+description: Synchronize the base44-sdk skill with the latest SDK source code from the Base44 SDK repository\n+disable-model-invocation: true\n+---\n+\n # Sync SDK Skill\n \n Synchronize the `skills/base44-sdk/` skill with the latest SDK source code from the Base44 SDK repository.",
+      "previous_filename": ".cursor/commands/sync-sdk-skill.md"
+    },
+    {
+      "sha": "664ca2f0ae25e4da6bbe0d4589d67d17e5e17c5b",
+      "filename": ".cursor/commands/update-skills-cache.md",
+      "status": "removed",
+      "additions": 0,
+      "deletions": 35,
+      "changes": 35,
+      "blob_url": "https://github.com/base44/skills/blob/2b7c0d675a3b41e522ea43cc128164ac7588b96f/.cursor%2Fcommands%2Fupdate-skills-cache.md",
+      "raw_url": "https://github.com/base44/skills/raw/2b7c0d675a3b41e522ea43cc128164ac7588b96f/.cursor%2Fcommands%2Fupdate-skills-cache.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fcommands%2Fupdate-skills-cache.md?ref=2b7c0d675a3b41e522ea43cc128164ac7588b96f",
+      "patch": "@@ -1,35 +0,0 @@\n-# Update Skills Cache\n-\n-Download or refresh the local cache of Anthropic's skills repository for reference during skill reviews.\n-\n-## Usage\n-\n-Run the download script to fetch the latest skills from the anthropics/skills repository:\n-\n-```bash\n-python3 scripts/download_anthropics_skills.py --force\n-```\n-\n-## What This Does\n-\n-1. Downloads the latest `anthropics/skills` repo from GitHub as a ZIP\n-2. Extracts and filters to keep only relevant files:\n-   - `SKILL.md` files from each skill\n-   - `references/*.md` documentation files\n-3. Saves to `.cursor/cache/anthropics-skills/`\n-4. Creates an `INDEX.md` with links to all available skills\n-\n-## Options\n-\n-- **Default** (no flags): Only downloads if cache is missing or older than 7 days\n-- **`--force`**: Force re-download even if cache is fresh\n-- **`--clean`**: Clear the cache without downloading (useful for troubleshooting)\n-\n-## After Running\n-\n-The cache will be available at `.cursor/cache/anthropics-skills/` with:\n-- `INDEX.md` - List of all available skills\n-- `skills/<name>/SKILL.md` - Individual skill files\n-- `skills/<name>/references/` - Reference documentation (if any)\n-\n-Use these as reference examples when reviewing or creating skills."
+    },
+    {
+      "sha": "7a4a3ea2424c09fbe48d455aed1eaa94d9124835",
+      "filename": ".cursor/skills/skill-creator/LICENSE.txt",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2FLICENSE.txt",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2FLICENSE.txt",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2FLICENSE.txt?ref=e5dd746d13584faecb8e769812594916da822722",
+      "previous_filename": ".cursor/references/skill-creator/LICENSE.txt"
+    },
+    {
+      "sha": "b7f86598b002c99a6be96026443217b6af3c561d",
+      "filename": ".cursor/skills/skill-creator/SKILL.md",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2FSKILL.md",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2FSKILL.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2FSKILL.md?ref=e5dd746d13584faecb8e769812594916da822722",
+      "previous_filename": ".cursor/references/skill-creator/SKILL.md"
+    },
+    {
+      "sha": "073ddda5f03989b1731ad29b9df7248279e9eef0",
+      "filename": ".cursor/skills/skill-creator/references/output-patterns.md",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Freferences%2Foutput-patterns.md",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Freferences%2Foutput-patterns.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Freferences%2Foutput-patterns.md?ref=e5dd746d13584faecb8e769812594916da822722",
+      "previous_filename": ".cursor/references/skill-creator/references/output-patterns.md"
+    },
+    {
+      "sha": "a350c3cc81367fda7acfea9084aaa13a5d83c054",
+      "filename": ".cursor/skills/skill-creator/references/workflows.md",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Freferences%2Fworkflows.md",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Freferences%2Fworkflows.md",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Freferences%2Fworkflows.md?ref=e5dd746d13584faecb8e769812594916da822722",
+      "previous_filename": ".cursor/references/skill-creator/references/workflows.md"
+    },
+    {
+      "sha": "329ad4e5a71546b2c455f8e08c98b32ecdd3c1e3",
+      "filename": ".cursor/skills/skill-creator/scripts/init_skill.py",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Finit_skill.py",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Finit_skill.py",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Finit_skill.py?ref=e5dd746d13584faecb8e769812594916da822722",
+      "previous_filename": ".cursor/references/skill-creator/scripts/init_skill.py"
+    },
+    {
+      "sha": "5cd36cb16e1314f2ab87d50aaedbc9f26925dac1",
+      "filename": ".cursor/skills/skill-creator/scripts/package_skill.py",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fpackage_skill.py",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fpackage_skill.py",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fpackage_skill.py?ref=e5dd746d13584faecb8e769812594916da822722",
+      "previous_filename": ".cursor/references/skill-creator/scripts/package_skill.py"
+    },
+    {
+      "sha": "d9fbeb75ee10bd8f89c0ee9b6716867125820c7e",
+      "filename": ".cursor/skills/skill-creator/scripts/quick_validate.py",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fquick_validate.py",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fquick_validate.py",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fquick_validate.py?ref=e5dd746d13584faecb8e769812594916da822722",
+      "previous_filename": ".cursor/references/skill-creator/scripts/quick_validate.py"
+    },
+    {
+      "sha": "79fc4b780c77ea0e021108989d1a18b3ab0c6d43",
+      "filename": ".gitignore",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.gitignore",
+      "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.gitignore",
+      "contents_url": "https://api.github.com/repos/base44/skills/contents/.gitignore?ref=e5dd746d13584faecb8e769812594916da822722",
+      "patch": "@@ -1,5 +1,5 @@\n # Cache directories\n-.cursor/cache/\n+/.cache/\n \n # Python\n __pycache__/"
+    }
+  ],
+  "commit_details": [
+    {
+      "sha": "4bfbba31d8d83dd39e5ab1500561b982505714f8",
+      "status": "ok",
+      "detail": {
+        "sha": "4bfbba31d8d83dd39e5ab1500561b982505714f8",
+        "node_id": "C_kwDOQ8ohGdoAKDRiZmJiYTMxZDhkODNkZDM5ZTVhYjE1MDA1NjFiOTgyNTA1NzE0Zjg",
+        "commit": {
+          "author": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:04:46Z"
+          },
+          "committer": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:04:46Z"
+          },
+          "message": "migration",
+          "tree": {
+            "sha": "3686939cfe822e97f3c3f827f1f596e600e687b3",
+            "url": "https://api.github.com/repos/base44/skills/git/trees/3686939cfe822e97f3c3f827f1f596e600e687b3"
+          },
+          "url": "https://api.github.com/repos/base44/skills/git/commits/4bfbba31d8d83dd39e5ab1500561b982505714f8",
+          "comment_count": 0,
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXOnwAKCRC6zByxtckS\nA5puAQCQiQQbHUmea+MM8X7NpCNeuROFv7EJ/RtdXN1jwi6pLgD/euow8dbT+OvE\nROBNtTF75ufwSkVcktMSASF5mAF5CQs=\n=trsw\n-----END PGP SIGNATURE-----",
+            "payload": "tree 3686939cfe822e97f3c3f827f1f596e600e687b3\nparent 2b7c0d675a3b41e522ea43cc128164ac7588b96f\nauthor Oz Sayag <ozs@wix.com> 1769328286 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769328286 +0200\n\nmigration\n",
+            "verified_at": "2026-01-25T08:19:08Z"
+          }
+        },
+        "url": "https://api.github.com/repos/base44/skills/commits/4bfbba31d8d83dd39e5ab1500561b982505714f8",
+        "html_url": "https://github.com/base44/skills/commit/4bfbba31d8d83dd39e5ab1500561b982505714f8",
+        "comments_url": "https://api.github.com/repos/base44/skills/commits/4bfbba31d8d83dd39e5ab1500561b982505714f8/comments",
+        "author": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "2b7c0d675a3b41e522ea43cc128164ac7588b96f",
+            "url": "https://api.github.com/repos/base44/skills/commits/2b7c0d675a3b41e522ea43cc128164ac7588b96f",
+            "html_url": "https://github.com/base44/skills/commit/2b7c0d675a3b41e522ea43cc128164ac7588b96f"
+          }
+        ],
+        "stats": {
+          "total": 63,
+          "additions": 23,
+          "deletions": 40
+        },
+        "files": [
+          {
+            "sha": "664ca2f0ae25e4da6bbe0d4589d67d17e5e17c5b",
+            "filename": ".cursor/commands/update-skills-cache.md",
+            "status": "removed",
+            "additions": 0,
+            "deletions": 35,
+            "changes": 35,
+            "blob_url": "https://github.com/base44/skills/blob/2b7c0d675a3b41e522ea43cc128164ac7588b96f/.cursor%2Fcommands%2Fupdate-skills-cache.md",
+            "raw_url": "https://github.com/base44/skills/raw/2b7c0d675a3b41e522ea43cc128164ac7588b96f/.cursor%2Fcommands%2Fupdate-skills-cache.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fcommands%2Fupdate-skills-cache.md?ref=2b7c0d675a3b41e522ea43cc128164ac7588b96f",
+            "patch": "@@ -1,35 +0,0 @@\n-# Update Skills Cache\n-\n-Download or refresh the local cache of Anthropic's skills repository for reference during skill reviews.\n-\n-## Usage\n-\n-Run the download script to fetch the latest skills from the anthropics/skills repository:\n-\n-```bash\n-python3 scripts/download_anthropics_skills.py --force\n-```\n-\n-## What This Does\n-\n-1. Downloads the latest `anthropics/skills` repo from GitHub as a ZIP\n-2. Extracts and filters to keep only relevant files:\n-   - `SKILL.md` files from each skill\n-   - `references/*.md` documentation files\n-3. Saves to `.cursor/cache/anthropics-skills/`\n-4. Creates an `INDEX.md` with links to all available skills\n-\n-## Options\n-\n-- **Default** (no flags): Only downloads if cache is missing or older than 7 days\n-- **`--force`**: Force re-download even if cache is fresh\n-- **`--clean`**: Clear the cache without downloading (useful for troubleshooting)\n-\n-## After Running\n-\n-The cache will be available at `.cursor/cache/anthropics-skills/` with:\n-- `INDEX.md` - List of all available skills\n-- `skills/<name>/SKILL.md` - Individual skill files\n-- `skills/<name>/references/` - Reference documentation (if any)\n-\n-Use these as reference examples when reviewing or creating skills."
+          },
+          {
+            "sha": "0c530288500e9f0b91b7468ba0d906b984a22446",
+            "filename": ".cursor/skills/review-skills/SKILL.md",
+            "status": "renamed",
+            "additions": 10,
+            "deletions": 4,
+            "changes": 14,
+            "blob_url": "https://github.com/base44/skills/blob/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Freview-skills%2FSKILL.md",
+            "raw_url": "https://github.com/base44/skills/raw/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Freview-skills%2FSKILL.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Freview-skills%2FSKILL.md?ref=4bfbba31d8d83dd39e5ab1500561b982505714f8",
+            "patch": "@@ -1,3 +1,9 @@\n+---\n+name: review-skills\n+description: Review and analyze a skill against best practices for length, intent scope, and trigger patterns\n+disable-model-invocation: true\n+---\n+\n # Review Skills\n \n Review and analyze a skill against best practices for length, intent scope, and trigger patterns.\n@@ -6,8 +12,8 @@ Review and analyze a skill against best practices for length, intent scope, and\n \n Before analyzing, read these resources to understand skill writing principles:\n 1. `.cursor/references/skill-creator/SKILL.md` - Core principles, anatomy, and progressive disclosure\n-2. `.cursor/references/spec.md` - **Complete Agent Skills specification** (required for compliance checks)\n-3. `.cursor/references/validate.md` - **Validation checklist** (used in Step 2)\n+2. `references/spec.md` - **Complete Agent Skills specification** (required for compliance checks)\n+3. `references/validate.md` - **Validation checklist** (used in Step 2)\n 4. `.cursor/references/skill-creator/references/workflows.md` - Workflow patterns (if relevant)\n 5. `.cursor/references/skill-creator/references/output-patterns.md` - Output patterns (if relevant)\n \n@@ -48,7 +54,7 @@ The user must provide a skill folder/path to review. If not provided, prompt:\n \n ### Step 2: Validate Skill Structure\n \n-Using the validation checklist (`.cursor/references/validate.md`), verify the skill passes all basic checks:\n+Using the validation checklist (`references/validate.md`), verify the skill passes all basic checks:\n \n 1. **File Structure**: SKILL.md exists\n 2. **Frontmatter Format**: Valid YAML between `---` delimiters\n@@ -75,7 +81,7 @@ Read the complete skill structure:\n \n ### Step 4: Verify Spec Compliance\n \n-Check that the skill follows the Agent Skills specification (`.cursor/references/spec.md`). Verify:\n+Check that the skill follows the Agent Skills specification (`references/spec.md`). Verify:\n \n #### Directory Structure\n - Skill is in a directory matching the `name` field",
+            "previous_filename": ".cursor/commands/review-skills.md"
+          },
+          {
+            "sha": "bebbc7960c148f907bc5ba97270233dfad182a89",
+            "filename": ".cursor/skills/review-skills/references/spec.md",
+            "status": "renamed",
+            "additions": 1,
+            "deletions": 1,
+            "changes": 2,
+            "blob_url": "https://github.com/base44/skills/blob/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Freview-skills%2Freferences%2Fspec.md",
+            "raw_url": "https://github.com/base44/skills/raw/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Freview-skills%2Freferences%2Fspec.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Freview-skills%2Freferences%2Fspec.md?ref=4bfbba31d8d83dd39e5ab1500561b982505714f8",
+            "patch": "@@ -252,4 +252,4 @@ This checks that your `SKILL.md` frontmatter is valid and follows all naming con\n \n ---\n \n-> To find navigation and other pages in this documentation, fetch the llms.txt file at: https://agentskills.io/llms.txt\n\\ No newline at end of file\n+> To find navigation and other pages in this documentation, fetch the llms.txt file at: https://agentskills.io/llms.txt",
+            "previous_filename": ".cursor/references/spec.md"
+          },
+          {
+            "sha": "25b9121a1cdacdb2d4e5ad57be874f0d38986ca9",
+            "filename": ".cursor/skills/review-skills/references/validate.md",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md",
+            "raw_url": "https://github.com/base44/skills/raw/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md?ref=4bfbba31d8d83dd39e5ab1500561b982505714f8",
+            "previous_filename": ".cursor/references/validate.md"
+          },
+          {
+            "sha": "4231b05903a9e7e2e4ff20b34eb0626e7c7e6c38",
+            "filename": ".cursor/skills/review-skills/scripts/download_anthropics_skills.py",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py",
+            "raw_url": "https://github.com/base44/skills/raw/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py?ref=4bfbba31d8d83dd39e5ab1500561b982505714f8",
+            "previous_filename": "scripts/download_anthropics_skills.py"
+          },
+          {
+            "sha": "43f5cdf5630eb73ca7d4fe6f05dfe7dd087653a2",
+            "filename": ".cursor/skills/sync-cli-skill/SKILL.md",
+            "status": "renamed",
+            "additions": 6,
+            "deletions": 0,
+            "changes": 6,
+            "blob_url": "https://github.com/base44/skills/blob/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Fsync-cli-skill%2FSKILL.md",
+            "raw_url": "https://github.com/base44/skills/raw/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Fsync-cli-skill%2FSKILL.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fsync-cli-skill%2FSKILL.md?ref=4bfbba31d8d83dd39e5ab1500561b982505714f8",
+            "patch": "@@ -1,3 +1,9 @@\n+---\n+name: sync-cli-skill\n+description: Synchronize the base44-cli skill with the latest CLI source code from the Base44 CLI repository\n+disable-model-invocation: true\n+---\n+\n # Sync CLI Skill\n \n Synchronize the `skills/base44-cli/` skill with the latest CLI source code from the Base44 CLI repository.",
+            "previous_filename": ".cursor/commands/sync-cli-skill.md"
+          },
+          {
+            "sha": "867a1efa1243d0e1b271b60223118fe438b0bf4b",
+            "filename": ".cursor/skills/sync-sdk-skill/SKILL.md",
+            "status": "renamed",
+            "additions": 6,
+            "deletions": 0,
+            "changes": 6,
+            "blob_url": "https://github.com/base44/skills/blob/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Fsync-sdk-skill%2FSKILL.md",
+            "raw_url": "https://github.com/base44/skills/raw/4bfbba31d8d83dd39e5ab1500561b982505714f8/.cursor%2Fskills%2Fsync-sdk-skill%2FSKILL.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fsync-sdk-skill%2FSKILL.md?ref=4bfbba31d8d83dd39e5ab1500561b982505714f8",
+            "patch": "@@ -1,3 +1,9 @@\n+---\n+name: sync-sdk-skill\n+description: Synchronize the base44-sdk skill with the latest SDK source code from the Base44 SDK repository\n+disable-model-invocation: true\n+---\n+\n # Sync SDK Skill\n \n Synchronize the `skills/base44-sdk/` skill with the latest SDK source code from the Base44 SDK repository.",
+            "previous_filename": ".cursor/commands/sync-sdk-skill.md"
+          }
+        ]
+      }
+    },
+    {
+      "sha": "86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+      "status": "ok",
+      "detail": {
+        "sha": "86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+        "node_id": "C_kwDOQ8ohGdoAKDg2ZmVhN2VjNmEwZjc1NmE5ZTY2YzZmNzM3NTM0MGVmOWMwZTBkYTI",
+        "commit": {
+          "author": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:11:14Z"
+          },
+          "committer": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:11:14Z"
+          },
+          "message": "support claude code",
+          "tree": {
+            "sha": "05dc0d54382b8791ce06292454dbcef414451d99",
+            "url": "https://api.github.com/repos/base44/skills/git/trees/05dc0d54382b8791ce06292454dbcef414451d99"
+          },
+          "url": "https://api.github.com/repos/base44/skills/git/commits/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+          "comment_count": 0,
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXQIgAKCRC6zByxtckS\nAyEUAQCglVgmJ9taJxSPUHAGZjNPrO/m8AYUYKr0rX+sd+dk5AD/ZD8pUbyVUxOs\ndUma/xd3GR9dDDmnsxWtOdW/wFXCNAE=\n=Rs5U\n-----END PGP SIGNATURE-----",
+            "payload": "tree 05dc0d54382b8791ce06292454dbcef414451d99\nparent 4bfbba31d8d83dd39e5ab1500561b982505714f8\nauthor Oz Sayag <ozs@wix.com> 1769328674 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769328674 +0200\n\nsupport claude code\n",
+            "verified_at": "2026-01-25T08:19:08Z"
+          }
+        },
+        "url": "https://api.github.com/repos/base44/skills/commits/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+        "html_url": "https://github.com/base44/skills/commit/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+        "comments_url": "https://api.github.com/repos/base44/skills/commits/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/comments",
+        "author": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "4bfbba31d8d83dd39e5ab1500561b982505714f8",
+            "url": "https://api.github.com/repos/base44/skills/commits/4bfbba31d8d83dd39e5ab1500561b982505714f8",
+            "html_url": "https://github.com/base44/skills/commit/4bfbba31d8d83dd39e5ab1500561b982505714f8"
+          }
+        ],
+        "stats": {
+          "total": 32,
+          "additions": 19,
+          "deletions": 13
+        },
+        "files": [
+          {
+            "sha": "71fcfdc17f1a50f03d734d95d64a4b59714a644e",
+            "filename": ".claude/skills/review-skills/SKILL.md",
+            "status": "renamed",
+            "additions": 5,
+            "deletions": 5,
+            "changes": 10,
+            "blob_url": "https://github.com/base44/skills/blob/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Freview-skills%2FSKILL.md",
+            "raw_url": "https://github.com/base44/skills/raw/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Freview-skills%2FSKILL.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2FSKILL.md?ref=86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "patch": "@@ -11,22 +11,22 @@ Review and analyze a skill against best practices for length, intent scope, and\n ## Prerequisites\n \n Before analyzing, read these resources to understand skill writing principles:\n-1. `.cursor/references/skill-creator/SKILL.md` - Core principles, anatomy, and progressive disclosure\n+1. `./references/skill-creator/SKILL.md` - Core principles, anatomy, and progressive disclosure\n 2. `references/spec.md` - **Complete Agent Skills specification** (required for compliance checks)\n 3. `references/validate.md` - **Validation checklist** (used in Step 2)\n-4. `.cursor/references/skill-creator/references/workflows.md` - Workflow patterns (if relevant)\n-5. `.cursor/references/skill-creator/references/output-patterns.md` - Output patterns (if relevant)\n+4. `./references/skill-creator/references/workflows.md` - Workflow patterns (if relevant)\n+5. `./references/skill-creator/references/output-patterns.md` - Output patterns (if relevant)\n \n ### Reference Examples from Anthropic (REQUIRED)\n \n You MUST read reference skills from Anthropic's repository before analyzing. This is essential for calibrating your review.\n \n-1. **Ensure cache is available**: Check if `.cursor/cache/anthropics-skills/` exists. If not (or if stale), run:\n+1. **Ensure cache is available**: Check if `./cache/anthropics-skills/` exists. If not (or if stale), run:\n    ```bash\n    python scripts/download_anthropics_skills.py\n    ```\n \n-2. **Read at least 3 reference skills**: Before analyzing, read these SKILL.md files from `.cursor/cache/anthropics-skills/skills/`:\n+2. **Read at least 3 reference skills**: Before analyzing, read these SKILL.md files from `./cache/anthropics-skills/skills/`:\n \n    **Always read these high-quality examples:**\n    - `pdf/SKILL.md` - Well-structured workflow skill with clear triggers",
+            "previous_filename": ".cursor/skills/review-skills/SKILL.md"
+          },
+          {
+            "sha": "bebbc7960c148f907bc5ba97270233dfad182a89",
+            "filename": ".claude/skills/review-skills/references/spec.md",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Freview-skills%2Freferences%2Fspec.md",
+            "raw_url": "https://github.com/base44/skills/raw/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Freview-skills%2Freferences%2Fspec.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2Freferences%2Fspec.md?ref=86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "previous_filename": ".cursor/skills/review-skills/references/spec.md"
+          },
+          {
+            "sha": "25b9121a1cdacdb2d4e5ad57be874f0d38986ca9",
+            "filename": ".claude/skills/review-skills/references/validate.md",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md",
+            "raw_url": "https://github.com/base44/skills/raw/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2Freferences%2Fvalidate.md?ref=86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "previous_filename": ".cursor/skills/review-skills/references/validate.md"
+          },
+          {
+            "sha": "de9e72d549a8554fab1733e48b78742a721e0eaa",
+            "filename": ".claude/skills/review-skills/scripts/download_anthropics_skills.py",
+            "status": "renamed",
+            "additions": 13,
+            "deletions": 7,
+            "changes": 20,
+            "blob_url": "https://github.com/base44/skills/blob/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py",
+            "raw_url": "https://github.com/base44/skills/raw/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py?ref=86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "patch": "@@ -3,15 +3,17 @@\n Download and filter anthropics/skills repository for skill review reference.\n \n Downloads the anthropics/skills repo as a ZIP from GitHub, extracts it to a cache\n-directory, and filters to keep only relevant files (SKILL.md and references).\n+directory in the project root, and filters to keep only relevant files (SKILL.md \n+and references). The project root is detected by looking for .claude, .cursor, or \n+.git directories.\n \n Usage:\n     python scripts/download_anthropics_skills.py [--force] [--clean] [--cache-dir PATH]\n \n Options:\n     --force         Force re-download even if cache is fresh (< 7 days old)\n     --clean         Clear the cache directory (without downloading)\n-    --cache-dir     Custom cache directory (default: .cursor/cache/anthropics-skills)\n+    --cache-dir     Custom cache directory (default: ./cache/anthropics-skills)\n \n Examples:\n     python scripts/download_anthropics_skills.py\n@@ -35,7 +37,7 @@\n \n # Configuration\n REPO_URL = \"https://github.com/anthropics/skills/archive/refs/heads/main.zip\"\n-DEFAULT_CACHE_DIR = \".cursor/cache/anthropics-skills\"\n+DEFAULT_CACHE_DIR = \"./cache/anthropics-skills\"\n CACHE_MAX_AGE_DAYS = 7\n METADATA_FILE = \".cache_metadata.json\"\n \n@@ -66,13 +68,17 @@\n \n \n def get_workspace_root() -> Path:\n-    \"\"\"Find the workspace root by looking for .cursor directory.\"\"\"\n+    \"\"\"Find the workspace root by looking for project marker directories.\"\"\"\n     current = Path.cwd()\n     \n-    # Walk up to find .cursor directory\n+    # Project root markers in priority order\n+    root_markers = [\".claude\", \".cursor\", \".git\"]\n+    \n+    # Walk up to find any project root marker\n     for parent in [current] + list(current.parents):\n-        if (parent / \".cursor\").exists():\n-            return parent\n+        for marker in root_markers:\n+            if (parent / marker).exists():\n+                return parent\n     \n     # Fallback to current directory\n     return current",
+            "previous_filename": ".cursor/skills/review-skills/scripts/download_anthropics_skills.py"
+          },
+          {
+            "sha": "43f5cdf5630eb73ca7d4fe6f05dfe7dd087653a2",
+            "filename": ".claude/skills/sync-cli-skill/SKILL.md",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Fsync-cli-skill%2FSKILL.md",
+            "raw_url": "https://github.com/base44/skills/raw/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Fsync-cli-skill%2FSKILL.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Fsync-cli-skill%2FSKILL.md?ref=86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "previous_filename": ".cursor/skills/sync-cli-skill/SKILL.md"
+          },
+          {
+            "sha": "867a1efa1243d0e1b271b60223118fe438b0bf4b",
+            "filename": ".claude/skills/sync-sdk-skill/SKILL.md",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Fsync-sdk-skill%2FSKILL.md",
+            "raw_url": "https://github.com/base44/skills/raw/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.claude%2Fskills%2Fsync-sdk-skill%2FSKILL.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Fsync-sdk-skill%2FSKILL.md?ref=86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "previous_filename": ".cursor/skills/sync-sdk-skill/SKILL.md"
+          },
+          {
+            "sha": "5ccfb3837a50af710628cbe68c5c47126033bfdc",
+            "filename": ".gitignore",
+            "status": "modified",
+            "additions": 1,
+            "deletions": 1,
+            "changes": 2,
+            "blob_url": "https://github.com/base44/skills/blob/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.gitignore",
+            "raw_url": "https://github.com/base44/skills/raw/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2/.gitignore",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.gitignore?ref=86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "patch": "@@ -1,5 +1,5 @@\n # Cache directories\n-.cursor/cache/\n+./cache/\n \n # Python\n __pycache__/"
+          }
+        ]
+      }
+    },
+    {
+      "sha": "f58ba815d5d8686039f60ecdf702a4472af5d51d",
+      "status": "ok",
+      "detail": {
+        "sha": "f58ba815d5d8686039f60ecdf702a4472af5d51d",
+        "node_id": "C_kwDOQ8ohGdoAKGY1OGJhODE1ZDVkODY4NjAzOWY2MGVjZGY3MDJhNDQ3MmFmNWQ1MWQ",
+        "commit": {
+          "author": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:12:06Z"
+          },
+          "committer": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:12:06Z"
+          },
+          "message": "migrate reference to skill",
+          "tree": {
+            "sha": "159ab3409b0ee19bc3578c7b9f55d32f4da083ee",
+            "url": "https://api.github.com/repos/base44/skills/git/trees/159ab3409b0ee19bc3578c7b9f55d32f4da083ee"
+          },
+          "url": "https://api.github.com/repos/base44/skills/git/commits/f58ba815d5d8686039f60ecdf702a4472af5d51d",
+          "comment_count": 0,
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXQVgAKCRC6zByxtckS\nA/VhAQCcKo7dbNMjKVlrU2Y2lOx2rbzf1QwE8xIKfjUCxELfKgD6A0ip2Kq68Vh4\nwgZULY0kxbc69NVsRarPNu4ee4CMhwg=\n=QElj\n-----END PGP SIGNATURE-----",
+            "payload": "tree 159ab3409b0ee19bc3578c7b9f55d32f4da083ee\nparent 86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2\nauthor Oz Sayag <ozs@wix.com> 1769328726 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769328726 +0200\n\nmigrate reference to skill\n",
+            "verified_at": "2026-01-25T08:19:08Z"
+          }
+        },
+        "url": "https://api.github.com/repos/base44/skills/commits/f58ba815d5d8686039f60ecdf702a4472af5d51d",
+        "html_url": "https://github.com/base44/skills/commit/f58ba815d5d8686039f60ecdf702a4472af5d51d",
+        "comments_url": "https://api.github.com/repos/base44/skills/commits/f58ba815d5d8686039f60ecdf702a4472af5d51d/comments",
+        "author": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "url": "https://api.github.com/repos/base44/skills/commits/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2",
+            "html_url": "https://github.com/base44/skills/commit/86fea7ec6a0f756a9e66c6f7375340ef9c0e0da2"
+          }
+        ],
+        "stats": {
+          "total": 0,
+          "additions": 0,
+          "deletions": 0
+        },
+        "files": [
+          {
+            "sha": "7a4a3ea2424c09fbe48d455aed1eaa94d9124835",
+            "filename": ".cursor/skills/skill-creator/LICENSE.txt",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2FLICENSE.txt",
+            "raw_url": "https://github.com/base44/skills/raw/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2FLICENSE.txt",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2FLICENSE.txt?ref=f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "previous_filename": ".cursor/references/skill-creator/LICENSE.txt"
+          },
+          {
+            "sha": "b7f86598b002c99a6be96026443217b6af3c561d",
+            "filename": ".cursor/skills/skill-creator/SKILL.md",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2FSKILL.md",
+            "raw_url": "https://github.com/base44/skills/raw/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2FSKILL.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2FSKILL.md?ref=f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "previous_filename": ".cursor/references/skill-creator/SKILL.md"
+          },
+          {
+            "sha": "073ddda5f03989b1731ad29b9df7248279e9eef0",
+            "filename": ".cursor/skills/skill-creator/references/output-patterns.md",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Freferences%2Foutput-patterns.md",
+            "raw_url": "https://github.com/base44/skills/raw/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Freferences%2Foutput-patterns.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Freferences%2Foutput-patterns.md?ref=f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "previous_filename": ".cursor/references/skill-creator/references/output-patterns.md"
+          },
+          {
+            "sha": "a350c3cc81367fda7acfea9084aaa13a5d83c054",
+            "filename": ".cursor/skills/skill-creator/references/workflows.md",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Freferences%2Fworkflows.md",
+            "raw_url": "https://github.com/base44/skills/raw/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Freferences%2Fworkflows.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Freferences%2Fworkflows.md?ref=f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "previous_filename": ".cursor/references/skill-creator/references/workflows.md"
+          },
+          {
+            "sha": "329ad4e5a71546b2c455f8e08c98b32ecdd3c1e3",
+            "filename": ".cursor/skills/skill-creator/scripts/init_skill.py",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Finit_skill.py",
+            "raw_url": "https://github.com/base44/skills/raw/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Finit_skill.py",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Finit_skill.py?ref=f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "previous_filename": ".cursor/references/skill-creator/scripts/init_skill.py"
+          },
+          {
+            "sha": "5cd36cb16e1314f2ab87d50aaedbc9f26925dac1",
+            "filename": ".cursor/skills/skill-creator/scripts/package_skill.py",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fpackage_skill.py",
+            "raw_url": "https://github.com/base44/skills/raw/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fpackage_skill.py",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fpackage_skill.py?ref=f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "previous_filename": ".cursor/references/skill-creator/scripts/package_skill.py"
+          },
+          {
+            "sha": "d9fbeb75ee10bd8f89c0ee9b6716867125820c7e",
+            "filename": ".cursor/skills/skill-creator/scripts/quick_validate.py",
+            "status": "renamed",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/base44/skills/blob/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fquick_validate.py",
+            "raw_url": "https://github.com/base44/skills/raw/f58ba815d5d8686039f60ecdf702a4472af5d51d/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fquick_validate.py",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.cursor%2Fskills%2Fskill-creator%2Fscripts%2Fquick_validate.py?ref=f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "previous_filename": ".cursor/references/skill-creator/scripts/quick_validate.py"
+          }
+        ]
+      }
+    },
+    {
+      "sha": "04448e2dc48829d82bf26274378ab55e276c4497",
+      "status": "ok",
+      "detail": {
+        "sha": "04448e2dc48829d82bf26274378ab55e276c4497",
+        "node_id": "C_kwDOQ8ohGdoAKDA0NDQ4ZTJkYzQ4ODI5ZDgyYmYyNjI3NDM3OGFiNTVlMjc2YzQ0OTc",
+        "commit": {
+          "author": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:16:38Z"
+          },
+          "committer": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:16:38Z"
+          },
+          "message": "fix ignored files",
+          "tree": {
+            "sha": "2cf6dfa4157cf33a8366cfc35261d32cc2d532df",
+            "url": "https://api.github.com/repos/base44/skills/git/trees/2cf6dfa4157cf33a8366cfc35261d32cc2d532df"
+          },
+          "url": "https://api.github.com/repos/base44/skills/git/commits/04448e2dc48829d82bf26274378ab55e276c4497",
+          "comment_count": 0,
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXRZgAKCRC6zByxtckS\nAwKhAP9uBQ23+C+6W45tVlCoyhWQjEPobt8ZoB4AAvtVcAz9nAD7BuUUJH4PTK5J\nHXLTY0SltMBzdu2gYE1dkkW4dZ2fWQ8=\n=iGTC\n-----END PGP SIGNATURE-----",
+            "payload": "tree 2cf6dfa4157cf33a8366cfc35261d32cc2d532df\nparent f58ba815d5d8686039f60ecdf702a4472af5d51d\nauthor Oz Sayag <ozs@wix.com> 1769328998 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769328998 +0200\n\nfix ignored files\n",
+            "verified_at": "2026-01-25T08:19:08Z"
+          }
+        },
+        "url": "https://api.github.com/repos/base44/skills/commits/04448e2dc48829d82bf26274378ab55e276c4497",
+        "html_url": "https://github.com/base44/skills/commit/04448e2dc48829d82bf26274378ab55e276c4497",
+        "comments_url": "https://api.github.com/repos/base44/skills/commits/04448e2dc48829d82bf26274378ab55e276c4497/comments",
+        "author": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "url": "https://api.github.com/repos/base44/skills/commits/f58ba815d5d8686039f60ecdf702a4472af5d51d",
+            "html_url": "https://github.com/base44/skills/commit/f58ba815d5d8686039f60ecdf702a4472af5d51d"
+          }
+        ],
+        "stats": {
+          "total": 2,
+          "additions": 1,
+          "deletions": 1
+        },
+        "files": [
+          {
+            "sha": "1676ee14a72decdba26b37ce48f3da0b247589f7",
+            "filename": ".gitignore",
+            "status": "modified",
+            "additions": 1,
+            "deletions": 1,
+            "changes": 2,
+            "blob_url": "https://github.com/base44/skills/blob/04448e2dc48829d82bf26274378ab55e276c4497/.gitignore",
+            "raw_url": "https://github.com/base44/skills/raw/04448e2dc48829d82bf26274378ab55e276c4497/.gitignore",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.gitignore?ref=04448e2dc48829d82bf26274378ab55e276c4497",
+            "patch": "@@ -1,5 +1,5 @@\n # Cache directories\n-./cache/\n+/cache/\n \n # Python\n __pycache__/"
+          }
+        ]
+      }
+    },
+    {
+      "sha": "e5dd746d13584faecb8e769812594916da822722",
+      "status": "ok",
+      "detail": {
+        "sha": "e5dd746d13584faecb8e769812594916da822722",
+        "node_id": "C_kwDOQ8ohGdoAKGU1ZGQ3NDZkMTM1ODRmYWVjYjhlNzY5ODEyNTk0OTE2ZGE4MjI3MjI",
+        "commit": {
+          "author": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:18:27Z"
+          },
+          "committer": {
+            "name": "Oz Sayag",
+            "email": "ozs@wix.com",
+            "date": "2026-01-25T08:18:27Z"
+          },
+          "message": "update cache dir reference",
+          "tree": {
+            "sha": "87d7e5882586ee3f8e544bcbfe13a30913e85068",
+            "url": "https://api.github.com/repos/base44/skills/git/trees/87d7e5882586ee3f8e544bcbfe13a30913e85068"
+          },
+          "url": "https://api.github.com/repos/base44/skills/git/commits/e5dd746d13584faecb8e769812594916da822722",
+          "comment_count": 0,
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQTD7uUhj1tpeoLhNu+6zByxtckSAwUCaXXR0wAKCRC6zByxtckS\nA6p0AQC+j/xGtrigTAyoFfrtzDaE3WSFqJc14RvWHbTvNkOsxAEAxP+cUQYgBswD\n41XjC4+1OsPGAJX1QVf81mq//+kC9QU=\n=ebY9\n-----END PGP SIGNATURE-----",
+            "payload": "tree 87d7e5882586ee3f8e544bcbfe13a30913e85068\nparent 04448e2dc48829d82bf26274378ab55e276c4497\nauthor Oz Sayag <ozs@wix.com> 1769329107 +0200\ncommitter Oz Sayag <ozs@wix.com> 1769329107 +0200\n\nupdate cache dir reference\n",
+            "verified_at": "2026-01-25T08:19:08Z"
+          }
+        },
+        "url": "https://api.github.com/repos/base44/skills/commits/e5dd746d13584faecb8e769812594916da822722",
+        "html_url": "https://github.com/base44/skills/commit/e5dd746d13584faecb8e769812594916da822722",
+        "comments_url": "https://api.github.com/repos/base44/skills/commits/e5dd746d13584faecb8e769812594916da822722/comments",
+        "author": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "ozsay",
+          "id": 3464930,
+          "node_id": "MDQ6VXNlcjM0NjQ5MzA=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/3464930?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/ozsay",
+          "html_url": "https://github.com/ozsay",
+          "followers_url": "https://api.github.com/users/ozsay/followers",
+          "following_url": "https://api.github.com/users/ozsay/following{/other_user}",
+          "gists_url": "https://api.github.com/users/ozsay/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/ozsay/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/ozsay/subscriptions",
+          "organizations_url": "https://api.github.com/users/ozsay/orgs",
+          "repos_url": "https://api.github.com/users/ozsay/repos",
+          "events_url": "https://api.github.com/users/ozsay/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/ozsay/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "04448e2dc48829d82bf26274378ab55e276c4497",
+            "url": "https://api.github.com/repos/base44/skills/commits/04448e2dc48829d82bf26274378ab55e276c4497",
+            "html_url": "https://github.com/base44/skills/commit/04448e2dc48829d82bf26274378ab55e276c4497"
+          }
+        ],
+        "stats": {
+          "total": 10,
+          "additions": 5,
+          "deletions": 5
+        },
+        "files": [
+          {
+            "sha": "1a76b8cef25c8be605f70e93356290f25656cfd8",
+            "filename": ".claude/skills/review-skills/SKILL.md",
+            "status": "modified",
+            "additions": 2,
+            "deletions": 2,
+            "changes": 4,
+            "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2FSKILL.md",
+            "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2FSKILL.md",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2FSKILL.md?ref=e5dd746d13584faecb8e769812594916da822722",
+            "patch": "@@ -21,12 +21,12 @@ Before analyzing, read these resources to understand skill writing principles:\n \n You MUST read reference skills from Anthropic's repository before analyzing. This is essential for calibrating your review.\n \n-1. **Ensure cache is available**: Check if `./cache/anthropics-skills/` exists. If not (or if stale), run:\n+1. **Ensure cache is available**: Check if `./.cache/anthropics-skills/` exists. If not (or if stale), run:\n    ```bash\n    python scripts/download_anthropics_skills.py\n    ```\n \n-2. **Read at least 3 reference skills**: Before analyzing, read these SKILL.md files from `./cache/anthropics-skills/skills/`:\n+2. **Read at least 3 reference skills**: Before analyzing, read these SKILL.md files from `./.cache/anthropics-skills/skills/`:\n \n    **Always read these high-quality examples:**\n    - `pdf/SKILL.md` - Well-structured workflow skill with clear triggers"
+          },
+          {
+            "sha": "c3c9b81b0098389ecf3dd9938b37996c7efe74c4",
+            "filename": ".claude/skills/review-skills/scripts/download_anthropics_skills.py",
+            "status": "modified",
+            "additions": 2,
+            "deletions": 2,
+            "changes": 4,
+            "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py",
+            "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.claude%2Fskills%2Freview-skills%2Fscripts%2Fdownload_anthropics_skills.py?ref=e5dd746d13584faecb8e769812594916da822722",
+            "patch": "@@ -13,7 +13,7 @@\n Options:\n     --force         Force re-download even if cache is fresh (< 7 days old)\n     --clean         Clear the cache directory (without downloading)\n-    --cache-dir     Custom cache directory (default: ./cache/anthropics-skills)\n+    --cache-dir     Custom cache directory (default: ./.cache/anthropics-skills)\n \n Examples:\n     python scripts/download_anthropics_skills.py\n@@ -37,7 +37,7 @@\n \n # Configuration\n REPO_URL = \"https://github.com/anthropics/skills/archive/refs/heads/main.zip\"\n-DEFAULT_CACHE_DIR = \"./cache/anthropics-skills\"\n+DEFAULT_CACHE_DIR = \"./.cache/anthropics-skills\"\n CACHE_MAX_AGE_DAYS = 7\n METADATA_FILE = \".cache_metadata.json\"\n "
+          },
+          {
+            "sha": "79fc4b780c77ea0e021108989d1a18b3ab0c6d43",
+            "filename": ".gitignore",
+            "status": "modified",
+            "additions": 1,
+            "deletions": 1,
+            "changes": 2,
+            "blob_url": "https://github.com/base44/skills/blob/e5dd746d13584faecb8e769812594916da822722/.gitignore",
+            "raw_url": "https://github.com/base44/skills/raw/e5dd746d13584faecb8e769812594916da822722/.gitignore",
+            "contents_url": "https://api.github.com/repos/base44/skills/contents/.gitignore?ref=e5dd746d13584faecb8e769812594916da822722",
+            "patch": "@@ -1,5 +1,5 @@\n # Cache directories\n-/cache/\n+/.cache/\n \n # Python\n __pycache__/"
+          }
+        ]
+      }
+    }
+  ]
+}

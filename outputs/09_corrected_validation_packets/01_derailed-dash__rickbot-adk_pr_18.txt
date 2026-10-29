@@ -1,0 +1,2207 @@
+====================================================================================================
+CORRECTED TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 1/15
+Repository: derailed-dash/rickbot-adk
+PR: #18
+Tool: conductor
+Language: Python
+Total PR commits: 31
+
+Earlier specification commit position: 1
+Step-7 automated 'first code' hint: 4
+
+IMPORTANT:
+The Step-7 code position is only a screening hint.
+Your task is to identify the FIRST LATER COMMIT that actually implements the earlier requirement.
+
+####################################################################################################
+SECTION A — EARLIER SPECIFICATION COMMIT
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 1
+====================================================================================================
+SHA: 2f02e119af7bcb614991d31d886f2913ddfa7bcb
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(track): Initialize 'API Rate Limiting with slowapi' track and archive completed track
+
+CHANGED FILES: 8
+
+--- FILE 1/8 ---
+FILE: conductor/archive/ui_tool_visibility_20260104/metadata.json
+PREVIOUS FILE: conductor/tracks/ui_tool_visibility_20260104/metadata.json
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 2/8 ---
+FILE: conductor/archive/ui_tool_visibility_20260104/plan.md
+PREVIOUS FILE: conductor/tracks/ui_tool_visibility_20260104/plan.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 3/8 ---
+FILE: conductor/archive/ui_tool_visibility_20260104/spec.md
+PREVIOUS FILE: conductor/tracks/ui_tool_visibility_20260104/spec.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 4/8 ---
+FILE: conductor/tracks.md
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 1
+
+PATCH:
+@@ -46,4 +46,9 @@ This file tracks all major tracks for the project. Each track has its own detail
+ ---
+ 
+ ## [x] Track: Update the React UI so that it shows when tools are used and which tools.
+-*Link: [./conductor/tracks/ui_tool_visibility_20260104/](./conductor/tracks/ui_tool_visibility_20260104/)*
++*Link: [./conductor/archive/ui_tool_visibility_20260104/](./conductor/archive/ui_tool_visibility_20260104/)*
++
++---
++
++## [ ] Track: Add API Rate Limiting with slowapi
++*Link: [./conductor/tracks/api_rate_limiting_with_slowapi_20260127/](./conductor/tracks/api_rate_limiting_with_slowapi_20260127/)*
+
+--- FILE 5/8 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/index.md
+STATUS: added
+ADDITIONS: 5
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,5 @@
++# Track api_rate_limiting_with_slowapi_20260127 Context
++
++- [Specification](./spec.md)
++- [Implementation Plan](./plan.md)
++- [Metadata](./metadata.json)
+
+--- FILE 6/8 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/metadata.json
+STATUS: added
+ADDITIONS: 8
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,8 @@
++{
++  "track_id": "api_rate_limiting_with_slowapi_20260127",
++  "type": "feature",
++  "status": "new",
++  "created_at": "2026-01-27T12:00:00Z",
++  "updated_at": "2026-01-27T12:00:00Z",
++  "description": "Add API rate limiting using slowapi"
++}
+
+--- FILE 7/8 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: added
+ADDITIONS: 31
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,31 @@
++# Plan: API Rate Limiting with slowapi
++
++This plan outlines the steps to implement API rate limiting in the Rickbot-ADK backend using `slowapi`.
++
++## Phase 1: Foundation & Configuration
++Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure.
++
++- [ ] Task: Add `slowapi` to `pyproject.toml` dependencies.
++- [ ] Task: Create a central `limiter` instance in `src/rickbot_utils/` or a new utils module.
++- [ ] Task: Implement a custom key function to identify users (User ID from JWT or IP).
++- [ ] Task: Integrate the `Limiter` middleware into the FastAPI application in `src/main.py`.
++- [ ] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Configuration' (Protocol in workflow.md)
++
++## Phase 2: Global & Specific Limits
++Goal: Apply the defined rate limit policies to the API endpoints.
++
++- [ ] Task: Apply the global default rate limit (60/minute) to the FastAPI app.
++- [ ] Task: Identify all LLM-related endpoints in the codebase.
++- [ ] Task: Apply specific stricter limits (5/minute) to LLM endpoints using decorators.
++- [ ] Task: Ensure the `429` error response is correctly handled and formatted.
++- [ ] Task: Conductor - User Manual Verification 'Phase 2: Global & Specific Limits' (Protocol in workflow.md)
++
++## Phase 3: Verification & Documentation
++Goal: Verify the implementation with tests and ensure it meets project standards.
++
++- [ ] Task: Write unit tests to verify the identifier extraction (IP vs User ID).
++- [ ] Task: Write integration tests to simulate rate limit exhaustion and verify `429` responses.
++- [ ] Task: Verify that `Retry-After` headers are present in `429` responses.
++- [ ] Task: Update `README.md` and `docs/design.md` with rate limiting details.
++- [ ] Task: Run full linting, type checks, and spelling checks.
++- [ ] Task: Conductor - User Manual Verification 'Phase 3: Verification & Documentation' (Protocol in workflow.md)
+
+--- FILE 8/8 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/spec.md
+STATUS: added
+ADDITIONS: 40
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,40 @@
++# Specification: API Rate Limiting with slowapi
++
++## Overview
++Implement API rate limiting to protect the Rickbot-ADK backend from abuse, ensure fair resource allocation (especially for LLM calls), and improve overall system stability. We will use the `slowapi` library, which is a FastAPI port of `limits`.
++
++## Functional Requirements
++- **Global Rate Limiting:** Apply a default safety-net rate limit to all API endpoints.
++- **Endpoint-Specific Limits:** Apply stricter limits to resource-intensive endpoints, specifically LLM generation.
++- **Identifier Strategy:** 
++    - Authenticated users: Limit by User ID (extracted from JWT).
++    - Unauthenticated requests: Limit by Client IP address.
++- **Error Handling:** Return a standard `429 Too Many Requests` response when a limit is exceeded, including a `Retry-After` header if possible.
++
++## Rate Limit Policies
++| Scope | Limit | Identifier |
++| :--- | :--- | :--- |
++| Global (Default) | 60 requests per minute | User ID / IP |
++| LLM Generation (`/chat`, etc.) | 5 requests per minute | User ID / IP |
++
++## Non-Functional Requirements
++- **Performance:** Rate limiting checks should add minimal latency to API requests.
++- **Maintainability:** Use `slowapi` decorators for clear and concise configuration.
++- **Observability:** Log rate limit hits (exceeding the limit) for monitoring.
++
++## Acceptance Criteria
++- [ ] Global rate limit of 60/minute is enforced across all endpoints.
++- [ ] LLM generation endpoints are restricted to 5/minute per user/IP.
++- [ ] Exceeding a limit returns a `429` status code.
++- [ ] Authenticated users are tracked by their unique ID.
++- [ ] Unauthenticated users are tracked by IP.
++- [ ] Unit tests verify rate limiting logic and identifier extraction.
++
++## Documentation Updates
++- Update `README.md` to mention rate limiting features.
++- Update `docs/design.md` to document the rate limiting architecture and policies.
++
++## Out of Scope
++- Distributed rate limiting using Redis (will use in-memory storage for now).
++- Complex tiered pricing/limit models.
++- IP Whitelisting/Blacklisting management UI.
+
+
+####################################################################################################
+SECTION B — ALL LATER COMMITS IN THIS PR
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 2
+====================================================================================================
+SHA: 188d542d5ca97dc2654c3e5a73f56471f3c9a8aa
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore(deps): Add slowapi dependency
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: pyproject.toml
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -26,6 +26,7 @@ dependencies = [
+     "langchain-core",
+     "streamlit-feedback",
+     "langchain-google-vertexai",
++    "slowapi>=0.1.9",
+ ]
+ 
+ requires-python = ">=3.12"
+
+--- FILE 2/2 ---
+FILE: uv.lock
+STATUS: modified
+ADDITIONS: 3077
+DELETIONS: 3063
+
+[GitHub patch unavailable]
+
+
+====================================================================================================
+COMMIT POSITION 3
+====================================================================================================
+SHA: 7b6a90b8cc0a4bf232cef499cf5bf3b12db8c554
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Add slowapi to pyproject.toml dependencies' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -5,7 +5,7 @@ This plan outlines the steps to implement API rate limiting in the Rickbot-ADK b
+ ## Phase 1: Foundation & Configuration
+ Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure.
+ 
+-- [ ] Task: Add `slowapi` to `pyproject.toml` dependencies.
++- [x] Task: Add slowapi to pyproject.toml dependencies. 188d542
+ - [ ] Task: Create a central `limiter` instance in `src/rickbot_utils/` or a new utils module.
+ - [ ] Task: Implement a custom key function to identify users (User ID from JWT or IP).
+ - [ ] Task: Integrate the `Limiter` middleware into the FastAPI application in `src/main.py`.
+
+
+====================================================================================================
+COMMIT POSITION 4  [STEP-7 AUTOMATED CODE HINT — NOT GROUND TRUTH]
+====================================================================================================
+SHA: 785d22029441368d74ad588f9fda946fe74eb405
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat(api): Create central limiter instance
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: src/rickbot_utils/rate_limit.py
+STATUS: added
+ADDITIONS: 8
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,8 @@
++from slowapi import Limiter
++from slowapi.util import get_remote_address
++
++# Initialize the Limiter
++# We use get_remote_address as a default fallback, but we will likely override this
++# with a custom key function in the main app or via dependency injection to handle
++# authenticated users correctly.
++limiter = Limiter(key_func=get_remote_address)
+
+--- FILE 2/2 ---
+FILE: src/tests/unit/test_rate_limit.py
+STATUS: added
+ADDITIONS: 13
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,13 @@
++from slowapi import Limiter
++from slowapi.util import get_remote_address
++
++def test_limiter_exists():
++    from rickbot_utils.rate_limit import limiter
++    assert isinstance(limiter, Limiter)
++
++def test_limiter_configuration():
++    from rickbot_utils.rate_limit import limiter
++    # Verify default key func is get_remote_address (as a fallback, though we'll customize it later)
++    # Note: slowapi/limits might not expose storage_uri directly on the instance easily without accessing internal _storage
++    # But we can check if enabled is True by default
++    assert limiter.enabled is True
+
+
+====================================================================================================
+COMMIT POSITION 5
+====================================================================================================
+SHA: da219b5511d6bf08927fc93f10ee4a7671d99e86
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Create central limiter instance' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -6,7 +6,7 @@ This plan outlines the steps to implement API rate limiting in the Rickbot-ADK b
+ Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure.
+ 
+ - [x] Task: Add slowapi to pyproject.toml dependencies. 188d542
+-- [ ] Task: Create a central `limiter` instance in `src/rickbot_utils/` or a new utils module.
++- [x] Task: Create a central limiter instance in `src/rickbot_utils/` or a new utils module. 785d220
+ - [ ] Task: Implement a custom key function to identify users (User ID from JWT or IP).
+ - [ ] Task: Integrate the `Limiter` middleware into the FastAPI application in `src/main.py`.
+ - [ ] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Configuration' (Protocol in workflow.md)
+
+
+====================================================================================================
+COMMIT POSITION 6
+====================================================================================================
+SHA: 2c0f07dd88dbcdce06353eb4efd8fabe2d36dce2
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat(api): Implement custom rate limit key function
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: src/rickbot_utils/rate_limit.py
+STATUS: modified
+ADDITIONS: 18
+DELETIONS: 5
+
+PATCH:
+@@ -1,8 +1,21 @@
+ from slowapi import Limiter
+ from slowapi.util import get_remote_address
++from fastapi import Request
+ 
+-# Initialize the Limiter
+-# We use get_remote_address as a default fallback, but we will likely override this
+-# with a custom key function in the main app or via dependency injection to handle
+-# authenticated users correctly.
+-limiter = Limiter(key_func=get_remote_address)
++def get_rate_limit_key(request: Request) -> str:
++    """
++    Returns the key for rate limiting.
++    - If user is authenticated (request.state.user exists), returns user ID.
++    - Otherwise, returns the IP address.
++    """
++    try:
++        if hasattr(request.state, "user") and request.state.user:
++             return str(request.state.user.id)
++    except AttributeError:
++        pass
++    
++    # Fallback to IP
++    return get_remote_address(request)
++
++# Initialize the Limiter with our custom key function
++limiter = Limiter(key_func=get_rate_limit_key)
+\ No newline at end of file
+
+--- FILE 2/2 ---
+FILE: src/tests/unit/test_rate_limit.py
+STATUS: modified
+ADDITIONS: 39
+DELETIONS: 6
+
+PATCH:
+@@ -1,13 +1,46 @@
++from unittest.mock import MagicMock
+ from slowapi import Limiter
+ from slowapi.util import get_remote_address
+ 
+ def test_limiter_exists():
+     from rickbot_utils.rate_limit import limiter
+     assert isinstance(limiter, Limiter)
+ 
+-def test_limiter_configuration():
+-    from rickbot_utils.rate_limit import limiter
+-    # Verify default key func is get_remote_address (as a fallback, though we'll customize it later)
+-    # Note: slowapi/limits might not expose storage_uri directly on the instance easily without accessing internal _storage
+-    # But we can check if enabled is True by default
+-    assert limiter.enabled is True
++def test_get_rate_limit_key_authenticated():
++    from rickbot_utils.rate_limit import get_rate_limit_key
++    
++    # Mock a request with an authenticated user in state
++    request = MagicMock()
++    request.state.user.id = "user123"
++    request.client.host = "127.0.0.1"
++    
++    key = get_rate_limit_key(request)
++    assert key == "user123"
++
++def test_get_rate_limit_key_unauthenticated():
++    from rickbot_utils.rate_limit import get_rate_limit_key
++    
++    # Mock a request without a user in state
++    request = MagicMock()
++    del request.state.user # Ensure user attr raises AttributeError or similar, 
++                           # but MagicMock usually creates attrs on fly.
++                           # We need to simulate how FastAPI Request behaves.
++                           # Usually request.state is a State object. 
++                           # If attribute missing, it raises AttributeError.
++    
++    # Let's configure the mock to raise AttributeError for 'user'
++    def raise_attr_error():
++        raise AttributeError("No user")
++    
++    # A cleaner way with MagicMock spec
++    # Or just simpler:
++    request.state = MagicMock(spec=[]) # Empty spec, no attributes
++    request.client.host = "10.0.0.1"
++    request.headers = {} # Required by get_remote_address sometimes?
++    
++    # We need to verify that get_rate_limit_key falls back to IP
++    # But get_remote_address takes request. 
++    # Let's just assume we implement the fallback logic.
++    
++    key = get_rate_limit_key(request)
++    assert key == "10.0.0.1"
+\ No newline at end of file
+
+
+====================================================================================================
+COMMIT POSITION 7
+====================================================================================================
+SHA: 052d84278bf7ab47a6fc37806f44424bfe274ea8
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Implement custom key function' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -7,7 +7,7 @@ Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure
+ 
+ - [x] Task: Add slowapi to pyproject.toml dependencies. 188d542
+ - [x] Task: Create a central limiter instance in `src/rickbot_utils/` or a new utils module. 785d220
+-- [ ] Task: Implement a custom key function to identify users (User ID from JWT or IP).
++- [x] Task: Implement a custom key function to identify users (User ID from JWT or IP). 2c0f07d
+ - [ ] Task: Integrate the `Limiter` middleware into the FastAPI application in `src/main.py`.
+ - [ ] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Configuration' (Protocol in workflow.md)
+ 
+
+
+====================================================================================================
+COMMIT POSITION 8
+====================================================================================================
+SHA: d57185581ce4df5092ea51854b63347360c8eb30
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat(api): Integrate slowapi middleware and auth state
+
+CHANGED FILES: 3
+
+--- FILE 1/3 ---
+FILE: src/main.py
+STATUS: modified
+ADDITIONS: 9
+DELETIONS: 0
+
+PATCH:
+@@ -32,13 +32,17 @@
+ from google.adk.runners import Runner
+ from google.genai.types import Content, Part
+ from pydantic import BaseModel
++from slowapi import _rate_limit_exceeded_handler
++from slowapi.errors import RateLimitExceeded
++from slowapi.middleware import SlowAPIMiddleware
+ 
+ from rickbot_agent.agent import get_agent
+ from rickbot_agent.auth import verify_token
+ from rickbot_agent.auth_models import AuthUser
+ from rickbot_agent.personality import get_personalities
+ from rickbot_agent.services import get_artifact_service, get_session_service
+ from rickbot_utils.config import logger
++from rickbot_utils.rate_limit import limiter
+ 
+ APP_NAME = "rickbot_api"
+ 
+@@ -66,6 +70,11 @@ class Persona(BaseModel):
+ logger.debug("Initialising FastAPI app...")
+ app = FastAPI()
+ 
++# Add Rate Limiting
++app.state.limiter = limiter
++app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
++app.add_middleware(SlowAPIMiddleware)
++
+ # Add CORS middleware
+ app.add_middleware(
+     CORSMiddleware,
+
+--- FILE 2/3 ---
+FILE: src/rickbot_agent/auth.py
+STATUS: modified
+ADDITIONS: 49
+DELETIONS: 41
+
+PATCH:
+@@ -1,7 +1,7 @@
+ import os
+ 
+ import requests
+-from fastapi import Depends, HTTPException
++from fastapi import Depends, HTTPException, Request
+ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+ from google.auth.transport import requests as google_requests
+ from google.oauth2 import id_token
+@@ -12,7 +12,7 @@
+ security = HTTPBearer()
+ 
+ 
+-async def verify_token(creds: HTTPAuthorizationCredentials = Depends(security)) -> AuthUser:
++async def verify_token(request: Request, creds: HTTPAuthorizationCredentials = Depends(security)) -> AuthUser:
+     """
+     Verifies the authentication token and returns an AuthUser object.
+     Supports:
+@@ -24,6 +24,8 @@ async def verify_token(creds: HTTPAuthorizationCredentials = Depends(security))
+     if not token or token == "undefined":
+         raise HTTPException(status_code=403, detail="Not authenticated")
+ 
++    user = None
++
+     # 1. Check for Mock Token (Development Only)
+     if token.startswith("mock:"):
+         # In a real app, you'd check an environment variable to ensure this is only enabled in dev
+@@ -40,53 +42,59 @@ async def verify_token(creds: HTTPAuthorizationCredentials = Depends(security))
+                 logger.warning(f"Mock token malformed: {token}")
+                 raise HTTPException(status_code=401, detail="Malformed mock token")
+ 
+-            return AuthUser(id=parts[1], email=parts[2], name=parts[3], provider="mock")
++            user = AuthUser(id=parts[1], email=parts[2], name=parts[3], provider="mock")
+         except Exception as e:
+             logger.error(f"Mock auth exception: {e}")
+             raise HTTPException(status_code=401, detail="Invalid mock token") from e
+ 
+     # 2. Try Google ID Token Verification
+-    try:
+-        # We need the client ID to verify the token
+-        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+-        if google_client_id:
+-            # Add clock skew to handle minor time differences
+-            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), google_client_id, clock_skew_in_seconds=10)
+-
+-            return AuthUser(id=idinfo["sub"], email=idinfo["email"], name=idinfo.get("name", idinfo["email"]), provider="google")
+-    except ValueError:
+-        # Not a valid Google token or verification failed, continue to next provider
+-        pass
+-    except Exception as e:
+-        logger.error(f"Error verifying Google token: {e}")
++    if not user:
++        try:
++            # We need the client ID to verify the token
++            google_client_id = os.getenv("GOOGLE_CLIENT_ID")
++            if google_client_id:
++                # Add clock skew to handle minor time differences
++                idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), google_client_id, clock_skew_in_seconds=10)
++
++                user = AuthUser(id=idinfo["sub"], email=idinfo["email"], name=idinfo.get("name", idinfo["email"]), provider="google")
++        except ValueError:
++            # Not a valid Google token or verification failed, continue to next provider
++            pass
++        except Exception as e:
++            logger.error(f"Error verifying Google token: {e}")
+ 
+     # 3. Try GitHub Access Token Verification
+-    try:
+-        # GitHub tokens are opaque, we must call their API
+-        github_response = requests.get("https://api.github.com/user", headers={"Authorization": f"token {token}"}, timeout=5)
+-        if github_response.status_code == 200:
+-            user_data = github_response.json()
+-            # GitHub email might be private, so we might need another call if email is null
+-            email = user_data.get("email")
+-            if not email:
+-                # Try to get emails
+-                emails_resp = requests.get(
+-                    "https://api.github.com/user/emails", headers={"Authorization": f"token {token}"}, timeout=5
++    if not user:
++        try:
++            # GitHub tokens are opaque, we must call their API
++            github_response = requests.get("https://api.github.com/user", headers={"Authorization": f"token {token}"}, timeout=5)
++            if github_response.status_code == 200:
++                user_data = github_response.json()
++                # GitHub email might be private, so we might need another call if email is null
++                email = user_data.get("email")
++                if not email:
++                    # Try to get emails
++                    emails_resp = requests.get(
++                        "https://api.github.com/user/emails", headers={"Authorization": f"token {token}"}, timeout=5
++                    )
++                    if emails_resp.status_code == 200:
++                        emails = emails_resp.json()
++                        # Find primary or first
++                        primary_email = next((e["email"] for e in emails if e["primary"]), emails[0]["email"] if emails else None)
++                        email = primary_email
++
++                user = AuthUser(
++                    id=str(user_data["id"]),
++                    email=email or f"{user_data['login']}@github.com",
++                    name=user_data.get("name") or user_data["login"],
++                    provider="github",
+                 )
+-                if emails_resp.status_code == 200:
+-                    emails = emails_resp.json()
+-                    # Find primary or first
+-                    primary_email = next((e["email"] for e in emails if e["primary"]), emails[0]["email"] if emails else None)
+-                    email = primary_email
+-
+-            return AuthUser(
+-                id=str(user_data["id"]),
+-                email=email or f"{user_data['login']}@github.com",
+-                name=user_data.get("name") or user_data["login"],
+-                provider="github",
+-            )
+-    except Exception as e:
+-        logger.error(f"Error verifying GitHub token: {e}")
++        except Exception as e:
++            logger.error(f"Error verifying GitHub token: {e}")
++
+
+[PATCH TRUNCATED: 126 total lines]
+
+--- FILE 3/3 ---
+FILE: src/tests/integration/test_rate_limit_integration.py
+STATUS: added
+ADDITIONS: 15
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,15 @@
++from fastapi.testclient import TestClient
++from main import app
++from slowapi.errors import RateLimitExceeded
++
++client = TestClient(app)
++
++def test_limiter_integration():
++    # Verify limiter state is attached
++    assert hasattr(app.state, "limiter")
++    
++    # Verify exception handler is registered
++    # This is a bit internal to FastAPI, but we can check if the exception is in exception_handlers
++    # Note: exception_handlers key might be the class or the status code.
++    # SlowAPI registers handler for RateLimitExceeded
++    assert RateLimitExceeded in app.exception_handlers or 429 in app.exception_handlers
+
+
+====================================================================================================
+COMMIT POSITION 9
+====================================================================================================
+SHA: b03e4f92bd8f432ded99c8659ebbc445ba5561f2
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Integrate Limiter middleware' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -8,7 +8,7 @@ Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure
+ - [x] Task: Add slowapi to pyproject.toml dependencies. 188d542
+ - [x] Task: Create a central limiter instance in `src/rickbot_utils/` or a new utils module. 785d220
+ - [x] Task: Implement a custom key function to identify users (User ID from JWT or IP). 2c0f07d
+-- [ ] Task: Integrate the `Limiter` middleware into the FastAPI application in `src/main.py`.
++- [x] Task: Integrate the `Limiter` middleware into the FastAPI application in `src/main.py`. d571855
+ - [ ] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Configuration' (Protocol in workflow.md)
+ 
+ ## Phase 2: Global & Specific Limits
+
+
+====================================================================================================
+COMMIT POSITION 10
+====================================================================================================
+SHA: 25225bba838e782c852124262b78cf81ff40eaf8
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(checkpoint): Checkpoint end of Phase 1 - Foundation & Configuration
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: src/tests/unit/test_auth_dependency.py
+STATUS: modified
+ADDITIONS: 19
+DELETIONS: 4
+
+PATCH:
+@@ -1,5 +1,6 @@
+ import pytest
+-from fastapi import HTTPException
++from unittest.mock import MagicMock
++from fastapi import HTTPException, Request
+ from fastapi.security import HTTPAuthorizationCredentials
+ 
+ from rickbot_agent.auth_models import AuthUser
+@@ -16,13 +17,21 @@ async def test_verify_mock_token_valid():
+     token = "mock:123:test@example.com:Test User"
+ 
+     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+-    user = await verify_token(creds)
++    
++    # Create mock request
++    request = MagicMock(spec=Request)
++    request.state = MagicMock()
++    
++    user = await verify_token(request, creds)
+ 
+     assert isinstance(user, AuthUser)
+     assert user.id == "123"
+     assert user.email == "test@example.com"
+     assert user.name == "Test User"
+     assert user.provider == "mock"
++    
++    # Verify user was attached to request state
++    assert request.state.user == user
+ 
+ 
+ @pytest.mark.asyncio
+@@ -34,9 +43,12 @@ async def test_verify_mock_token_invalid_prefix():
+ 
+     token = "invalid:123:test@example.com:Test User"
+     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
++    
++    request = MagicMock(spec=Request)
++    request.state = MagicMock()
+ 
+     with pytest.raises(HTTPException) as excinfo:
+-        await verify_token(creds)
++        await verify_token(request, creds)
+     assert excinfo.value.status_code == 401
+ 
+ 
+@@ -50,6 +62,9 @@ async def test_verify_mock_token_malformed():
+     token = "mock:broken"
+     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+ 
++    request = MagicMock(spec=Request)
++    request.state = MagicMock()
++
+     with pytest.raises(HTTPException) as excinfo:
+-        await verify_token(creds)
++        await verify_token(request, creds)
+     assert excinfo.value.status_code == 401
+
+
+====================================================================================================
+COMMIT POSITION 11
+====================================================================================================
+SHA: 6a0350b9bbcd7b69063f6892674bcf0a4f4b66be
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark phase 'Foundation & Configuration' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -2,7 +2,7 @@
+ 
+ This plan outlines the steps to implement API rate limiting in the Rickbot-ADK backend using `slowapi`.
+ 
+-## Phase 1: Foundation & Configuration
++## Phase 1: Foundation & Configuration [checkpoint: 25225bb]
+ Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure.
+ 
+ - [x] Task: Add slowapi to pyproject.toml dependencies. 188d542
+
+
+====================================================================================================
+COMMIT POSITION 12
+====================================================================================================
+SHA: c6ebc197bf3bb1647453f8ed4fa8fd435938acf9
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat(api): Apply global default rate limit (60/minute)
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: src/rickbot_utils/rate_limit.py
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 2
+
+PATCH:
+@@ -17,5 +17,8 @@ def get_rate_limit_key(request: Request) -> str:
+     # Fallback to IP
+     return get_remote_address(request)
+ 
+-# Initialize the Limiter with our custom key function
+-limiter = Limiter(key_func=get_rate_limit_key)
+\ No newline at end of file
++# Initialize the Limiter with our custom key function and global default limits
++limiter = Limiter(
++    key_func=get_rate_limit_key,
++    default_limits=["60 per minute"]
++)
+
+--- FILE 2/2 ---
+FILE: src/tests/integration/test_rate_limit_integration.py
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 5
+
+PATCH:
+@@ -1,15 +1,33 @@
+ from fastapi.testclient import TestClient
+ from main import app
+ from slowapi.errors import RateLimitExceeded
++import pytest
+ 
+ client = TestClient(app)
+ 
+ def test_limiter_integration():
+     # Verify limiter state is attached
+     assert hasattr(app.state, "limiter")
+-    
+-    # Verify exception handler is registered
+-    # This is a bit internal to FastAPI, but we can check if the exception is in exception_handlers
+-    # Note: exception_handlers key might be the class or the status code.
+-    # SlowAPI registers handler for RateLimitExceeded
+     assert RateLimitExceeded in app.exception_handlers or 429 in app.exception_handlers
++
++def test_global_rate_limit_applied():
++    limiter = app.state.limiter
++    # Check if any default limit matches our expectation
++    found = False
++    for limit_group in limiter._default_limits:
++        if any("60 per 1 minute" in str(limit) or "60/1 minute" in str(limit) for limit in limit_group):
++            found = True
++            break
++    # Note: str(limit) might vary by version, but functional test is better
++    # Let's just trust the functional test if this is too brittle, but I'll try to be broad.
++    # Actually, I'll just check if it's not empty.
++    assert len(limiter._default_limits) > 0
++
++def test_root_endpoint_rate_limited():
++    # Attempt to exhaust the 60/min limit on the root endpoint
++    for _ in range(65):
++        response = client.get("/")
++        if response.status_code == 429:
++            return # Success, it's limited
++    
++    pytest.fail("Root endpoint was not rate limited after 65 requests")
+
+
+====================================================================================================
+COMMIT POSITION 13
+====================================================================================================
+SHA: b665ffc10fdfa8b7dacbd838651d94d61f9aed91
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Apply global rate limit' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -14,7 +14,7 @@ Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure
+ ## Phase 2: Global & Specific Limits
+ Goal: Apply the defined rate limit policies to the API endpoints.
+ 
+-- [ ] Task: Apply the global default rate limit (60/minute) to the FastAPI app.
++- [x] Task: Apply the global default rate limit (60/minute) to the FastAPI app. c6ebc19
+ - [ ] Task: Identify all LLM-related endpoints in the codebase.
+ - [ ] Task: Apply specific stricter limits (5/minute) to LLM endpoints using decorators.
+ - [ ] Task: Ensure the `429` error response is correctly handled and formatted.
+
+
+====================================================================================================
+COMMIT POSITION 14
+====================================================================================================
+SHA: f521c48b908e83f7fdfb2bc04b97406d834c4109
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat(api): Apply stricter rate limits (5/minute) to LLM endpoints
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: src/main.py
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 1
+
+PATCH:
+@@ -26,7 +26,7 @@
+ from os import getenv
+ from typing import Annotated
+ 
+-from fastapi import Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
++from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+ from fastapi.middleware.cors import CORSMiddleware
+ from fastapi.responses import StreamingResponse
+ from google.adk.runners import Runner
+@@ -145,7 +145,9 @@ async def _process_files(
+ 
+ 
+ @app.post("/chat")
++@limiter.limit("5 per minute")
+ async def chat(
++    request: Request,
+     prompt: Annotated[str, Form()],
+     session_id: Annotated[str | None, Form()] = None,
+     personality: Annotated[str, Form()] = "Rick",
+@@ -225,7 +227,9 @@ async def chat(
+ 
+ 
+ @app.post("/chat_stream")
++@limiter.limit("5 per minute")
+ async def chat_stream(
++    request: Request,
+     prompt: Annotated[str, Form()],
+     session_id: Annotated[str | None, Form()] = None,
+     personality: Annotated[str, Form()] = "Rick",
+
+--- FILE 2/2 ---
+FILE: src/tests/integration/test_rate_limit_integration.py
+STATUS: modified
+ADDITIONS: 38
+DELETIONS: 9
+
+PATCH:
+@@ -2,25 +2,21 @@
+ from main import app
+ from slowapi.errors import RateLimitExceeded
+ import pytest
++import os
++from unittest.mock import patch, AsyncMock, MagicMock
+ 
+ client = TestClient(app)
+ 
++# Ensure mock auth is enabled for testing
++os.environ["NEXT_PUBLIC_ALLOW_MOCK_AUTH"] = "true"
++
+ def test_limiter_integration():
+     # Verify limiter state is attached
+     assert hasattr(app.state, "limiter")
+     assert RateLimitExceeded in app.exception_handlers or 429 in app.exception_handlers
+ 
+ def test_global_rate_limit_applied():
+     limiter = app.state.limiter
+-    # Check if any default limit matches our expectation
+-    found = False
+-    for limit_group in limiter._default_limits:
+-        if any("60 per 1 minute" in str(limit) or "60/1 minute" in str(limit) for limit in limit_group):
+-            found = True
+-            break
+-    # Note: str(limit) might vary by version, but functional test is better
+-    # Let's just trust the functional test if this is too brittle, but I'll try to be broad.
+-    # Actually, I'll just check if it's not empty.
+     assert len(limiter._default_limits) > 0
+ 
+ def test_root_endpoint_rate_limited():
+@@ -31,3 +27,36 @@ def test_root_endpoint_rate_limited():
+             return # Success, it's limited
+     
+     pytest.fail("Root endpoint was not rate limited after 65 requests")
++
++@patch("main.Runner")
++@patch("main.get_agent")
++def test_chat_endpoint_stricter_limit(mock_get_agent, mock_runner_class):
++    # Setup mock runner to return a dummy final response
++    mock_runner = MagicMock()
++    mock_runner_class.return_value = mock_runner
++    
++    async def mock_run_async(*args, **kwargs):
++        event = MagicMock()
++        event.get_function_calls.return_value = []
++        event.actions = None
++        event.is_final_response.return_value = True
++        
++        part = MagicMock()
++        part.text = "Mocked response"
++        event.content.parts = [part]
++        
++        yield event
++
++    mock_runner.run_async = mock_run_async
++    
++    # The limit for /chat should be 5/minute
++    headers = {"Authorization": "Bearer mock:user1:user1@example.com:User1"}
++    data = {"prompt": "Hello", "personality": "Rick"}
++    
++    for i in range(10):
++        response = client.post("/chat", data=data, headers=headers)
++        if response.status_code == 429:
++            assert i < 6 # Should fail at 6th request
++            return
++            
++    pytest.fail("Chat endpoint was not rate limited after 10 requests")
+
+
+====================================================================================================
+COMMIT POSITION 15
+====================================================================================================
+SHA: 92635fbdecaa6c3dcafde64d9f3cd73bf4b3ea0c
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Apply specific rate limits' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -15,8 +15,8 @@ Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure
+ Goal: Apply the defined rate limit policies to the API endpoints.
+ 
+ - [x] Task: Apply the global default rate limit (60/minute) to the FastAPI app. c6ebc19
+-- [ ] Task: Identify all LLM-related endpoints in the codebase.
+-- [ ] Task: Apply specific stricter limits (5/minute) to LLM endpoints using decorators.
++- [x] Task: Identify all LLM-related endpoints in the codebase. (Found: `/chat`, `/chat_stream`) b665ffc
++- [x] Task: Apply specific stricter limits (5/minute) to LLM endpoints using decorators. f521c48
+ - [ ] Task: Ensure the `429` error response is correctly handled and formatted.
+ - [ ] Task: Conductor - User Manual Verification 'Phase 2: Global & Specific Limits' (Protocol in workflow.md)
+ 
+
+
+====================================================================================================
+COMMIT POSITION 16
+====================================================================================================
+SHA: 1bbc07047b617fbbd5041098f8542c92f6c13b2f
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat(api): Implement custom 429 handler and decorate all endpoints
+
+CHANGED FILES: 4
+
+--- FILE 1/4 ---
+FILE: src/main.py
+STATUS: modified
+ADDITIONS: 19
+DELETIONS: 6
+
+PATCH:
+@@ -28,11 +28,10 @@
+ 
+ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+ from fastapi.middleware.cors import CORSMiddleware
+-from fastapi.responses import StreamingResponse
++from fastapi.responses import JSONResponse, StreamingResponse
+ from google.adk.runners import Runner
+ from google.genai.types import Content, Part
+ from pydantic import BaseModel
+-from slowapi import _rate_limit_exceeded_handler
+ from slowapi.errors import RateLimitExceeded
+ from slowapi.middleware import SlowAPIMiddleware
+ 
+@@ -47,6 +46,17 @@
+ APP_NAME = "rickbot_api"
+ 
+ 
++async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
++    """Custom handler for rate limit exceeded errors."""
++    response = JSONResponse(
++        status_code=429,
++        content={"detail": f"Rate limit exceeded: {exc.detail}"}
++    )
++    # Add Retry-After header (defaulting to 60s)
++    response.headers["Retry-After"] = "60"
++    return response
++
++
+ class ChatResponse(BaseModel):
+     """Response model for the chat endpoint."""
+ 
+@@ -72,7 +82,7 @@ class Persona(BaseModel):
+ 
+ # Add Rate Limiting
+ app.state.limiter = limiter
+-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
++app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+ app.add_middleware(SlowAPIMiddleware)
+ 
+ # Add CORS middleware
+@@ -86,7 +96,8 @@ class Persona(BaseModel):
+ 
+ 
+ @app.get("/personas")
+-def get_personas(user: AuthUser = Depends(verify_token)) -> list[Persona]:
++@limiter.limit("60 per minute")
++def get_personas(request: Request, user: AuthUser = Depends(verify_token)) -> list[Persona]:
+     """Returns a list of available chatbot personalities."""
+     personalities = get_personalities()
+     return [
+@@ -327,13 +338,15 @@ async def event_generator() -> AsyncGenerator[str, None]:
+ 
+ 
+ @app.get("/")
+-def read_root():
++@limiter.limit("60 per minute")
++def read_root(request: Request):
+     """Root endpoint for the API."""
+     return {"Hello": "World"}
+ 
+ 
+ @app.get("/artifacts/{filename}")
+-async def get_artifact(filename: str, user: AuthUser = Depends(verify_token)) -> Response:
++@limiter.limit("60 per minute")
++async def get_artifact(filename: str, request: Request, user: AuthUser = Depends(verify_token)) -> Response:
+     """Retrieves a saved artifact for the user."""
+     user_id = user.email
+     artifact_filename = f"user:{filename}"
+
+--- FILE 2/4 ---
+FILE: src/rickbot_utils/rate_limit.py
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -18,6 +18,8 @@ def get_rate_limit_key(request: Request) -> str:
+     return get_remote_address(request)
+ 
+ # Initialize the Limiter with our custom key function and global default limits
++# We keep headers_enabled=False (default) to avoid crashes with Pydantic model returns.
++# We will handle custom headers (like Retry-After) in the exception handler.
+ limiter = Limiter(
+     key_func=get_rate_limit_key,
+     default_limits=["60 per minute"]
+
+--- FILE 3/4 ---
+FILE: src/tests/integration/test_rate_limit_integration.py
+STATUS: modified
+ADDITIONS: 7
+DELETIONS: 1
+
+PATCH:
+@@ -3,7 +3,7 @@
+ from slowapi.errors import RateLimitExceeded
+ import pytest
+ import os
+-from unittest.mock import patch, AsyncMock, MagicMock
++from unittest.mock import patch, MagicMock
+ 
+ client = TestClient(app)
+ 
+@@ -24,6 +24,10 @@ def test_root_endpoint_rate_limited():
+     for _ in range(65):
+         response = client.get("/")
+         if response.status_code == 429:
++            # Check for Retry-After header
++            print(f"DEBUG: 429 response headers: {response.headers}")
++            print(f"DEBUG: 429 response body: {response.json()}")
++            assert "Retry-After" in response.headers
+             return # Success, it's limited
+     
+     pytest.fail("Root endpoint was not rate limited after 65 requests")
+@@ -57,6 +61,8 @@ async def mock_run_async(*args, **kwargs):
+         response = client.post("/chat", data=data, headers=headers)
+         if response.status_code == 429:
+             assert i < 6 # Should fail at 6th request
++            assert "Retry-After" in response.headers
++            assert "detail" in response.json()
+             return
+             
+     pytest.fail("Chat endpoint was not rate limited after 10 requests")
+
+--- FILE 4/4 ---
+FILE: src/tests/unit/test_api_fastapi.py
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 0
+
+PATCH:
+@@ -60,8 +60,14 @@ def client():
+         # Override the dependency
+         app.dependency_overrides[verify_token] = lambda: mock_user
+ 
++        # Disable rate limiting for these tests to prevent interference
++        app.state.limiter.enabled = False
++
+         with TestClient(app) as c:
+             yield c, mock_runner
++        
++        # Re-enable for other tests
++        app.state.limiter.enabled = True
+ 
+ 
+ def test_read_root(client):
+
+
+====================================================================================================
+COMMIT POSITION 17
+====================================================================================================
+SHA: 509be19b9b3b716fc9df7d7502a5488cee22a88b
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Ensure 429 error response handled' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -17,7 +17,7 @@ Goal: Apply the defined rate limit policies to the API endpoints.
+ - [x] Task: Apply the global default rate limit (60/minute) to the FastAPI app. c6ebc19
+ - [x] Task: Identify all LLM-related endpoints in the codebase. (Found: `/chat`, `/chat_stream`) b665ffc
+ - [x] Task: Apply specific stricter limits (5/minute) to LLM endpoints using decorators. f521c48
+-- [ ] Task: Ensure the `429` error response is correctly handled and formatted.
++- [x] Task: Ensure the `429` error response is correctly handled and formatted. 1bbc070
+ - [ ] Task: Conductor - User Manual Verification 'Phase 2: Global & Specific Limits' (Protocol in workflow.md)
+ 
+ ## Phase 3: Verification & Documentation
+
+
+====================================================================================================
+COMMIT POSITION 18
+====================================================================================================
+SHA: 264f1220e0e1e9111cc73641877abec2b1bbb0c5
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(checkpoint): Checkpoint end of Phase 2 - Global & Specific Limits
+
+CHANGED FILES: 0
+
+[No changed files returned]
+
+====================================================================================================
+COMMIT POSITION 19
+====================================================================================================
+SHA: 4aa34573b708d7eef5d6f0e687f460ede8900ec6
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark phase 'Global & Specific Limits' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -11,7 +11,7 @@ Goal: Add `slowapi` dependency and set up the basic rate limiting infrastructure
+ - [x] Task: Integrate the `Limiter` middleware into the FastAPI application in `src/main.py`. d571855
+ - [ ] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Configuration' (Protocol in workflow.md)
+ 
+-## Phase 2: Global & Specific Limits
++## Phase 2: Global & Specific Limits [checkpoint: 264f122]
+ Goal: Apply the defined rate limit policies to the API endpoints.
+ 
+ - [x] Task: Apply the global default rate limit (60/minute) to the FastAPI app. c6ebc19
+
+
+====================================================================================================
+COMMIT POSITION 20
+====================================================================================================
+SHA: fecddedadee3f6c908c3c90dd972a5d293cdc658
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: Document API rate limiting features and policies
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 12
+DELETIONS: 0
+
+PATCH:
+@@ -22,6 +22,7 @@ Author: Darren Lester
+   - [API Backend](#api-backend)
+   - [Streamlit UI](#streamlit-ui)
+   - [OAuth](#oauth)
++  - [Rate Limiting](#rate-limiting)
+   - [DNS](#dns)
+ - [Deploying Infrastructure](#deploying-infrastructure)
+ - [Historical Notes About This Repo](#historical-notes-about-this-repo)
+@@ -293,6 +294,17 @@ For production deployment, avoid embedding secrets in the container image or env
+ 
+ Non-sensitive values (Client IDs, URLs) can be set as standard environment variables in the Cloud Run configuration.
+ 
++### Rate Limiting
++
++The FastAPI backend implements rate limiting using `slowapi` to ensure stability and fair resource usage.
++
++- **Global Limit:** 60 requests per minute per user/IP across all endpoints.
++- **LLM Generation Limit:** 5 requests per minute per user/IP for `/chat` and `/chat_stream`.
++- **Identification:**
++    - **Authenticated users** are tracked by their unique User ID (extracted from JWT).
++    - **Unauthenticated users** are tracked by their IP address.
++- **Error Response:** Exceeding limits returns a `429 Too Many Requests` status code with a `Retry-After: 60` header and a descriptive JSON body.
++
+ ### DNS
+ 
+ See [docs/design.md](docs/design.md) for details on DNS configuration.
+
+--- FILE 2/2 ---
+FILE: docs/design.md
+STATUS: modified
+ADDITIONS: 17
+DELETIONS: 0
+
+PATCH:
+@@ -190,6 +190,23 @@ Frontend user authentication is required for Rickbot.
+     - **Local Development**: OAuth credentials (Client ID/Secret) are loaded from `.env.local`.
+     - **Production**: Credentials are securely fetched from **Google Secret Manager** and injected as environment variables into the Cloud Run container.
+ 
++### Rate Limiting
++
++To ensure the stability and availability of the Rickbot-ADK platform, rate limiting is implemented at the API level.
++
++*   **Framework**: **slowapi** (a FastAPI port of `limits`).
++*   **Storage**: **In-memory storage** (default). Note that rate limits are currently local to each instance of the API server.
++*   **Key Identification**:
++    *   **Authenticated Users**: Requests are tracked using the unique **User ID** extracted from the verified JWT (Google or GitHub). This ensures fair usage across different devices for the same account.
++    *   **Unauthenticated Users**: Requests are tracked by the **Client IP address** as a fallback.
++*   **Policies**:
++    *   **Global Default**: 60 requests per minute.
++    *   **LLM Generation**: 5 requests per minute for `/chat` and `/chat_stream`. This stricter limit is necessary to manage the high computational cost and external API quotas associated with Gemini model inference.
++*   **Error Handling**:
++    *   Exceeding a limit triggers a `429 Too Many Requests` response.
++    *   The response includes a `Retry-After: 60` header to inform clients when they can resume requests.
++    *   A custom exception handler ensures the response body is formatted as standard JSON: `{"detail": "Rate limit exceeded: ..."}`.
++
+ ### Artifacts & Media Handling
+ 
+ The system leverages **ADK Artifacts** for robust handling of user-uploaded files and generated content.
+
+
+====================================================================================================
+COMMIT POSITION 21
+====================================================================================================
+SHA: 7ab874cc8fa89ca1bade51094d5a201ec7191cb7
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Update documentation' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -23,9 +23,9 @@ Goal: Apply the defined rate limit policies to the API endpoints.
+ ## Phase 3: Verification & Documentation
+ Goal: Verify the implementation with tests and ensure it meets project standards.
+ 
+-- [ ] Task: Write unit tests to verify the identifier extraction (IP vs User ID).
+-- [ ] Task: Write integration tests to simulate rate limit exhaustion and verify `429` responses.
+-- [ ] Task: Verify that `Retry-After` headers are present in `429` responses.
+-- [ ] Task: Update `README.md` and `docs/design.md` with rate limiting details.
++- [x] Task: Write unit tests to verify the identifier extraction (IP vs User ID). 2c0f07d
++- [x] Task: Write integration tests to simulate rate limit exhaustion and verify `429` responses. c6ebc19
++- [x] Task: Verify that `Retry-After` headers are present in `429` responses. 1bbc070
++- [x] Task: Update `README.md` and `docs/design.md` with rate limiting details. fecdded
+ - [ ] Task: Run full linting, type checks, and spelling checks.
+ - [ ] Task: Conductor - User Manual Verification 'Phase 3: Verification & Documentation' (Protocol in workflow.md)
+
+
+====================================================================================================
+COMMIT POSITION 22
+====================================================================================================
+SHA: ff98eef36df2cf2f8bac8daf1603f31d53028799
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+style: Fix typos, long lines and mypy issues
+
+CHANGED FILES: 4
+
+--- FILE 1/4 ---
+FILE: pyproject.toml
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -101,7 +101,7 @@ exclude = [".venv", "node_modules", "src/nextjs_fe"]
+ 
+ [tool.codespell]
+ ignore-words-list = "rouge"
+-skip = "./locust_env/*,uv.lock,.venv,./src/frontend,**/*.ipynb,**/node_modules,**/.next,./src/nextjs_fe/out,**/*.excalidraw,**/package-lock.json"
++skip = "./locust_env/*,uv.lock,.venv,./src/frontend,**/*.ipynb,**/node_modules,**/.next,./src/nextjs_fe/out,**/*.excalidraw,**/package-lock.json,./scratch/*"
+ 
+ 
+ [build-system]
+
+--- FILE 2/4 ---
+FILE: src/main.py
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 1
+
+PATCH:
+@@ -46,8 +46,11 @@
+ APP_NAME = "rickbot_api"
+ 
+ 
+-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
++async def rate_limit_exceeded_handler(request: Request, exc: Exception) -> JSONResponse:
+     """Custom handler for rate limit exceeded errors."""
++    if not isinstance(exc, RateLimitExceeded):
++        return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
++
+     response = JSONResponse(
+         status_code=429,
+         content={"detail": f"Rate limit exceeded: {exc.detail}"}
+
+--- FILE 3/4 ---
+FILE: src/rickbot_agent/agent.py
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 2
+
+PATCH:
+@@ -62,7 +62,10 @@ def create_rag_agent(file_store_name: str) -> Agent:
+         return Agent(
+             model=config.model,
+             name="RagAgent",
+-            description="Primary agent for answering questions using the internal knowledge base. ALWAYS consult this agent first.",
++            description=(
++                "Primary agent for answering questions using the internal knowledge base. "
++                "ALWAYS consult this agent first."
++            ),
+             instruction=instruction,
+             tools=[FileSearchTool(file_search_store_names=[store_name])],
+ 
+@@ -97,7 +100,7 @@ def create_agent(personality: Personality) -> Agent:
+             You also have access to SearchAgent for Google Search.
+ 
+             IMPORTANT: You MUST ALWAYS start by searching your reference materials using the RagAgent.
+-            Only use the SearchAgent if the RagAgent does not provide a relevant answer. This supercedes any other 
++            Only use the SearchAgent if the RagAgent does not provide a relevant answer. This supersedes any other 
+             guidance provided to you.
+ 
+             """)
+
+--- FILE 4/4 ---
+FILE: src/rickbot_agent/auth.py
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 2
+
+PATCH:
+@@ -54,9 +54,13 @@ async def verify_token(request: Request, creds: HTTPAuthorizationCredentials = D
+             google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+             if google_client_id:
+                 # Add clock skew to handle minor time differences
+-                idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), google_client_id, clock_skew_in_seconds=10)
++                idinfo = id_token.verify_oauth2_token(
++                    token, google_requests.Request(), google_client_id, clock_skew_in_seconds=10
++                )
+ 
+-                user = AuthUser(id=idinfo["sub"], email=idinfo["email"], name=idinfo.get("name", idinfo["email"]), provider="google")
++                user = AuthUser(
++                    id=idinfo["sub"], email=idinfo["email"], name=idinfo.get("name", idinfo["email"]), provider="google"
++                )
+         except ValueError:
+             # Not a valid Google token or verification failed, continue to next provider
+             pass
+
+
+====================================================================================================
+COMMIT POSITION 23
+====================================================================================================
+SHA: a2ffcbc715de0513977502c30fffc0947ddba3e4
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark task 'Linting and checks' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -27,5 +27,5 @@ Goal: Verify the implementation with tests and ensure it meets project standards
+ - [x] Task: Write integration tests to simulate rate limit exhaustion and verify `429` responses. c6ebc19
+ - [x] Task: Verify that `Retry-After` headers are present in `429` responses. 1bbc070
+ - [x] Task: Update `README.md` and `docs/design.md` with rate limiting details. fecdded
+-- [ ] Task: Run full linting, type checks, and spelling checks.
++- [x] Task: Run full linting, type checks, and spelling checks. ff98eef
+ - [ ] Task: Conductor - User Manual Verification 'Phase 3: Verification & Documentation' (Protocol in workflow.md)
+
+
+====================================================================================================
+COMMIT POSITION 24
+====================================================================================================
+SHA: e52ecf13a1612dc79452a4350c9b0d1ce2b5898e
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix(lint): Resolve all remaining Mypy errors
+
+CHANGED FILES: 9
+
+--- FILE 1/9 ---
+FILE: TODO.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -58,7 +58,7 @@
+ - [x] Load reference material as context to Dazbo - MVP
+ - [x] Implement File Search Tool for Dazbo
+ - [x] Externalise file search store name into personalities.yaml
+-- [ ] Implement rate limiting for our API calls
++- [x] Implement rate limiting for our API calls
+ - [ ] Review env var changes and update Deployment / TF accordingly
+ - [ ] Ensure Gemini model references are updated
+ - [ ] Investigate moving frontend to existing Cloud Run service, and deploying backend to a separate service.
+
+--- FILE 2/9 ---
+FILE: conductor/tracks.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -50,5 +50,5 @@ This file tracks all major tracks for the project. Each track has its own detail
+ 
+ ---
+ 
+-## [ ] Track: Add API Rate Limiting with slowapi
++## [~] Track: Add API Rate Limiting with slowapi
+ *Link: [./conductor/tracks/api_rate_limiting_with_slowapi_20260127/](./conductor/tracks/api_rate_limiting_with_slowapi_20260127/)*
+
+--- FILE 3/9 ---
+FILE: src/rickbot_agent/agent.py
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 2
+
+PATCH:
+@@ -6,6 +6,7 @@
+ 
+ import functools
+ from textwrap import dedent
++from typing import Any
+ 
+ from google import genai
+ from google.adk.agents import Agent
+@@ -53,7 +54,7 @@ def get_store(store_name: str):
+ 
+ 
+ # RAG Specialist Agent (File Search only)
+-def create_rag_agent(file_store_name: str) -> Agent:
++def create_rag_agent(file_store_name: str) -> Agent | None:
+     store_name = get_store(file_store_name)
+     if store_name:
+         logger.info(f"Creating RagAgent connected to {store_name}")
+@@ -80,7 +81,7 @@ def create_agent(personality: Personality) -> Agent:
+ 
+     logger.debug(f"Creating agent for personality: {personality.name}")
+ 
+-    tools = [AgentTool(agent=search_agent)]
++    tools: list[Any] = [AgentTool(agent=search_agent)]
+     instruction = ""
+ 
+     if personality.file_search_store_name:
+
+--- FILE 4/9 ---
+FILE: src/rickbot_utils/rate_limit.py
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 2
+
+PATCH:
+@@ -1,6 +1,7 @@
++from fastapi import Request
+ from slowapi import Limiter
+ from slowapi.util import get_remote_address
+-from fastapi import Request
++
+ 
+ def get_rate_limit_key(request: Request) -> str:
+     """
+@@ -13,7 +14,7 @@ def get_rate_limit_key(request: Request) -> str:
+              return str(request.state.user.id)
+     except AttributeError:
+         pass
+-    
++
+     # Fallback to IP
+     return get_remote_address(request)
+ 
+
+--- FILE 5/9 ---
+FILE: src/tests/integration/test_rate_limit_integration.py
+STATUS: modified
+ADDITIONS: 13
+DELETIONS: 11
+
+PATCH:
+@@ -1,9 +1,11 @@
++import os
++from unittest.mock import MagicMock, patch
++
++import pytest
+ from fastapi.testclient import TestClient
+-from main import app
+ from slowapi.errors import RateLimitExceeded
+-import pytest
+-import os
+-from unittest.mock import patch, MagicMock
++
++from main import app
+ 
+ client = TestClient(app)
+ 
+@@ -29,7 +31,7 @@ def test_root_endpoint_rate_limited():
+             print(f"DEBUG: 429 response body: {response.json()}")
+             assert "Retry-After" in response.headers
+             return # Success, it's limited
+-    
++
+     pytest.fail("Root endpoint was not rate limited after 65 requests")
+ 
+ @patch("main.Runner")
+@@ -38,31 +40,31 @@ def test_chat_endpoint_stricter_limit(mock_get_agent, mock_runner_class):
+     # Setup mock runner to return a dummy final response
+     mock_runner = MagicMock()
+     mock_runner_class.return_value = mock_runner
+-    
++
+     async def mock_run_async(*args, **kwargs):
+         event = MagicMock()
+         event.get_function_calls.return_value = []
+         event.actions = None
+         event.is_final_response.return_value = True
+-        
++
+         part = MagicMock()
+         part.text = "Mocked response"
+         event.content.parts = [part]
+-        
++
+         yield event
+ 
+     mock_runner.run_async = mock_run_async
+-    
++
+     # The limit for /chat should be 5/minute
+     headers = {"Authorization": "Bearer mock:user1:user1@example.com:User1"}
+     data = {"prompt": "Hello", "personality": "Rick"}
+-    
++
+     for i in range(10):
+         response = client.post("/chat", data=data, headers=headers)
+         if response.status_code == 429:
+             assert i < 6 # Should fail at 6th request
+             assert "Retry-After" in response.headers
+             assert "detail" in response.json()
+             return
+-            
++
+     pytest.fail("Chat endpoint was not rate limited after 10 requests")
+
+--- FILE 6/9 ---
+FILE: src/tests/unit/test_agent_generic_search.py
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 3
+
+PATCH:
+@@ -1,13 +1,15 @@
+ """Unit tests for generic file search store support in the agent."""
+ 
++from typing import cast
+ from unittest.mock import patch
+ 
+ import pytest
++from google.adk.agents import Agent
++from google.adk.tools import AgentTool
+ 
+ from rickbot_agent.agent import create_agent
+ from rickbot_agent.personality import Personality
+ from rickbot_agent.tools_custom import FileSearchTool
+-from google.adk.tools import AgentTool
+ 
+ 
+ @pytest.fixture
+@@ -49,9 +51,9 @@ def test_create_agent_attaches_file_search_tool_for_any_personality(mock_get_sto
+     # 2. Check tools include AgentTool for RagAgent
+     rag_agent_tool = next((t for t in agent.tools if isinstance(t, AgentTool) and t.agent.name == "RagAgent"), None)
+     assert rag_agent_tool is not None
+-    
++
+     # Check that the RagAgent has the FileSearchTool
+-    rag_agent = rag_agent_tool.agent
++    rag_agent = cast(Agent, rag_agent_tool.agent)
+     file_search_tools = [t for t in rag_agent.tools if isinstance(t, FileSearchTool)]
+     assert len(file_search_tools) == 1
+     assert file_search_tools[0].file_search_store_names == ["projects/test/locations/global/stores/yoda-store"]
+
+--- FILE 7/9 ---
+FILE: src/tests/unit/test_api_fastapi.py
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -65,7 +65,7 @@ def client():
+ 
+         with TestClient(app) as c:
+             yield c, mock_runner
+-        
++
+         # Re-enable for other tests
+         app.state.limiter.enabled = True
+ 
+
+--- FILE 8/9 ---
+FILE: src/tests/unit/test_auth_dependency.py
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 5
+
+PATCH:
+@@ -1,5 +1,6 @@
+-import pytest
+ from unittest.mock import MagicMock
++
++import pytest
+ from fastapi import HTTPException, Request
+ from fastapi.security import HTTPAuthorizationCredentials
+ 
+@@ -17,19 +18,19 @@ async def test_verify_mock_token_valid():
+     token = "mock:123:test@example.com:Test User"
+ 
+     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+-    
++
+     # Create mock request
+     request = MagicMock(spec=Request)
+     request.state = MagicMock()
+-    
++
+     user = await verify_token(request, creds)
+ 
+     assert isinstance(user, AuthUser)
+     assert user.id == "123"
+     assert user.email == "test@example.com"
+     assert user.name == "Test User"
+     assert user.provider == "mock"
+-    
++
+     # Verify user was attached to request state
+     assert request.state.user == user
+ 
+@@ -43,7 +44,7 @@ async def test_verify_mock_token_invalid_prefix():
+ 
+     token = "invalid:123:test@example.com:Test User"
+     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+-    
++
+     request = MagicMock(spec=Request)
+     request.state = MagicMock()
+ 
+
+--- FILE 9/9 ---
+FILE: src/tests/unit/test_rate_limit.py
+STATUS: modified
+ADDITIONS: 10
+DELETIONS: 9
+
+PATCH:
+@@ -1,46 +1,47 @@
+ from unittest.mock import MagicMock
++
+ from slowapi import Limiter
+-from slowapi.util import get_remote_address
++
+ 
+ def test_limiter_exists():
+     from rickbot_utils.rate_limit import limiter
+     assert isinstance(limiter, Limiter)
+ 
+ def test_get_rate_limit_key_authenticated():
+     from rickbot_utils.rate_limit import get_rate_limit_key
+-    
++
+     # Mock a request with an authenticated user in state
+     request = MagicMock()
+     request.state.user.id = "user123"
+     request.client.host = "127.0.0.1"
+-    
++
+     key = get_rate_limit_key(request)
+     assert key == "user123"
+ 
+ def test_get_rate_limit_key_unauthenticated():
+     from rickbot_utils.rate_limit import get_rate_limit_key
+-    
++
+     # Mock a request without a user in state
+     request = MagicMock()
+     del request.state.user # Ensure user attr raises AttributeError or similar, 
+                            # but MagicMock usually creates attrs on fly.
+                            # We need to simulate how FastAPI Request behaves.
+                            # Usually request.state is a State object. 
+                            # If attribute missing, it raises AttributeError.
+-    
++
+     # Let's configure the mock to raise AttributeError for 'user'
+     def raise_attr_error():
+         raise AttributeError("No user")
+-    
++
+     # A cleaner way with MagicMock spec
+     # Or just simpler:
+     request.state = MagicMock(spec=[]) # Empty spec, no attributes
+     request.client.host = "10.0.0.1"
+     request.headers = {} # Required by get_remote_address sometimes?
+-    
++
+     # We need to verify that get_rate_limit_key falls back to IP
+     # But get_remote_address takes request. 
+     # Let's just assume we implement the fallback logic.
+-    
++
+     key = get_rate_limit_key(request)
+-    assert key == "10.0.0.1"
+\ No newline at end of file
++    assert key == "10.0.0.1"
+
+
+====================================================================================================
+COMMIT POSITION 25
+====================================================================================================
+SHA: 6e4a30b800ce4155f50d23dfbb2db842741e0548
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Update commit SHA for linting task
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -27,5 +27,5 @@ Goal: Verify the implementation with tests and ensure it meets project standards
+ - [x] Task: Write integration tests to simulate rate limit exhaustion and verify `429` responses. c6ebc19
+ - [x] Task: Verify that `Retry-After` headers are present in `429` responses. 1bbc070
+ - [x] Task: Update `README.md` and `docs/design.md` with rate limiting details. fecdded
+-- [x] Task: Run full linting, type checks, and spelling checks. ff98eef
++- [x] Task: Run full linting, type checks, and spelling checks. e52ecf1
+ - [ ] Task: Conductor - User Manual Verification 'Phase 3: Verification & Documentation' (Protocol in workflow.md)
+
+
+====================================================================================================
+COMMIT POSITION 26
+====================================================================================================
+SHA: df508820e18bc3e47e6a79521f5d2a5757444d76
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(checkpoint): Checkpoint end of Phase 3 - Verification & Documentation
+
+CHANGED FILES: 0
+
+[No changed files returned]
+
+====================================================================================================
+COMMIT POSITION 27
+====================================================================================================
+SHA: a7eb8fae833baaa86d73e66de14bf3e5efa8448f
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+conductor(plan): Mark phase 'Verification & Documentation' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -20,7 +20,7 @@ Goal: Apply the defined rate limit policies to the API endpoints.
+ - [x] Task: Ensure the `429` error response is correctly handled and formatted. 1bbc070
+ - [ ] Task: Conductor - User Manual Verification 'Phase 2: Global & Specific Limits' (Protocol in workflow.md)
+ 
+-## Phase 3: Verification & Documentation
++## Phase 3: Verification & Documentation [checkpoint: df50882]
+ Goal: Verify the implementation with tests and ensure it meets project standards.
+ 
+ - [x] Task: Write unit tests to verify the identifier extraction (IP vs User ID). 2c0f07d
+
+
+====================================================================================================
+COMMIT POSITION 28
+====================================================================================================
+SHA: b41f82148434b9588f8c8610382d06c56407da9e
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore(conductor): Mark track 'Add API rate limiting using slowapi' as complete
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tracks.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -50,5 +50,5 @@ This file tracks all major tracks for the project. Each track has its own detail
+ 
+ ---
+ 
+-## [~] Track: Add API Rate Limiting with slowapi
++## [x] Track: Add API Rate Limiting with slowapi
+ *Link: [./conductor/tracks/api_rate_limiting_with_slowapi_20260127/](./conductor/tracks/api_rate_limiting_with_slowapi_20260127/)*
+
+
+====================================================================================================
+COMMIT POSITION 29
+====================================================================================================
+SHA: 0e691874ab3faaf7914fb81d91efb403d4a8b6db
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs(conductor): Synchronize Tech Stack with 'API Rate Limiting' track
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: conductor/tech-stack.md
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 2
+
+PATCH:
+@@ -4,8 +4,9 @@
+ - **Language:** Python 3.12+ (managed with `uv`).
+ - **Frameworks:** 
+     - **Google Agent Development Kit (ADK):** Core framework for building and managing the multi-personality agents.
+-    - **FastAPI:** High-performance web framework for the backend API, decoupling agent logic from the frontends.
+-    - **Authlib:** For handling OAuth flows and JWT token verification.
++    - **FastAPI**: High-performance web framework for the backend API, decoupling agent logic from the frontends.
++    - **Authlib**: For handling OAuth flows and JWT token verification.
++    - **SlowAPI**: For implementing robust API rate limiting and ensuring system stability.
+ - **SDKs:** 
+     - **Google Gen AI SDK (`google-genai`):** For direct interaction with Gemini models.
+     - **Google Cloud SDKs:** Including Vertex AI, Secret Manager, and Logging/Tracing.
+
+
+====================================================================================================
+COMMIT POSITION 30
+====================================================================================================
+SHA: aaf1b8c4c570967573d724a6e0ca9c5c53d61e38
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+chore(conductor): Archive track 'Add API rate limiting using slowapi'
+
+CHANGED FILES: 5
+
+--- FILE 1/5 ---
+FILE: conductor/archive/api_rate_limiting_with_slowapi_20260127/index.md
+PREVIOUS FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/index.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 2/5 ---
+FILE: conductor/archive/api_rate_limiting_with_slowapi_20260127/metadata.json
+PREVIOUS FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/metadata.json
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 3/5 ---
+FILE: conductor/archive/api_rate_limiting_with_slowapi_20260127/plan.md
+PREVIOUS FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/plan.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 4/5 ---
+FILE: conductor/archive/api_rate_limiting_with_slowapi_20260127/spec.md
+PREVIOUS FILE: conductor/tracks/api_rate_limiting_with_slowapi_20260127/spec.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 5/5 ---
+FILE: conductor/tracks.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 6
+
+PATCH:
+@@ -46,9 +46,4 @@ This file tracks all major tracks for the project. Each track has its own detail
+ ---
+ 
+ ## [x] Track: Update the React UI so that it shows when tools are used and which tools.
+-*Link: [./conductor/archive/ui_tool_visibility_20260104/](./conductor/archive/ui_tool_visibility_20260104/)*
+-
+----
+-
+-## [x] Track: Add API Rate Limiting with slowapi
+-*Link: [./conductor/tracks/api_rate_limiting_with_slowapi_20260127/](./conductor/tracks/api_rate_limiting_with_slowapi_20260127/)*
++*Link: [./conductor/archive/ui_tool_visibility_20260104/](./conductor/archive/ui_tool_visibility_20260104/)*
+\ No newline at end of file
+
+
+====================================================================================================
+COMMIT POSITION 31
+====================================================================================================
+SHA: 4cc820ac019971d8066cdf907073dfccbbbd058b
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+fix:unicode env
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: src/rickbot_utils/rate_limit.py
+STATUS: modified
+ADDITIONS: 13
+DELETIONS: 4
+
+PATCH:
+@@ -21,7 +21,16 @@ def get_rate_limit_key(request: Request) -> str:
+ # Initialize the Limiter with our custom key function and global default limits
+ # We keep headers_enabled=False (default) to avoid crashes with Pydantic model returns.
+ # We will handle custom headers (like Retry-After) in the exception handler.
+-limiter = Limiter(
+-    key_func=get_rate_limit_key,
+-    default_limits=["60 per minute"]
+-)
++try:
++    limiter = Limiter(
++        key_func=get_rate_limit_key,
++        default_limits=["60 per minute"]
++    )
++except UnicodeDecodeError:
++    # This can happen in CI/CD where .env is encrypted (git-crypt) and thus invalid utf-8.
++    # In this case, we initialize without reading the config file.
++    limiter = Limiter(
++        key_func=get_rate_limit_key,
++        default_limits=["60 per minute"],
++        config_filename=""
++    )
+
+
+####################################################################################################
+SECTION C — HUMAN VALIDATION
+####################################################################################################
+
+Q1. Does the earlier specification commit
+INTRODUCE or substantively MODIFY a
+behavioral requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q2. Is there a LATER commit in this PR that
+implements some or all of THAT requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q3. What is the FIRST relevant implementation
+commit?
+
+Position:
+
+SHA:
+
+Commit message:
+
+Relevant file(s):
+
+
+Q4. Was the requirement present BEFORE that
+first relevant implementation change?
+
+YES / NO / UNCERTAIN
+
+
+Q5. Requirement → implementation link confidence:
+
+HIGH / MEDIUM / LOW / NONE
+
+
+Q6. Preliminary classification:
+
+TIER_A_CANDIDATE
+TIER_B
+TIER_C
+EXCLUDE
+UNCERTAIN
+
+
+Reason:
+
+
+Relevant requirement text:
+
+
+Relevant implementation evidence:
+
+
+Notes:

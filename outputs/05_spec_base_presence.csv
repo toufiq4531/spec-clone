@@ -1,0 +1,15 @@
+repo_name,pr_number,spec_path,github_status,previous_filename,base_lookup_path,exists_at_base
+timcsy/ai-api,53,specs/028-per-device-credentials/spec.md,added,,specs/028-per-device-credentials/spec.md,0
+gaia-react/gaia,606,.claude/skills/gaia/references/spec.md,modified,,.claude/skills/gaia/references/spec.md,1
+Soju06/codex-lb,137,openspec/changes/add-service-tier-forwarding/specs/chat-completions-compat/spec.md,added,,openspec/changes/add-service-tier-forwarding/specs/chat-completions-compat/spec.md,0
+Soju06/codex-lb,137,openspec/changes/add-service-tier-forwarding/specs/responses-api-compat/spec.md,added,,openspec/changes/add-service-tier-forwarding/specs/responses-api-compat/spec.md,0
+Soju06/codex-lb,137,openspec/changes/add-service-tier-pricing/specs/api-keys/spec.md,added,,openspec/changes/add-service-tier-pricing/specs/api-keys/spec.md,0
+Soju06/codex-lb,137,openspec/changes/add-service-tier-pricing/specs/frontend-architecture/spec.md,added,,openspec/changes/add-service-tier-pricing/specs/frontend-architecture/spec.md,0
+Soju06/codex-lb,137,openspec/specs/api-keys/spec.md,modified,,openspec/specs/api-keys/spec.md,1
+epam/ai-dial-admin-frontend,3846,openspec/changes/add-analytics-v2-query-builder/specs/analytics/spec.md,added,,openspec/changes/add-analytics-v2-query-builder/specs/analytics/spec.md,0
+epam/ai-dial-admin-frontend,3846,openspec/changes/add-analytics-v2-sql-editor/specs/analytics/spec.md,added,,openspec/changes/add-analytics-v2-sql-editor/specs/analytics/spec.md,0
+epam/ai-dial-admin-frontend,3846,openspec/specs/analytics/spec.md,renamed,openspec/specs/analytics-v2/spec.md,openspec/specs/analytics-v2/spec.md,1
+carverauto/serviceradar,2855,openspec/changes/add-bmp-dual-path-observability/specs/observability-signals/spec.md,,,openspec/changes/add-bmp-dual-path-observability/specs/observability-signals/spec.md,0
+carverauto/serviceradar,2855,openspec/changes/add-bmp-dual-path-observability/specs/srql/spec.md,,,openspec/changes/add-bmp-dual-path-observability/specs/srql/spec.md,0
+carverauto/serviceradar,2855,openspec/changes/add-faker-bgp-traffic-simulation/specs/bgp-faker-simulation/spec.md,,,openspec/changes/add-faker-bgp-traffic-simulation/specs/bgp-faker-simulation/spec.md,0
+carverauto/serviceradar,2855,openspec/changes/add-srql-cagg-time-routing/specs/srql/spec.md,,,openspec/changes/add-srql-cagg-time-routing/specs/srql/spec.md,0

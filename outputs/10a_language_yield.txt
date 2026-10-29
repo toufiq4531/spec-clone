@@ -1,0 +1,47 @@
+STEP 10a - LANGUAGE YIELD FOR RQ2 EPISODES
+============================================================
+pull_requests.parquet : D:\USask\specmine\datasets\specmine-full\data\pull_requests.parquet
+pr_files.parquet      : D:\USask\specmine\datasets\specmine-full\data\pr_files.parquet
+Join key used         : repo_number
+
+FUNNEL
+  PRs in table                                   : 5,992
+  Merged PRs                                     : 5,992
+  ...of which OpenSpec or SpecKit                : 5,589
+  ...with spec file AND production code file     : 4,456
+  ...touching more than one production language : 992
+
+Excluded from production code: tests (reported separately), vendor/node_modules,
+dist/build/target, generated dirs, *.min.js, *.d.ts, *.pb.go, *_pb2.py.
+
+PER-LANGUAGE YIELD (an episode can count under several languages)
+    language  episodes  dominant_lang_episodes  repositories  repos_with_2plus_episodes  openspec_episodes  speckit_episodes  median_code_files  max_share_one_repo  within_repo_pairs  cross_repo_pairs  test_only_files_episodes
+  TypeScript      1931                    1585           219                        143               1205               726                7.0               0.080              48750           1814665                      1497
+          Go       956                     893            73                         49                815               142                5.0               0.269              50152            406338                       901
+      Python       804                     657           149                         79                542               262                6.0               0.131              12521            310285                       678
+  JavaScript       588                     207           189                         88                357               231                2.0               0.063               2578            170000                       248
+        Rust       388                     295            57                         37                270               118                9.0               0.119               4035             71043                       169
+          C#       215                     213            30                         23                 94               121               15.0               0.265               2474             20531                       104
+        Dart       139                     130             6                          3                126                13                3.0               0.885               7539              2052                        96
+       Swift       121                      97            23                         17                 64                57                9.0               0.157                631              6629                        37
+         Vue       114                      20            22                         12                 86                28                4.5               0.228                660              5781                         1
+         C++       110                      95            16                          8                 61                49                3.5               0.409               1593              4402                        52
+        Java        94                      77            27                         17                 69                25                9.5               0.170                309              4062                        72
+      Kotlin        80                      60            17                          9                 77                 3                7.0               0.325                564              2596                        39
+C/C++ header        65                       3            16                          8                 54                11                2.0               0.462                484              1596                         7
+      Elixir        57                      49             4                          4                 57                 0               16.0               0.754                938               658                        47
+      Svelte        44                      20            11                          3                 38                 6                3.0               0.455                282               664                         2
+       Scala        35                      25             3                          3                 29                 6                3.0               0.571                241               354                        51
+           C        15                       9             7                          3                  6                 9                3.0               0.467                 23                82                         3
+        Ruby        15                      13             5                          2                 11                 4                9.0               0.467                 31                74                         7
+         PHP        11                       8             5                          3                  8                 3               16.0               0.364                 10                45                         8
+
+HOW TO READ THIS
+  episodes                 : PRs that change production code in this language
+  repos_with_2plus_episodes: repos that can contribute within-repo pairs
+  max_share_one_repo       : >0.3 means one repo dominates -> weak independence
+  within/cross_repo_pairs  : candidate pairs BEFORE spec-similarity filtering;
+                             spec-clone pairs will be a small fraction of these
+
+Decision input: choose 1-3 languages with the most episodes AND repositories,
+then confirm the clone detector has a parser for each.

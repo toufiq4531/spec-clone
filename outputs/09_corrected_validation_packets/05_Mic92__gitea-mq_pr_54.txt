@@ -1,0 +1,3641 @@
+====================================================================================================
+CORRECTED TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 5/15
+Repository: Mic92/gitea-mq
+PR: #54
+Tool: openspec
+Language: Go
+Total PR commits: 11
+
+Earlier specification commit position: 1
+Step-7 automated 'first code' hint: 2
+
+IMPORTANT:
+The Step-7 code position is only a screening hint.
+Your task is to identify the FIRST LATER COMMIT that actually implements the earlier requirement.
+
+####################################################################################################
+SECTION A — EARLIER SPECIFICATION COMMIT
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 1
+====================================================================================================
+SHA: 8a534b7fedec2cd91af2e84bcef8292ddf44f2e2
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+openspec: add batch-merge-queue change
+
+Proposal, design, tasks, and spec deltas for bors-style batching: build a
+single merge branch from N queued PRs, fast-forward the target on green,
+and bisect on red. All bisection state lives on one batches row so the
+loop is restart-safe. BATCH_MAX defaults to 1 which keeps the existing
+single-PR path byte-for-byte intact.
+
+CHANGED FILES: 8
+
+--- FILE 1/8 ---
+FILE: openspec/changes/batch-merge-queue/design.md
+STATUS: added
+ADDITIONS: 202
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,202 @@
++## Context
++
++Current flow: one `queue_entries` row per `(repo, target_branch)` is `testing`; `merge.StartTesting` builds `gitea-mq/<pr>`; on green `monitor.HandleSuccess` flips the `gitea-mq` status and waits for the forge's automerge. gitea-mq never writes the target branch.
++
++Batching changes both: the unit under test is a set of entries, and on green gitea-mq fast-forwards the target itself so the landed tree is the tested tree.
++
++## Non-Goals
++
++Speculative pipelining; cross-branch/repo batching; rollup PRs; adaptive sizing; preserving squash/rebase merge style for batched PRs (always merge commits — documented).
++
++## Decisions
++
++### D1: One live batch row per queue; bisection state is a stack on it
++
++```sql
++CREATE TYPE batch_state AS ENUM ('forming','testing','done','cancelled');
++
++CREATE TABLE batches (
++  id                 BIGSERIAL PRIMARY KEY,
++  repo_id            BIGINT NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
++  target_branch      TEXT   NOT NULL,
++  state              batch_state NOT NULL DEFAULT 'forming',
++
++  member_ids         BIGINT[] NOT NULL,           -- original FIFO set, immutable
++  current_ids        BIGINT[] NOT NULL,           -- on branch_sha right now
++  pending            JSONB    NOT NULL DEFAULT '[]', -- stack of BIGINT[]: halves not yet tried
++  landed_ids         BIGINT[] NOT NULL DEFAULT '{}',
++  ejected_ids        BIGINT[] NOT NULL DEFAULT '{}',
++
++  branch_name        TEXT,                        -- gitea-mq/batch/<id>, reused across rebuilds
++  branch_sha         TEXT,
++  builds             INT NOT NULL DEFAULT 0,      -- CI runs consumed
++  ff_retries         INT NOT NULL DEFAULT 0,
++  flaky              BOOLEAN NOT NULL DEFAULT false,
++
++  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
++  testing_started_at TIMESTAMPTZ                  -- reset every rebuild
++);
++CREATE UNIQUE INDEX ux_batches_live ON batches(repo_id, target_branch)
++  WHERE state IN ('forming','testing');
++
++ALTER TABLE queue_entries ADD COLUMN active_batch_id BIGINT REFERENCES batches(id) ON DELETE SET NULL;
++```
++
++Invariant: `current ∪ flatten(pending) ∪ landed ∪ ejected == member_ids`. `active_batch_id` is set for every member not yet landed/ejected. `queue_entries.merge_branch_{name,sha}` mirror the batch's for entries in `current_ids` only; entries in `pending` have them NULL.
++
++*Rejected*: parent/child batch tree + `batch_members` join table — required ancestor/descendant walks on every disruption, sibling-pending storage, per-child outcome tracking, and an `advance` race guard. The stack removes all four.
++
++### D2: Mode split
++
++`BatchMax==1` → legacy path, untouched (no `batches` row, no push). Else batch path.
++
++Edge: batch mode forms a singleton *and* `SkipQueueIfUpToDate` fires → discard the row, run that entry through legacy. Avoids fast-forwarding `main` to a raw PR head and bypassing the repo's merge style.
++
++### D3: `Build(b)`
++
++```
++delete b.branch_name if exists
++tip, steps := stack(target, current[*].sha, b.branch_name)
++for e,step in zip(current, steps):
++    if step.conflict: eject(e, "Merge conflict in batch (after #<prev>)")
++    if step.err:      eject(e, "Failed to create merge branch: <err>")
++if surv empty: Next(b); return
++persist branch_sha=tip, state='testing', testing_started_at=now(), builds++
++for e in surv: e.merge_branch_* = b.branch_*
++clear check_statuses(surv)  // last, so a stale save that raced before SetMergeBranch is wiped
++if builds==1: SetMQStatus(pending, "Testing batch #<id> (N PRs)") on every member head
++```
++
++```go
++// Forge additions
++MergeInto(ctx, owner, name, branch, headSHA string) (sha string, conflict bool, err error)
++
++type MergeStacker interface { // optional
++    StackMerges(ctx, owner, name, base string, heads []string, branch string) (tip string, []MergeStep, error)
++}
++type MergeStep struct{ Conflict bool; Err error }
++```
++
++`stack()` type-asserts the forge for `MergeStacker`; otherwise loops `CreateMergeBranch` + `MergeInto`. GitHub uses the fallback (`POST /repos/{o}/{r}/merges` is cheap). Gitea implements `StackMerges` so the whole batch branch is built in **one** clone instead of N: clone `base`, then per head `fetch + merge --no-ff` (on conflict `merge --abort` and mark the step), push once. A whole-operation failure (clone/push) returns `err`; the engine leaves the row `forming` and the next `FormAndBuild` retries it.
++
++### D4: `HandlePass(b)`
++
++```
++err := FastForward(target, b.branch_sha)
++if ErrNotFastForward:
++    ff_retries++; if <3: Build(b); else eject(current, "Target branch moved repeatedly"); Next(b); return
++if permission error:
++    eject(current, "gitea-mq lacks push permission on <target>: <msg>"); Next(b); return
++ff_retries = 0
++for e in current: SetMQStatus(success, "Merged via batch #<id>"); skipStaleMirrors; dequeue; active_batch_id=NULL
++landed += current; ensureMergedOrClose(current)
++Next(b)
++```
++
++```go
++// Forge additions
++FastForward(ctx, owner, name, branch, sha string) error  // ErrNotFastForward when sha ∉ descendants(tip)
++ClosePR(ctx, owner, name string, number int64) error
++```
++
++GitHub `FastForward`: `PATCH git/refs/heads/{branch} {sha, force:false}`; 422 "not a fast forward" → `ErrNotFastForward`.
++
++Gitea `FastForward`: shell `git` over HTTPS with the API token in-URL — same
++mechanism `MergeBranches` already uses, no new dependency:
++
++```
++git init --bare -q <tmp>
++git fetch -q <authed-url> <sha>
++git push  <authed-url> <sha>:refs/heads/<target>   # non-force
++```
++
++A depth-limited fetch is *not* sufficient: the git client checks fast-forward
++locally before pushing and needs `sha`'s ancestry back to the current target
++tip. The full fetch costs the same order as `MergeBranches`' existing
++single-branch clone. stderr is parsed for `non-fast-forward`/`fetch first`
++→ `ErrNotFastForward` and `protected branch`/`not allowed to push` →
++`PushDeniedError` (token redacted).
++
+
+[PATCH TRUNCATED: 203 total lines]
+
+--- FILE 2/8 ---
+FILE: openspec/changes/batch-merge-queue/proposal.md
+STATUS: added
+ADDITIONS: 32
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,32 @@
++## Why
++
++One-at-a-time testing costs N CI runs and N× latency for N queued PRs. bors-ng batches: test all queued PRs as one tree, fast-forward target on green, bisect on red. This change brings that to gitea-mq.
++
++## What Changes
++
++- When a queue's head slot becomes free, gitea-mq forms a **batch** from up to `GITEA_MQ_BATCH_MAX` queued PRs (FIFO order) instead of taking one. Default `1` preserves current behaviour exactly; `0` means "everything currently queued".
++- A batch is tested on a single merge branch `gitea-mq/batch/<id>` built by merging each PR's head, in queue order, onto the current target tip. A PR that conflicts during construction is ejected (automerge cancelled, comment posted) and construction continues with the rest.
++- On **success**, gitea-mq **fast-forwards the target branch** to the tested batch SHA (true bors semantics: what was tested is exactly what lands), sets `gitea-mq=success` on each head, and confirms each PR shows merged (short poll, else close + comment with the landing SHA).
++- On **failure/timeout**, gitea-mq **bisects** using the batch row as a work-stack: split `current` in half, push the second half onto `pending`, rebuild+retest the first half from the *current* target tip; a passing half is **landed immediately**, a failing singleton is ejected, then the next pending half is popped. `GITEA_MQ_BISECT_MAX_STEPS` (default `0` = unlimited) caps total CI builds per root.
++- `GITEA_MQ_SKIP_QUEUE_IF_UP_TO_DATE`: a singleton batch that qualifies falls back to the legacy forge-automerge path so the repo's configured merge style is respected.
++- New `Forge` operations: `MergeInto`, `FastForward` (non-force ref update; Gitea via `git push` over HTTPS like `MergeBranches`, GitHub via refs API), `ClosePR`. GitHub auto-setup verifies the App is a ruleset bypass actor; Gitea push-whitelist is documented as an operator prerequisite and surfaced as an actionable per-PR error if missing.
++- Dashboard groups the active batch visually and the PR detail page lists co-batched PRs and bisection progress.
++
++## Capabilities
++
++### Modified Capabilities
++
++- `forge-abstraction`: `Forge` gains `MergeInto`, `FastForward`, `ClosePR`; `ErrNotFastForward` sentinel.
++- `queue-management`: Head-of-queue becomes a *batch* of one or more entries with a stack-based bisection lifecycle on a single `batches` row; fast-forward merge replaces "wait for forge automerge" when batching is enabled.
++- `check-monitoring`: Check evaluation runs against the batch branch SHA; timeout keys on the batch's `testing_started_at` (reset per rebuild); status writes capped at three per member regardless of bisection depth.
++- `automerge-integration`: On batch success gitea-mq performs the merge itself and closes PRs the forge does not auto-detect as merged. Single-PR (`BATCH_MAX=1`) path keeps the existing "let forge automerge" behaviour for zero-risk default.
++- `web-dashboard`: Repo page groups testing entries under their batch with the shared branch/SHA, build count, and current/pending sizes.
++- `pr-detail-page`: Shows batch ID, co-batched PR numbers, and whether this PR is in `current`, `pending`, `landed`, or `ejected`.
++- `repo-discovery` (setup only): GitHub `EnsureRepoSetup` verifies the App is a ruleset bypass actor when batching is enabled.
++
++## Impact
++
++- **Code**: new `internal/batch` (form/build/pass/fail/next loop, startup reconcile); `gitea.Client` gains `FastForwardRef`/`EditIssueState`; changes in `internal/{queue,merge,monitor,poller,registry,config,web}`; `forge.Forge` gains `MergeInto`/`FastForward`/`ClosePR`; both adapters and `MockForge` updated.
++- **Database**: one new `batches` table (arrays + jsonb stack); `queue_entries` gains `active_batch_id` FK; partial unique index ensuring one live batch per queue. Additive migration.
++- **Config**: `GITEA_MQ_BATCH_MAX` (default `1`), `GITEA_MQ_BISECT_MAX_STEPS` (default `0`).
++- **Permissions**: Gitea token user must be in the push whitelist of protected target branches when `BATCH_MAX != 1` (documented; failure surfaces per-PR). GitHub App already bypasses via ruleset.
+
+--- FILE 3/8 ---
+FILE: openspec/changes/batch-merge-queue/specs/check-monitoring/spec.md
+STATUS: added
+ADDITIONS: 24
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,24 @@
++## MODIFIED Requirements
++
++### Requirement: Commit status lifecycle reporting
++In batch mode the `gitea-mq` status on a PR's head SHALL be written at exactly three points: enqueue (`pending`, "Queued (position #N)"), the batch's first build (`pending`, "Testing batch #<id> (N PRs)"), and terminal (`success` "Merged via batch #<id>" / `failure` "Check failed: <ctx>" / `error` <reason>). Bisection rebuilds SHALL NOT post additional `gitea-mq` statuses. `gitea-mq/<ctx>` mirrored checks SHALL be posted only on the first build.
++
++#### Scenario: Batch lifecycle statuses
++- **WHEN** PR #10 is in batch #7 with 3 members
++- **THEN** on the first build its status is `pending` "Testing batch #7 (3 PRs)"
++- **WHEN** #10 lands
++- **THEN** its status is `success` "Merged via batch #7"
++
++#### Scenario: No status churn during bisection
++- **WHEN** batch #7 fails and rebuilds with `current=[#10,#20]`
++- **THEN** PR #10's `gitea-mq` status is unchanged until #10 reaches a terminal outcome
++
++## ADDED Requirements
++
++### Requirement: Batch timeout clock
++Check timeout in batch mode SHALL be measured from `batches.testing_started_at`, which SHALL be reset on every rebuild. Single-PR mode keeps the entry's `testing_started_at`.
++
++#### Scenario: Timeout resets per rebuild
++- **WHEN** the first build ran 50m of a 60m timeout before failing
++- **AND** a bisection rebuild starts
++- **THEN** the rebuild has a fresh 60m budget
+
+--- FILE 4/8 ---
+FILE: openspec/changes/batch-merge-queue/specs/forge-abstraction/spec.md
+STATUS: added
+ADDITIONS: 35
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,35 @@
++## ADDED Requirements
++
++### Requirement: Incremental merge into existing branch
++`Forge` SHALL provide `MergeInto(owner, name, branch, headSHA) (sha, conflict, err)` that merges `headSHA` into an existing branch and returns the new tip, or `conflict=true` on merge conflict.
++
++#### Scenario: Clean incremental merge
++- **WHEN** `MergeInto("o","r","gitea-mq/batch/7", shaB)` is called and no conflict exists
++- **THEN** the branch tip advances and the new SHA is returned
++
++#### Scenario: Conflicting incremental merge
++- **WHEN** `MergeInto` hits a conflict
++- **THEN** it returns `conflict=true` and `err=nil`
++
++### Requirement: Non-force fast-forward of protected branch
++`Forge` SHALL provide `FastForward(owner, name, branch, sha) error` that updates `branch` to `sha` without force. It SHALL return `ErrNotFastForward` when `sha` is not a descendant of the current tip, and a distinct error when the push is rejected by branch protection.
++
++#### Scenario: GitHub fast-forward
++- **WHEN** the GitHub adapter fast-forwards `main` to a descendant SHA
++- **THEN** it issues `PATCH git/refs/heads/main {sha, force:false}` and returns nil
++
++#### Scenario: Gitea fast-forward
++- **WHEN** the Gitea adapter fast-forwards `main`
++- **THEN** it performs a go-git in-memory smart-HTTP push as the token user with a non-force refspec
++
++#### Scenario: Not a fast-forward
++- **WHEN** `sha` is not a descendant of the branch tip
++- **THEN** `FastForward` returns `ErrNotFastForward`
++
++### Requirement: Close pull request
++`Forge` SHALL provide `ClosePR(owner, name, number) error` that closes an open PR without merging it. Closing an already-closed or already-merged PR SHALL return nil.
++
++#### Scenario: Close after batch landing
++- **WHEN** a PR's commits are on the target branch but the forge has not marked it merged
++- **AND** `ClosePR` is called
++- **THEN** the PR is closed and the call returns nil
+
+--- FILE 5/8 ---
+FILE: openspec/changes/batch-merge-queue/specs/pr-detail-page/spec.md
+STATUS: added
+ADDITIONS: 12
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,12 @@
++## ADDED Requirements
++
++### Requirement: Batch panel on PR detail page
++When a PR's entry has `active_batch_id` set, the PR detail page SHALL show a batch panel with: batch id, link to `gitea-mq/batch/<id>` on the forge, the list of co-batched PR numbers (linked), and which bucket this PR is currently in (`current` / `pending` / `landed`).
++
++#### Scenario: PR in current
++- **WHEN** PR #20 is in batch #7 with `members=[#10,#20,#30]`, `current=[#10,#20,#30]`
++- **THEN** `/repo/.../pr/20` shows "Batch #7 · current" linking to `gitea-mq/batch/7` and lists #10, #30
++
++#### Scenario: PR in pending during bisection
++- **WHEN** PR #30 is in `pending=[[#30,#40]]` of batch #7
++- **THEN** the panel shows "Batch #7 · pending"
+
+--- FILE 6/8 ---
+FILE: openspec/changes/batch-merge-queue/specs/queue-management/spec.md
+STATUS: added
+ADDITIONS: 112
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,112 @@
++## ADDED Requirements
++
++### Requirement: Batch formation
++When `GITEA_MQ_BATCH_MAX` ≠ 1 and no live batch exists for a `(repo, target-branch)` queue, the system SHALL form a batch from the first `min(BATCH_MAX, queued)` entries in FIFO order (`BATCH_MAX = 0` means all queued). The batch SHALL be a single `batches` row with `member_ids = current_ids =` those entry IDs; each member entry's `active_batch_id` SHALL reference it. At most one live (`forming|testing`) batch per queue SHALL exist.
++
++#### Scenario: Form batch from queued PRs
++- **WHEN** `BATCH_MAX=4`, the `main` queue holds [#10,#20,#30] and no live batch exists
++- **THEN** a batch is created with `member_ids=current_ids=[#10,#20,#30]`
++- **AND** all three entries are `testing` with `active_batch_id` set
++
++#### Scenario: BATCH_MAX=1 disables batching
++- **WHEN** `BATCH_MAX=1`
++- **THEN** no `batches` row is created and the single-PR flow runs unchanged
++
++#### Scenario: Singleton up-to-date in batch mode uses forge automerge
++- **WHEN** `BATCH_MAX=4` but only PR #10 is queued, #10 already contains target tip, and `SKIP_QUEUE_IF_UP_TO_DATE=true`
++- **THEN** the batch row is discarded and #10 is processed via the legacy forge-automerge path
++
++### Requirement: Batch merge branch
++The system SHALL build branch `gitea-mq/batch/<id>` by merging each `current_ids` member's head SHA, in order, onto the current target tip. The branch name is reused across rebuilds. A member that conflicts SHALL be ejected (automerge cancelled, `failure` status, comment) and construction continues with the rest.
++
++#### Scenario: One member conflicts during construction
++- **WHEN** building `current_ids=[#10,#20,#30]` and merging #20 conflicts
++- **THEN** #20 is ejected with `failure` "Merge conflict in batch"
++- **AND** the batch proceeds to testing with `current_ids=[#10,#30]`
++
++### Requirement: Batch pass fast-forwards target
++When all required checks pass on the batch branch, the system SHALL fast-forward the target branch to `branch_sha` (non-force), set `gitea-mq=success` on each `current_ids` member's head, dequeue them, move them to `landed_ids`, then poll each PR for `merged=true` briefly and close+comment any that the forge has not detected. Finally it SHALL pop the next slice from `pending` and rebuild, or finish if `pending` is empty.
++
++#### Scenario: Batch passes
++- **WHEN** checks on `gitea-mq/batch/7` (`current_ids=[#10,#20,#30]` → `main`) succeed
++- **THEN** `main` is updated to `branch_sha`
++- **AND** each member receives `gitea-mq` `success` "Merged via batch #7"
++- **AND** each PR is reported merged by the forge (or closed with a "Merged as <sha>" comment)
++
++#### Scenario: Target moved before fast-forward
++- **WHEN** `FastForward` returns `ErrNotFastForward`
++- **THEN** `ff_retries` is incremented and the same `current_ids` are rebuilt from the new target tip
++- **AND** after 3 consecutive `ErrNotFastForward` the `current_ids` members are ejected with `error` "Target branch moved repeatedly"
++
++#### Scenario: Push permission denied
++- **WHEN** `FastForward` is rejected by branch protection
++- **THEN** every `current_ids` member is ejected with `error` naming the branch and the user to whitelist
++
++### Requirement: Batch fail bisection
++When a batch with `len(current_ids) > 1` fails or times out, the system SHALL split `current_ids` in half, push the second half onto `pending`, set `current_ids` to the first half, and rebuild from the current target tip. When `len(current_ids) == 1` fails, that member SHALL be ejected with the failing check attributed and the next slice popped from `pending`. When `BISECT_MAX_STEPS > 0` and `builds ≥ BISECT_MAX_STEPS`, every `current_ids` member SHALL be ejected with `error` "Bisection limit reached" instead of splitting.
++
++#### Scenario: Bisect lands good halves and ejects culprit
++- **WHEN** `current=[#10,#20,#30,#40]` fails `ci/test`
++- **THEN** `pending=[[#30,#40]]`, `current=[#10,#20]`, rebuild
++- **WHEN** `[#10,#20]` passes
++- **THEN** `main` fast-forwards, #10/#20 merged, `current=[#30,#40]` popped, rebuild on new `main`
++- **WHEN** `[#30,#40]` fails, `[#30]` passes (land), `[#40]` fails
++- **THEN** #40 is ejected with `failure` "Check failed: ci/test"; batch is `done`
++
++#### Scenario: Both halves pass
++- **WHEN** the root build fails but every subsequent slice passes and `ejected_ids` is empty at `done`
++- **THEN** `flaky=true` is recorded and one informational comment is posted on each member
++
++#### Scenario: Bisection build limit
++- **WHEN** `BISECT_MAX_STEPS=2`, `builds=2`, and `current_ids` fails with size > 1
++- **THEN** every `current_ids` member is ejected with `error` "Bisection limit reached"
++
++### Requirement: Member change during live batch
++If a member entry with `active_batch_id` set is removed (new push, automerge cancelled, closed, retargeted), the system SHALL eject it, drop its id from `current_ids` and every `pending` slice, and — only if it was in `current_ids` — rebuild the trimmed `current_ids`. The batch row remains live; no new root is formed.
++
++#### Scenario: Push to a PR in current
++- **WHEN** `current=[#10,#20]` is testing and #20 receives new commits
++- **THEN** #20 is ejected, `current=[#10]`, the branch is rebuilt, and the previous `branch_sha`'s check events are ignored
++
++#### Scenario: Push to a PR only in pending
++- **WHEN** `current=[#10]` is testing, `pending=[[#20,#30]]`, and #30 receives new commits
++- **THEN** #30 is ejected, `pending=[[#20]]`, and testing of `current` continues uninterrupted
++
++### Requirement: Ignore stale batch check events
++The system SHALL act on a check-status event only if its SHA matches a batch with `state='testing'` and equals that batch's current `branch_sha`.
++
++#### Scenario: Late event for superseded build
++- **WHEN** a rebuild changed `branch_sha` from `S1` to `S2`
++- **AND** a `failure` status arrives for `S1`
++- **THEN** the event is ignored
++
++## MODIFIED Requirements
++
++### Requirement: One PR at a time per repo
++The system SHALL run at most one live **batch** per `(forge, repo, target-branch)` queue. When `BATCH_MAX=1` a batch is exactly one PR. A new root batch SHALL be formed only when no live batch exists for the queue.
++
++#### Scenario: Live batch blocks new root
++- **WHEN** a batch is `testing` on `main`
++- **AND** PR #50 is enqueued for `main`
++- **THEN** #50 stays `queued` and is not added to the live batch
++
++### Requirement: Temporary merge branch for testing
++Single-PR mode uses `gitea-mq/<pr>`. Batch mode uses `gitea-mq/batch/<id>`, reused across rebuilds. The system SHALL delete the batch branch when the batch reaches `done`/`cancelled`, and SHALL reap orphan `gitea-mq/batch/*` branches at startup.
++
++#### Scenario: Batch branch naming
++- **WHEN** batch id 12 is formed
++- **THEN** its branch is `gitea-mq/batch/12`
++
++### Requirement: Signal Gitea to merge on success
++Single-PR mode is unchanged. In batch mode the system performs the merge itself via `FastForward`; it SHALL NOT wait for forge automerge before dequeuing batch members, and SHALL close (with comment) any PR the forge does not mark merged within a short poll window.
++
++#### Scenario: Batch mode does not wait for forge automerge
++- **WHEN** a batch fast-forward succeeds
++- **THEN** members are dequeued immediately
++
++### Requirement: State persistence
++In addition to queue entries, the system SHALL persist the live batch row including `member_ids`, `current_ids`, `pending`, `landed_ids`, `ejected_ids`, `branch_sha`, `builds`, and `ff_retries`. On restart it SHALL resume monitoring a `testing` batch's `branch_sha` and SHALL re-run `Build` for a batch found in `forming`.
++
++#### Scenario: Restart mid-bisection
++- **WHEN** the service restarts while batch #7 has `current=[#30,#40]`, `pending=[]`, `state='testing'`
++- **THEN** monitoring of `branch_sha` resumes and no duplicate rebuild occurs
+
+--- FILE 7/8 ---
+FILE: openspec/changes/batch-merge-queue/specs/web-dashboard/spec.md
+STATUS: added
+ADDITIONS: 12
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,12 @@
++## MODIFIED Requirements
++
++### Requirement: Repository queue detail page
++When a live batch exists for a target branch, the page SHALL render its members grouped under a batch header showing batch id, branch name (linked to forge), `builds` count, and `len(current)/len(members)`. Member rows SHALL be tagged `current`, `pending`, or `landed`.
++
++#### Scenario: Active batch displayed
++- **WHEN** batch #7 has `members=[#10,#20,#30]`, `current=[#10,#20,#30]`, `builds=1`, `state=testing`
++- **THEN** the repo page shows "Batch #7 · gitea-mq/batch/7 · build 1 · testing 3/3" with rows for #10,#20,#30 tagged `current`
++
++#### Scenario: Bisection displayed
++- **WHEN** batch #7 has `current=[#10,#20]`, `pending=[[#30,#40]]`, `landed=[]`, `builds=2`
++- **THEN** the header shows "build 2 · testing 2/4" and #30,#40 rows are tagged `pending`
+
+--- FILE 8/8 ---
+FILE: openspec/changes/batch-merge-queue/tasks.md
+STATUS: added
+ADDITIONS: 50
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,50 @@
++## 1. Forge primitives
++
++- [x] 1.1 Add `MergeInto`, `FastForward`, `ClosePR`, `ErrNotFastForward`, `PushDeniedError` to `internal/forge/forge.go`; extend `MockForge`.
++- [x] 1.2 GitHub adapter: `MergeInto` (`POST /merges`), `FastForward` (`PATCH git/refs/heads/{b}` `force:false`), `ClosePR` (`PATCH /pulls/{n}`). `ghfake`: ancestry check on `PATCH refs`, `ProtectedRefs`, `hEditPR`. Tests: happy, non-ff, permission-denied, close.
++- [x] 1.3 `gitea.HTTPClient.FastForwardRef`: `git init --bare; fetch <sha>; push <sha>:refs/heads/<b>` over HTTPS with token-in-URL. Integration test against real Gitea (`TestFastForwardRef_RealGitea`) confirmed depth=1 is **insufficient** (client-side ff check needs ancestry) → full fetch. Stderr → `NotFastForwardError`/`ProtectedBranchError`.
++- [x] 1.4 Gitea adapter: `MergeInto` = `MergeBranches(branch, head, branch)`; `FastForward` → `FastForwardRef`; `ClosePR` → `EditIssueState`. Unit tests for error mapping + delegation.
++- [x] 1.5 `flake-fmt`; `go vet ./...`; `golangci-lint run` clean.
++
++## 2. Storage
++
++- [x] 2.1 Migration `004_batches.sql`: `batch_state` enum, `batches` table, `ux_batches_live`, `queue_entries.active_batch_id` FK.
++- [x] 2.2 Audit `merge_branch_sha`: `webhook.findEntryForCommit` / `poller.pollMergeBranchChecks` pick the first matching entry; with all `current_ids` carrying the batch SHA the representative is deterministic (lowest `enqueued_at`). `Build` clears `check_statuses` for `current_ids` so a previous build's results cannot decide a rebuild.
++- [x] 2.3 sqlc queries: `CreateBatch`, `GetBatch`, `GetLiveBatch`, `ListLiveBatchesByRepo`, `SaveBatch`, `TakeQueuedHead`, `GetEntriesByIDs`, `SetEntryActiveBatch`, `ClearEntryMergeBranch`, `ClearCheckStatuses`, `CancelBatchesByRepo`. Regen.
++- [x] 2.4 `internal/queue/batch.go`: `FormBatch`, `GetLiveBatch`, `GetBatch`, `ListLiveBatches`, `SaveBatch` (nil→`{}` for NOT NULL arrays), `GetEntriesByIDs` (preserves order), `ClearMergeBranch`, `ClearCheckStatuses`, `CancelLiveBatches`.
++
++## 3. Batch engine (`internal/batch`)
++
++- [x] 3.1 `Build`: D3. Tests: `TestFormAndBuild_Green`, `TestBuild_ConflictEjectsAndContinues`.
++- [x] 3.2 `HandlePass` + `ensureMergedOrClose`: D4. Tests: `TestFormAndBuild_Green` (merged → no close), `TestEnsureMergedOrClose_FallsBackToClose`, `TestHandlePass_NotFastForward_RetryThenCap`, `TestHandlePass_PushDenied`.
++- [x] 3.3 `HandleFail` + `next`: D5. Tests: `TestBisect_CulpritAt2` (rebuild on top of landed half + 8-status discipline), `TestBisect_BothHalvesPass_Flaky`, `TestBisectMaxSteps`, `TestPendingDrop`.
++- [x] 3.4 `OnMemberRemoved`: D6. Test: `TestOnMemberRemoved` (pending-only → no rebuild; current → rebuild).
++- [x] 3.5 `ReconcileLive` + `LiveBranchNames` (consumed by `merge.CleanupStaleBranches` `spare`).
++- [x] 3.6 `TimedOut(b, timeout)` on `b.TestingStartedAt`.
++- [x] 3.7 `HandleResult` (`monitor.BatchHandler`): stale-SHA guard. Test: `TestHandleResult_DropsStaleSHA`.
++
++## 4. Wire-up
++
++- [x] 4.1 `internal/config`: `BatchMax` (default 1), `BisectMaxSteps` (default 0); `TestLoad_BatchMax`.
++- [x] 4.2 `poller.startQueuedHeads`: `Batch.Enabled()` → `FormAndBuild`; `SkipQueueIfUpToDate` runs first so a singleton up-to-date head takes the legacy path.
++- [x] 4.3 `monitor.ProcessCheckStatus`: dispatch to `Deps.Batch.HandleResult` when `entry.ActiveBatchID` set. `BatchHandler` interface defined in `monitor` to avoid an import cycle.
++- [x] 4.4 `poller.reconcileEntries`: after a member is removed (push/close/retarget/cancel), call `Batch.OnMemberRemoved`. `handleTestingTimeout` skips batch members; `pollMergeBranchChecks` evaluates `batch.TimedOut`.
++- [x] 4.5 `registry.Add`: build `*batch.Engine` when `BatchMax!=1`, pass to monitor/poller, spare live batch branches in `CleanupStaleBranches`, `ReconcileLive`. `Remove`: `CancelLiveBatches`. `cmd/gitea-mq/main.go` plumbs config.
++
++## 5. Setup, cleanup, docs
++
++- [ ] 5.1 GitHub `EnsureRepoSetup` already lists the App as a bypass actor when it creates the ruleset; verifying on every start is deferred.
++- [x] 5.2 Orphan-branch reaper: `CleanupStaleBranches` already matches `gitea-mq/*`; live batch branches passed via `spare`.
++- [x] 5.3 README: `BATCH_MAX`/`BISECT_MAX_STEPS` rows + "Batching" section (opt-in, merge-commit caveat, Gitea push-whitelist prerequisite, cross-PR caveat, closed-not-merged note).
++
++## 6. Web
++
++- [x] 6.1 Repo page: batch header (`id · branch link · build N · testing C/M`); member rows tagged with bucket. CSS pills.
++- [x] 6.2 PR detail page: batch row (id, bucket, co-members, branch link).
++
++## 7. Integration
++
++- [x] 7.1 `TestGithub_BatchFlow_Green` (ghfake): 3 PRs → one batch → webhook → main fast-forwarded to batch SHA, all PRs dequeued + closed (fallback) + `gitea-mq=success`.
++- [x] 7.2 `TestFastForwardRef_RealGitea`: real Gitea verifies fetch+push approach and non-ff detection.
++- [x] 7.3 Existing `TestFullMergeQueueFlow` / `TestGithub_FullMergeQueueFlow` unchanged → `BATCH_MAX=1` regression-identical.
++- [x] 7.4 `TestGitea_BatchFlow_Green`: 2-PR green batch through real Gitea (StackMerges → FastForwardRef → close/merged).
+
+
+####################################################################################################
+SECTION B — ALL LATER COMMITS IN THIS PR
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 2  [STEP-7 AUTOMATED CODE HINT — NOT GROUND TRUTH]
+====================================================================================================
+SHA: 6580aaefbbad46a843346eb993cc16333ebc4800
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+testutil/gitea: use a unique token name per CreateToken call
+
+Gitea rejects a second token with the same name for the same user, so two
+integration tests in the same package that each call CreateToken would
+fail. The batch work adds a second Gitea integration test.
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: internal/testutil/gitea.go
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 1
+
+PATCH:
+@@ -270,7 +270,9 @@ func NewGiteaAPI(baseURL string) *GiteaAPI {
+ func (a *GiteaAPI) CreateToken(t *testing.T) string {
+ 	t.Helper()
+ 
+-	body := `{"name": "test-token", "scopes": ["all"]}`
++	// Unique per call so multiple tests in one package can each obtain a
++	// token against the shared Gitea instance.
++	body := fmt.Sprintf(`{"name": "test-token-%d", "scopes": ["all"]}`, time.Now().UnixNano())
+ 
+ 	req, err := http.NewRequest(http.MethodPost,
+ 		a.BaseURL+"/api/v1/users/testuser/tokens",
+
+
+====================================================================================================
+COMMIT POSITION 3
+====================================================================================================
+SHA: b474a0fdd470faa0a330f0129600bb10d86fb991
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+gitea: redact API token from MergeBranches git errors
+
+The run() helper formats the failing command line and combined output
+into the returned error. The clone/push command lines carry the
+token-in-URL clone target, and git often echoes that URL on failure, so
+the token ended up in logs and PR comments.
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: internal/gitea/http.go
+STATUS: modified
+ADDITIONS: 10
+DELETIONS: 1
+
+PATCH:
+@@ -394,6 +394,15 @@ func (c *HTTPClient) DeleteBranch(ctx context.Context, owner, repo, name string)
+ 	return nil
+ }
+ 
++// redact strips the API token from git output before it reaches logs or PR
++// comments.
++func (c *HTTPClient) redact(s string) string {
++	if c.token == "" {
++		return s
++	}
++	return strings.ReplaceAll(s, c.token, "***")
++}
++
+ // MergeBranches creates a merge of head into base and pushes it as branch
+ // gitea-mq/<head-short>. It shells out to git because Gitea has no API to merge
+ // two arbitrary refs into a new branch.
+@@ -439,7 +448,7 @@ func (c *HTTPClient) MergeBranches(ctx context.Context, owner, repo, base, head,
+ 		)
+ 		out, err := cmd.CombinedOutput()
+ 		if err != nil {
+-			return out, fmt.Errorf("%s: %w\n%s", strings.Join(args, " "), err, out)
++			return out, fmt.Errorf("%s: %w\n%s", c.redact(strings.Join(args, " ")), err, c.redact(string(out)))
+ 		}
+ 		return out, nil
+ 	}
+
+
+====================================================================================================
+COMMIT POSITION 4
+====================================================================================================
+SHA: ffce112d381dc2a281a8ea684ea8be00e2916502
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+monitor: fail fast when no required checks are configured
+
+EvaluateChecks in the no-required-checks fallback returned CheckWaiting
+for any non-success state, so a queue head whose only CI check went red
+sat until CheckTimeout instead of being dequeued. Return CheckFailure
+when at least one status is failure/error and none is success; a success
+anywhere still wins so an optional/advisory failing check does not block.
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: internal/monitor/monitor.go
+STATUS: modified
+ADDITIONS: 11
+DELETIONS: 2
+
+PATCH:
+@@ -55,13 +55,22 @@ func ResolveRequiredChecks(ctx context.Context, f forge.Forge, owner, repo, targ
+ // failed, CheckWaiting otherwise. The second string is the failed check name,
+ // and the third is its target URL (both empty when result is not CheckFailure).
+ //
+-// If requiredChecks is empty, any single success status is sufficient.
++// If requiredChecks is empty, any single success status is sufficient; if none
++// has succeeded but at least one has failed, that failure is reported so the
++// queue does not sit until timeout when CI clearly went red.
+ func EvaluateChecks(statuses []pg.CheckStatus, requiredChecks []string) (CheckResult, string, string) {
+ 	if len(requiredChecks) == 0 {
+-		for _, s := range statuses {
++		var failed *pg.CheckStatus
++		for i, s := range statuses {
+ 			if s.State == pg.CheckStateSuccess {
+ 				return CheckSuccess, "", ""
+ 			}
++			if failed == nil && (s.State == pg.CheckStateFailure || s.State == pg.CheckStateError) {
++				failed = &statuses[i]
++			}
++		}
++		if failed != nil {
++			return CheckFailure, failed.Context, failed.TargetUrl
+ 		}
+ 		return CheckWaiting, "", ""
+ 	}
+
+--- FILE 2/2 ---
+FILE: internal/monitor/monitor_test.go
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 0
+
+PATCH:
+@@ -207,6 +207,29 @@ func TestProcessCheckStatus_RetrySuccess(t *testing.T) {
+ 	}
+ }
+ 
++// With no required checks configured, a lone failure must dequeue instead of
++// waiting until CheckTimeout. A success anywhere still wins so an optional
++// failing check does not block a green required-but-undeclared one.
++func TestEvaluateChecks_NoRequired_FailureBeatsWaiting(t *testing.T) {
++	r, failed, _ := monitor.EvaluateChecks(
++		[]pg.CheckStatus{{Context: "ci", State: pg.CheckStateFailure, TargetUrl: "u"}},
++		nil,
++	)
++	if r != monitor.CheckFailure || failed != "ci" {
++		t.Fatalf("got %v %q", r, failed)
++	}
++	r, _, _ = monitor.EvaluateChecks(
++		[]pg.CheckStatus{
++			{Context: "optional", State: pg.CheckStateFailure},
++			{Context: "ci", State: pg.CheckStateSuccess},
++		},
++		nil,
++	)
++	if r != monitor.CheckSuccess {
++		t.Fatalf("success should win over failure when nothing is required, got %v", r)
++	}
++}
++
+ // A failed required check dequeues even while others are still pending.
+ func TestEvaluateChecks_FailureWinsOverPending(t *testing.T) {
+ 	result, failed, url := monitor.EvaluateChecks(
+
+
+====================================================================================================
+COMMIT POSITION 5
+====================================================================================================
+SHA: 408ebef60df843a4d28a8401bf4fec407c8eaa28
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+forge: add MergeInto/FastForward/ClosePR and optional MergeStacker
+
+Batching needs three primitives the single-PR path never did: stack a PR
+onto an existing merge branch, fast-forward the protected target to the
+tested SHA (never force, never call the merge endpoint that could mint a
+second merge commit), and close a PR when the forge does not notice it is
+merged.
+
+GitHub maps onto POST /merges, PATCH git/refs (force:false), and PATCH
+/pulls. ghfake gains an ancestry check on ref updates, ProtectedRefs, and
+PATCH /pulls so the error paths are testable.
+
+Gitea has no fast-forward-only ref API, so FastForwardRef shells out to
+git the same way MergeBranches already does: bare init, fetch the SHA,
+non-force push. The integration test against a real Gitea proved depth=1
+is not enough (the client-side ff check needs ancestry), so it does a
+full fetch of the SHA. stderr is parsed into NotFastForwardError /
+ProtectedBranchError so the engine can react. MergeBranches now uses the
+same authedCloneURL helper.
+
+MergeStacker is an optional Forge extension the batch engine type-asserts
+for so the whole batch branch can be built in one repository checkout.
+Gitea implements it (clone base once, fetch+merge --no-ff per head with
+merge --abort on conflict, push once); GitHub uses the API-based
+fallback. TestStackMerges_RealGitea covers the conflict-skip behaviour
+against a live Gitea.
+
+CHANGED FILES: 11
+
+--- FILE 1/11 ---
+FILE: internal/forge/forge.go
+STATUS: modified
+ADDITIONS: 47
+DELETIONS: 0
+
+PATCH:
+@@ -5,12 +5,45 @@ package forge
+ 
+ import (
+ 	"context"
++	"errors"
+ 	"fmt"
+ 	"strings"
+ 
+ 	"github.com/Mic92/gitea-mq/internal/store/pg"
+ )
+ 
++// ErrNotFastForward is returned by FastForward when sha is not a descendant
++// of the branch's current tip. Callers treat it as "target moved, rebuild".
++var ErrNotFastForward = errors.New("forge: not a fast-forward")
++
++// PushDeniedError is returned by FastForward when the push is rejected by
++// branch protection / ruleset. Carries the forge's message so the user gets
++// an actionable hint (e.g. which whitelist to add the token user to).
++type PushDeniedError struct {
++	Branch  string
++	Message string
++}
++
++// MergeStep is the per-head outcome of a StackMerges call.
++type MergeStep struct {
++	Conflict bool
++	Err      error // non-conflict failure for this head; the stacker continues
++}
++
++// MergeStacker is optionally implemented by a Forge that can build a stack of
++// merge commits in one repository checkout. The batch engine type-asserts for
++// it and falls back to CreateMergeBranch + MergeInto otherwise. A returned
++// error is a whole-operation failure (clone/push); per-head outcomes are in
++// steps. tip is the branch SHA after the last successful merge, or "" when
++// every head conflicted/failed.
++type MergeStacker interface {
++	StackMerges(ctx context.Context, owner, repo, base string, heads []string, branch string) (tip string, steps []MergeStep, err error)
++}
++
++func (e *PushDeniedError) Error() string {
++	return fmt.Sprintf("forge: push to %s denied: %s", e.Branch, e.Message)
++}
++
+ // Kind identifies the hosting forge of a repository.
+ type Kind string
+ 
+@@ -166,6 +199,20 @@ type Forge interface {
+ 	Comment(ctx context.Context, owner, name string, number int64, body string) error
+ 
+ 	EnsureRepoSetup(ctx context.Context, owner, name string, cfg SetupConfig) error
++
++	// MergeInto merges headSHA into an existing branch and returns the new
++	// tip. conflict=true (err=nil) on merge conflict. Used to stack batch
++	// members onto the batch branch after CreateMergeBranch seeded it.
++	MergeInto(ctx context.Context, owner, name, branch, headSHA string) (sha string, conflict bool, err error)
++
++	// FastForward updates branch to sha without force. Returns
++	// ErrNotFastForward when sha is not a descendant of the current tip,
++	// *PushDeniedError when branch protection rejects the push.
++	FastForward(ctx context.Context, owner, name, branch, sha string) error
++
++	// ClosePR closes an open PR without merging. Idempotent on
++	// already-closed/merged.
++	ClosePR(ctx context.Context, owner, name string, number int64) error
+ }
+ 
+ // UnknownForgeError is returned by Set.For when no adapter is registered for
+
+--- FILE 2/11 ---
+FILE: internal/forge/mock.go
+STATUS: modified
+ADDITIONS: 27
+DELETIONS: 0
+
+PATCH:
+@@ -34,6 +34,9 @@ type MockForge struct {
+ 	CancelAutoMergeFn   func(ctx context.Context, owner, name string, number int64) error
+ 	CommentFn           func(ctx context.Context, owner, name string, number int64, body string) error
+ 	EnsureRepoSetupFn   func(ctx context.Context, owner, name string, cfg SetupConfig) error
++	MergeIntoFn         func(ctx context.Context, owner, name, branch, headSHA string) (string, bool, error)
++	FastForwardFn       func(ctx context.Context, owner, name, branch, sha string) error
++	ClosePRFn           func(ctx context.Context, owner, name string, number int64) error
+ }
+ 
+ var _ Forge = (*MockForge)(nil)
+@@ -183,3 +186,27 @@ func (m *MockForge) EnsureRepoSetup(ctx context.Context, owner, name string, cfg
+ 	}
+ 	return nil
+ }
++
++func (m *MockForge) MergeInto(ctx context.Context, owner, name, branch, headSHA string) (string, bool, error) {
++	m.record("MergeInto", owner, name, branch, headSHA)
++	if m.MergeIntoFn != nil {
++		return m.MergeIntoFn(ctx, owner, name, branch, headSHA)
++	}
++	return "", false, nil
++}
++
++func (m *MockForge) FastForward(ctx context.Context, owner, name, branch, sha string) error {
++	m.record("FastForward", owner, name, branch, sha)
++	if m.FastForwardFn != nil {
++		return m.FastForwardFn(ctx, owner, name, branch, sha)
++	}
++	return nil
++}
++
++func (m *MockForge) ClosePR(ctx context.Context, owner, name string, number int64) error {
++	m.record("ClosePR", owner, name, number)
++	if m.ClosePRFn != nil {
++		return m.ClosePRFn(ctx, owner, name, number)
++	}
++	return nil
++}
+
+--- FILE 3/11 ---
+FILE: internal/gitea/client.go
+STATUS: modified
+ADDITIONS: 15
+DELETIONS: 0
+
+PATCH:
+@@ -215,8 +215,23 @@ type Client interface {
+ 
+ 	// MergeBranches merges head into base and pushes the result as branchName.
+ 	// Returns the merge commit SHA, or a MergeConflictError if there are conflicts.
++	// When base == branchName the existing branch is advanced in place.
+ 	MergeBranches(ctx context.Context, owner, repo, base, head, branchName string) (*MergeResult, error)
+ 
++	// StackMerges builds branch from base with each head merged on top in one
++	// clone. See HTTPClient.StackMerges.
++	StackMerges(ctx context.Context, owner, repo, base string, heads []string, branch string) (string, []StackStep, error)
++
++	// FastForwardRef pushes sha to branch with a non-force refspec via git
++	// smart-HTTP (Gitea has no REST ref-update). Returns NotFastForwardError
++	// when the server rejects the update as non-ff, ProtectedBranchError
++	// when branch protection denies the push.
++	FastForwardRef(ctx context.Context, owner, repo, branch, sha string) error
++
++	// EditIssueState sets the state ("open"/"closed") of an issue or PR.
++	// PATCH /repos/{owner}/{repo}/issues/{index}
++	EditIssueState(ctx context.Context, owner, repo string, index int64, state string) error
++
+ 	// ListBranchProtections lists all branch protection rules for a repository.
+ 	// GET /repos/{owner}/{repo}/branch_protections
+ 	ListBranchProtections(ctx context.Context, owner, repo string) ([]BranchProtection, error)
+
+--- FILE 4/11 ---
+FILE: internal/gitea/forge.go
+STATUS: modified
+ADDITIONS: 59
+DELETIONS: 1
+
+PATCH:
+@@ -2,6 +2,7 @@ package gitea
+ 
+ import (
+ 	"context"
++	"errors"
+ 	"fmt"
+ 	"strings"
+ 
+@@ -25,7 +26,23 @@ func NewForge(client Client, baseURL string) forge.Forge {
+ 	}
+ }
+ 
+-var _ forge.Forge = (*giteaForge)(nil)
++var (
++	_ forge.Forge        = (*giteaForge)(nil)
++	_ forge.MergeStacker = (*giteaForge)(nil)
++)
++
++// StackMerges builds the batch branch in one clone instead of one per member.
++func (f *giteaForge) StackMerges(ctx context.Context, owner, repo, base string, heads []string, branch string) (string, []forge.MergeStep, error) {
++	tip, steps, err := f.client.StackMerges(ctx, owner, repo, base, heads, branch)
++	if err != nil {
++		return "", nil, err
++	}
++	out := make([]forge.MergeStep, len(steps))
++	for i, s := range steps {
++		out[i] = forge.MergeStep{Conflict: s.Conflict, Err: s.Err}
++	}
++	return tip, out, nil
++}
+ 
+ func (f *giteaForge) Kind() forge.Kind { return forge.KindGitea }
+ 
+@@ -155,6 +172,47 @@ func (f *giteaForge) CreateMergeBranch(ctx context.Context, owner, name, base, h
+ 	return res.SHA, false, nil
+ }
+ 
++func (f *giteaForge) MergeInto(ctx context.Context, owner, name, branch, headSHA string) (string, bool, error) {
++	// MergeBranches with base==branchName clones the existing branch,
++	// merges headSHA, and pushes back to the same ref.
++	res, err := f.client.MergeBranches(ctx, owner, name, branch, headSHA, branch)
++	if err != nil {
++		if IsMergeConflict(err) {
++			return "", true, nil
++		}
++		return "", false, err
++	}
++	return res.SHA, false, nil
++}
++
++func (f *giteaForge) FastForward(ctx context.Context, owner, name, branch, sha string) error {
++	err := f.client.FastForwardRef(ctx, owner, name, branch, sha)
++	if err == nil {
++		return nil
++	}
++	var nff *NotFastForwardError
++	if errors.As(err, &nff) {
++		return forge.ErrNotFastForward
++	}
++	var pbe *ProtectedBranchError
++	if errors.As(err, &pbe) {
++		return &forge.PushDeniedError{Branch: branch, Message: pbe.Message}
++	}
++	return err
++}
++
++func (f *giteaForge) ClosePR(ctx context.Context, owner, name string, number int64) error {
++	if err := f.client.EditIssueState(ctx, owner, name, number, "closed"); err != nil {
++		// Gitea returns 404 for PRs already merged via the pulls endpoint;
++		// either way the PR is no longer open.
++		if IsNotFound(err) {
++			return nil
++		}
++		return err
++	}
++	return nil
++}
++
+ func (f *giteaForge) IsUpToDate(ctx context.Context, owner, name, base, headSHA string) (bool, error) {
+ 	// Gitea's compare only reports commits on the right side; swap so it
+ 	// counts commits on base that head is missing.
+
+--- FILE 5/11 ---
+FILE: internal/gitea/forge_test.go
+STATUS: modified
+ADDITIONS: 47
+DELETIONS: 0
+
+PATCH:
+@@ -2,6 +2,7 @@ package gitea_test
+ 
+ import (
+ 	"context"
++	"errors"
+ 	"slices"
+ 	"testing"
+ 
+@@ -119,6 +120,52 @@ func TestForge_CreateMergeBranch(t *testing.T) {
+ 	}
+ }
+ 
++func TestForge_MergeInto_DelegatesToMergeBranches(t *testing.T) {
++	var gotBase, gotBranch string
++	f := newForge(&gitea.MockClient{
++		MergeBranchesFn: func(_ context.Context, _, _, base, _, branch string) (*gitea.MergeResult, error) {
++			gotBase, gotBranch = base, branch
++			return &gitea.MergeResult{SHA: "tip"}, nil
++		},
++	})
++	sha, conflict, err := f.MergeInto(context.Background(), "o", "r", "gitea-mq/batch/1", "sha")
++	if err != nil || conflict || sha != "tip" {
++		t.Fatalf("got (%q,%v,%v)", sha, conflict, err)
++	}
++	// MergeInto on Gitea is MergeBranches with base==branchName so the existing
++	// branch is cloned, merged into, and pushed back.
++	if gotBase != "gitea-mq/batch/1" || gotBranch != "gitea-mq/batch/1" {
++		t.Fatalf("base=%q branch=%q, want both gitea-mq/batch/1", gotBase, gotBranch)
++	}
++}
++
++func TestForge_FastForward_MapsErrors(t *testing.T) {
++	for _, tc := range []struct {
++		name string
++		in   error
++		want func(error) bool
++	}{
++		{"ok", nil, func(e error) bool { return e == nil }},
++		{
++			"non-ff", &gitea.NotFastForwardError{Branch: "main", SHA: "x"},
++			func(e error) bool { return errors.Is(e, forge.ErrNotFastForward) },
++		},
++		{
++			"protected", &gitea.ProtectedBranchError{Branch: "main", Message: "denied"},
++			func(e error) bool { var d *forge.PushDeniedError; return errors.As(e, &d) },
++		},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			f := newForge(&gitea.MockClient{
++				FastForwardRefFn: func(_ context.Context, _, _, _, _ string) error { return tc.in },
++			})
++			if err := f.FastForward(context.Background(), "o", "r", "main", "sha"); !tc.want(err) {
++				t.Fatalf("err = %v", err)
++			}
++		})
++	}
++}
++
+ func TestForge_GetCheckStates_MapsCombinedStatus(t *testing.T) {
+ 	mock := &gitea.MockClient{
+ 		GetCombinedCommitStatusFn: func(_ context.Context, _, _, _ string) (*gitea.CombinedStatus, error) {
+
+--- FILE 6/11 ---
+FILE: internal/gitea/http.go
+STATUS: modified
+ADDITIONS: 142
+DELETIONS: 0
+
+PATCH:
+@@ -493,6 +493,148 @@ func (c *HTTPClient) MergeBranches(ctx context.Context, owner, repo, base, head,
+ 	return &MergeResult{SHA: sha}, nil
+ }
+ 
++// StackStep is the per-head outcome of StackMerges.
++type StackStep struct {
++	Conflict bool
++	Err      error
++}
++
++// StackMerges clones base once and merges each head onto it in order, pushing
++// the result as branch. On a per-head conflict the merge is aborted and the
++// step marked; subsequent heads merge onto the pre-conflict tip. A clone or
++// final-push failure is returned as err so the caller can retry the whole
++// build instead of mis-attributing a transient network error to one PR.
++func (c *HTTPClient) StackMerges(ctx context.Context, owner, repo, base string, heads []string, branch string) (string, []StackStep, error) {
++	tmpDir, err := os.MkdirTemp("", "gitea-mq-stack-*")
++	if err != nil {
++		return "", nil, fmt.Errorf("create temp dir: %w", err)
++	}
++	defer func() { _ = os.RemoveAll(tmpDir) }()
++
++	url := c.authedCloneURL(owner, repo)
++	run := func(args ...string) ([]byte, error) {
++		cmd := exec.CommandContext(ctx, "git", args...)
++		cmd.Dir = tmpDir
++		cmd.Env = append(os.Environ(),
++			"GIT_TERMINAL_PROMPT=0",
++			"GIT_AUTHOR_NAME=gitea-mq", "GIT_AUTHOR_EMAIL=gitea-mq@localhost",
++			"GIT_COMMITTER_NAME=gitea-mq", "GIT_COMMITTER_EMAIL=gitea-mq@localhost")
++		return cmd.CombinedOutput()
++	}
++
++	if out, err := run("clone", "--single-branch", "--branch", base, url, "."); err != nil {
++		return "", nil, fmt.Errorf("clone %s: %w\n%s", base, err, c.redact(string(out)))
++	}
++
++	steps := make([]StackStep, len(heads))
++	var tip string
++	for i, head := range heads {
++		if out, err := run("fetch", "-q", "origin", head); err != nil {
++			steps[i].Err = fmt.Errorf("fetch %s: %s", shortSHA(head), c.redact(string(out)))
++			continue
++		}
++		out, err := run("merge", "--no-ff", "-m",
++			fmt.Sprintf("mq: merge %s into %s", shortSHA(head), base), "FETCH_HEAD")
++		if err != nil {
++			s := string(out)
++			if strings.Contains(s, "CONFLICT") || strings.Contains(s, "Automatic merge failed") {
++				steps[i].Conflict = true
++			} else {
++				steps[i].Err = fmt.Errorf("merge %s: %s", shortSHA(head), c.redact(string(out)))
++			}
++			_, _ = run("merge", "--abort")
++			continue
++		}
++		sha, _ := run("rev-parse", "HEAD")
++		tip = strings.TrimSpace(string(sha))
++	}
++
++	if tip == "" {
++		return "", steps, nil
++	}
++	if out, err := run("push", "origin", "HEAD:refs/heads/"+branch); err != nil {
++		return "", nil, fmt.Errorf("push %s: %w\n%s", branch, err, c.redact(string(out)))
++	}
++	slog.Debug("stack-merge built", "branch", branch, "heads", len(heads), "tip", shortSHA(tip))
++	return tip, steps, nil
++}
++
++// authedCloneURL returns the repo's HTTPS clone URL with the API token
++// embedded as basic-auth for non-interactive git operations.
++func (c *HTTPClient) authedCloneURL(owner, repo string) string {
++	plain := fmt.Sprintf("%s/%s/%s.git", c.baseURL, owner, repo)
++	i := strings.Index(plain, "://")
++	return fmt.Sprintf("%s://gitea-mq:%s@%s", plain[:i], c.token, plain[i+3:])
++}
++
++// FastForwardRef pushes sha to refs/heads/branch with a non-force refspec.
++// git's client-side fast-forward check needs sha's ancestry back to the
++// current branch tip, so we fetch sha without a depth limit. The server
++// already has every object (sha is the tip of a branch we built there) so the
++// resulting push pack is empty — cost is the fetch, same order as the full
++// single-branch clone MergeBranches already does.
++func (c *HTTPClient) FastForwardRef(ctx context.Context, owner, repo, branch, sha string) error {
++	tmpDir, err := os.MkdirTemp("", "gitea-mq-ff-*")
++	if err != nil {
++		return fmt.Errorf("create temp dir: %w", err)
++	}
++	defer func() { _ = os.RemoveAll(tmpDir) }()
++
++	url := c.authedCloneURL(owner, repo)
++	run := func(args ...string) ([]byte, error) {
++		cmd := exec.CommandContext(ctx, "git", args...)
++		cmd.Dir = tmpDir
++		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
++		return cmd.CombinedOutput()
++	}
++
++	if out, err := run("init", "--bare", "-q"); err != nil {
++		return fmt.Errorf("git init: %s: %w", out, err)
++	}
++	if out, err := run("fetch", "-q", url, sha); err != nil {
++		return fmt.Errorf("git fetch %s: %s: %w", shortSHA(sha), c.redact(string(out)), err)
++	}
++	out, err := run("push", url, sha+":refs/heads/"+branch)
++	if err == nil {
++		return nil
++	}
++	msg := c.redact(string(out))
++	low := strings.ToLower(msg)
++	switch {
++	case strings.Contains(low, "non-fast-forward") || strings.Contains(low, "fetch first"):
++		return &NotFastForwardError{Branch: branch, SHA: sha}
++	case strings.Contains(low, "protected branch") || strings.Contains(low, "not allowed to push"):
++		return &ProtectedBranchError{Branch: branch, Message: msg}
++	default:
++		return fmt.Errorf("git push %s: %w\n%s", branch, err, msg)
++	}
++}
+
+[PATCH TRUNCATED: 149 total lines]
+
+--- FILE 7/11 ---
+FILE: internal/gitea/mock.go
+STATUS: modified
+ADDITIONS: 31
+DELETIONS: 0
+
+PATCH:
+@@ -35,6 +35,9 @@ type MockClient struct {
+ 	DeleteBranchFn            func(ctx context.Context, owner, repo, name string) error
+ 	CompareCommitsFn          func(ctx context.Context, owner, repo, base, head string) (*Compare, error)
+ 	MergeBranchesFn           func(ctx context.Context, owner, repo, base, head, branchName string) (*MergeResult, error)
++	StackMergesFn             func(ctx context.Context, owner, repo, base string, heads []string, branch string) (string, []StackStep, error)
++	FastForwardRefFn          func(ctx context.Context, owner, repo, branch, sha string) error
++	EditIssueStateFn          func(ctx context.Context, owner, repo string, index int64, state string) error
+ 	ListBranchProtectionsFn   func(ctx context.Context, owner, repo string) ([]BranchProtection, error)
+ 	EditBranchProtectionFn    func(ctx context.Context, owner, repo, name string, opts EditBranchProtectionOpts) error
+ 	ListWebhooksFn            func(ctx context.Context, owner, repo string) ([]Webhook, error)
+@@ -214,6 +217,34 @@ func (m *MockClient) MergeBranches(ctx context.Context, owner, repo, base, head,
+ 	return &MergeResult{SHA: "mock-merge-sha"}, nil
+ }
+ 
++func (m *MockClient) StackMerges(ctx context.Context, owner, repo, base string, heads []string, branch string) (string, []StackStep, error) {
++	m.record("StackMerges", owner, repo, base, heads, branch)
++	if m.StackMergesFn != nil {
++		return m.StackMergesFn(ctx, owner, repo, base, heads, branch)
++	}
++	return "", make([]StackStep, len(heads)), nil
++}
++
++func (m *MockClient) FastForwardRef(ctx context.Context, owner, repo, branch, sha string) error {
++	m.record("FastForwardRef", owner, repo, branch, sha)
++
++	if m.FastForwardRefFn != nil {
++		return m.FastForwardRefFn(ctx, owner, repo, branch, sha)
++	}
++
++	return nil
++}
++
++func (m *MockClient) EditIssueState(ctx context.Context, owner, repo string, index int64, state string) error {
++	m.record("EditIssueState", owner, repo, index, state)
++
++	if m.EditIssueStateFn != nil {
++		return m.EditIssueStateFn(ctx, owner, repo, index, state)
++	}
++
++	return nil
++}
++
+ func (m *MockClient) ListBranchProtections(ctx context.Context, owner, repo string) ([]BranchProtection, error) {
+ 	m.record("ListBranchProtections", owner, repo)
+ 
+
+--- FILE 8/11 ---
+FILE: internal/github/forge.go
+STATUS: modified
+ADDITIONS: 71
+DELETIONS: 0
+
+PATCH:
+@@ -209,6 +209,77 @@ func (f *githubForge) CreateMergeBranch(ctx context.Context, owner, name, base,
+ 	return commit.GetSHA(), false, nil
+ }
+ 
++func (f *githubForge) MergeInto(ctx context.Context, owner, name, branch, headSHA string) (string, bool, error) {
++	c, err := f.app.ClientForRepo(owner, name)
++	if err != nil {
++		return "", false, err
++	}
++	commit, resp, err := c.Repositories.Merge(ctx, owner, name, &gh.RepositoryMergeRequest{
++		Base: gh.Ptr(branch),
++		Head: gh.Ptr(headSHA),
++	})
++	if err != nil {
++		if resp != nil && resp.StatusCode == http.StatusConflict {
++			return "", true, nil
++		}
++		return "", false, fmt.Errorf("merge %s into %s: %w", headSHA, branch, err)
++	}
++	if commit.GetSHA() == "" {
++		// 204: head already in branch — ask the ref for the current tip.
++		ref, _, err := c.Git.GetRef(ctx, owner, name, "heads/"+branch)
++		if err != nil {
++			return "", false, fmt.Errorf("resolve %s after no-op merge: %w", branch, err)
++		}
++		return ref.GetObject().GetSHA(), false, nil
++	}
++	return commit.GetSHA(), false, nil
++}
++
++func (f *githubForge) FastForward(ctx context.Context, owner, name, branch, sha string) error {
++	c, err := f.app.ClientForRepo(owner, name)
++	if err != nil {
++		return err
++	}
++	_, resp, err := c.Git.UpdateRef(ctx, owner, name, "heads/"+branch,
++		gh.UpdateRef{SHA: sha, Force: gh.Ptr(false)})
++	if err == nil {
++		return nil
++	}
++	var ghErr *gh.ErrorResponse
++	if errors.As(err, &ghErr) {
++		msg := strings.ToLower(ghErr.Message)
++		if strings.Contains(msg, "fast forward") || strings.Contains(msg, "fast-forward") {
++			return forge.ErrNotFastForward
++		}
++		// Ruleset / branch-protection rejections come back as 422 or 403
++		// with assorted phrasings.
++		if resp != nil && (resp.StatusCode == http.StatusForbidden ||
++			(resp.StatusCode == http.StatusUnprocessableEntity &&
++				(strings.Contains(msg, "protected branch") || strings.Contains(msg, "ruleset")))) {
++			return &forge.PushDeniedError{Branch: branch, Message: ghErr.Message}
++		}
++	}
++	return fmt.Errorf("fast-forward %s to %s: %w", branch, sha, err)
++}
++
++func (f *githubForge) ClosePR(ctx context.Context, owner, name string, number int64) error {
++	c, err := f.app.ClientForRepo(owner, name)
++	if err != nil {
++		return err
++	}
++	_, _, err = c.PullRequests.Edit(ctx, owner, name, int(number), &gh.PullRequest{State: gh.Ptr("closed")})
++	if err != nil {
++		var ghErr *gh.ErrorResponse
++		if errors.As(err, &ghErr) && ghErr.Response != nil &&
++			ghErr.Response.StatusCode == http.StatusUnprocessableEntity {
++			// Already closed/merged.
++			return nil
++		}
++		return err
++	}
++	return nil
++}
++
+ func (f *githubForge) IsUpToDate(ctx context.Context, owner, name, base, headSHA string) (bool, error) {
+ 	c, err := f.app.ClientForRepo(owner, name)
+ 	if err != nil {
+
+--- FILE 9/11 ---
+FILE: internal/github/forge_test.go
+STATUS: modified
+ADDITIONS: 58
+DELETIONS: 0
+
+PATCH:
+@@ -2,6 +2,7 @@ package github_test
+ 
+ import (
+ 	"context"
++	"errors"
+ 	"slices"
+ 	"strings"
+ 	"testing"
+@@ -143,6 +144,63 @@ func TestForge_IsUpToDate(t *testing.T) {
+ 	}
+ }
+ 
++func TestForge_MergeInto(t *testing.T) {
++	srv, f := newTestForge(t)
++	repo := srv.Repo("org", "app")
++	repo.Refs["gitea-mq/batch/1"] = "base"
++	repo.ConflictOn["sha-conflict"] = true
++	ctx := context.Background()
++
++	sha, conflict, err := f.MergeInto(ctx, "org", "app", "gitea-mq/batch/1", "sha-a")
++	if err != nil || conflict || sha != "merge(base,sha-a)" {
++		t.Fatalf("clean: sha=%q conflict=%v err=%v", sha, conflict, err)
++	}
++	if repo.Refs["gitea-mq/batch/1"] != sha {
++		t.Fatalf("branch not advanced to %q", sha)
++	}
++
++	_, conflict, err = f.MergeInto(ctx, "org", "app", "gitea-mq/batch/1", "sha-conflict")
++	if err != nil || !conflict {
++		t.Fatalf("conflict: conflict=%v err=%v", conflict, err)
++	}
++}
++
++func TestForge_FastForward(t *testing.T) {
++	srv, f := newTestForge(t)
++	repo := srv.Repo("org", "app")
++	repo.Refs["main"] = "base"
++	ctx := context.Background()
++
++	if err := f.FastForward(ctx, "org", "app", "main", "merge(base,sha)"); err != nil {
++		t.Fatalf("descendant: %v", err)
++	}
++	if repo.Refs["main"] != "merge(base,sha)" {
++		t.Fatalf("main not updated, got %q", repo.Refs["main"])
++	}
++
++	if err := f.FastForward(ctx, "org", "app", "main", "unrelated"); !errors.Is(err, forge.ErrNotFastForward) {
++		t.Fatalf("non-ff: err=%v, want ErrNotFastForward", err)
++	}
++
++	repo.ProtectedRefs["main"] = true
++	err := f.FastForward(ctx, "org", "app", "main", "merge(merge(base,sha),sha2)")
++	var denied *forge.PushDeniedError
++	if !errors.As(err, &denied) {
++		t.Fatalf("protected: err=%v, want PushDeniedError", err)
++	}
++}
++
++func TestForge_ClosePR(t *testing.T) {
++	srv, f := newTestForge(t)
++	srv.AddPR("org", "app", ghfake.PR{Number: 5, BaseRef: "main"})
++	if err := f.ClosePR(context.Background(), "org", "app", 5); err != nil {
++		t.Fatal(err)
++	}
++	if srv.Repo("org", "app").PRs[5].State != "closed" {
++		t.Fatalf("state = %q, want closed", srv.Repo("org", "app").PRs[5].State)
++	}
++}
++
+ // 409 from the merge endpoint must surface as (conflict=true, err=nil).
+ func TestForge_CreateMergeBranch_Conflict(t *testing.T) {
+ 	srv, f := newTestForge(t)
+
+--- FILE 10/11 ---
+FILE: internal/github/ghfake/server.go
+STATUS: modified
+ADDITIONS: 47
+DELETIONS: 1
+
+PATCH:
+@@ -76,6 +76,10 @@ type Repo struct {
+ 	// Settings tracks PATCH /repos/{o}/{r} keys.
+ 	Settings map[string]any
+ 
++	// ProtectedRefs[branch]=true makes a non-force PATCH on that ref return
++	// 403, simulating a ruleset/branch-protection rejection.
++	ProtectedRefs map[string]bool
++
+ 	// RequiredChecks[branch] feeds /rules/branches/{b} as a synthetic
+ 	// required_status_checks rule, decoupled from Rulesets so tests can
+ 	// stub rule evaluation directly.
+@@ -163,6 +167,7 @@ func (s *Server) AddRepo(owner, name string) *Repo {
+ 		CheckRuns:      map[string][]*CheckRun{},
+ 		BehindBy:       map[string]int{},
+ 		ConflictOn:     map[string]bool{},
++		ProtectedRefs:  map[string]bool{},
+ 		Settings:       map[string]any{},
+ 		RequiredChecks: map[string][]string{},
+ 	}
+@@ -222,6 +227,7 @@ func (s *Server) routes(mux *http.ServeMux) {
+ 	mux.HandleFunc("GET "+apiV3+"/repos/{o}/{r}/pulls", s.hListPRs)
+ 	mux.HandleFunc("POST "+apiV3+"/repos/{o}/{r}/pulls", s.hCreatePR)
+ 	mux.HandleFunc("GET "+apiV3+"/repos/{o}/{r}/pulls/{n}", s.hGetPR)
++	mux.HandleFunc("PATCH "+apiV3+"/repos/{o}/{r}/pulls/{n}", s.hEditPR)
+ 
+ 	// Issues (comments).
+ 	mux.HandleFunc("POST "+apiV3+"/repos/{o}/{r}/issues/{n}/comments", s.hCreateComment)
+@@ -407,6 +413,31 @@ func (s *Server) hGetPR(w http.ResponseWriter, r *http.Request) {
+ 	writeJSON(w, 200, prJSON(rp.Owner, rp.Name, p))
+ }
+ 
++func (s *Server) hEditPR(w http.ResponseWriter, r *http.Request) {
++	rp, ok := s.repo(r)
++	if !ok {
++		http.NotFound(w, r)
++		return
++	}
++	n, _ := strconv.ParseInt(r.PathValue("n"), 10, 64)
++	var body struct {
++		State string `json:"state"`
++	}
++	_ = json.NewDecoder(r.Body).Decode(&body)
++	s.mu.Lock()
++	p := rp.PRs[n]
++	if p == nil {
++		s.mu.Unlock()
++		http.NotFound(w, r)
++		return
++	}
++	if body.State != "" {
++		p.State = body.State
++	}
++	s.mu.Unlock()
++	writeJSON(w, 200, prJSON(rp.Owner, rp.Name, p))
++}
++
+ func (s *Server) hCreatePR(w http.ResponseWriter, r *http.Request) {
+ 	rp, ok := s.repo(r)
+ 	if !ok {
+@@ -607,11 +638,26 @@ func (s *Server) hUpdateRef(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	_ = json.NewDecoder(r.Body).Decode(&body)
+ 	s.mu.Lock()
+-	if _, exists := rp.Refs[branch]; !exists {
++	old, exists := rp.Refs[branch]
++	if !exists {
+ 		s.mu.Unlock()
+ 		writeJSON(w, 422, map[string]any{"message": "Reference does not exist"})
+ 		return
+ 	}
++	if !body.Force {
++		if rp.ProtectedRefs[branch] {
++			s.mu.Unlock()
++			writeJSON(w, 403, map[string]any{"message": "Changes must be made through a pull request. (protected branch)"})
++			return
++		}
++		// hMerge encodes lineage as merge(old,head); a SHA that does not
++		// contain the current tip's text is treated as non-fast-forward.
++		if old != body.SHA && !strings.Contains(body.SHA, old) {
++			s.mu.Unlock()
++			writeJSON(w, 422, map[string]any{"message": "Update is not a fast forward"})
++			return
++		}
++	}
+ 	rp.Refs[branch] = body.SHA
+ 	s.mu.Unlock()
+ 	writeJSON(w, 200, map[string]any{"ref": "refs/heads/" + branch, "object": map[string]any{"sha": body.SHA}})
+
+--- FILE 11/11 ---
+FILE: internal/integration/gitea_ff_test.go
+STATUS: added
+ADDITIONS: 166
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,166 @@
++package integration_test
++
++import (
++	"errors"
++	"fmt"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/Mic92/gitea-mq/internal/gitea"
++	"github.com/Mic92/gitea-mq/internal/testutil"
++)
++
++// TestFastForwardRef_RealGitea verifies that the git-binary push approach
++// works against a live Gitea: a depth=1 fetch of the to-be-pushed SHA is
++// enough for a pure ref update (the server already has every object), and a
++// non-fast-forward push is reported as such.
++func TestFastForwardRef_RealGitea(t *testing.T) {
++	gs := testutil.GiteaInstance()
++	if gs == nil {
++		t.Skip("gitea server not available")
++	}
++	api := testutil.NewGiteaAPI(gs.URL)
++	api.CreateToken(t)
++	c := gitea.NewHTTPClient(gs.URL, api.Token)
++	ctx := t.Context()
++
++	repo := "ff-test"
++	api.MustDo(t, "POST", "/user/repos", `{"name": "`+repo+`", "auto_init": false, "default_branch": "main"}`)
++	if err := gs.PatchRepoHooks("testuser", repo); err != nil {
++		t.Fatalf("patch hooks: %v", err)
++	}
++
++	// Seed history locally and push so we control SHAs precisely:
++	//   main:       A
++	//   batch:      A──B──C
++	tmp := t.TempDir()
++	url := fmt.Sprintf("%s://gitea-mq:%s@%s/testuser/%s.git", "http", api.Token, gs.URL[len("http://"):], repo)
++	run := func(args ...string) string {
++		cmd := exec.Command("git", args...)
++		cmd.Dir = tmp
++		cmd.Env = append(os.Environ(),
++			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
++			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t",
++			"GIT_TERMINAL_PROMPT=0")
++		out, err := cmd.CombinedOutput()
++		if err != nil {
++			t.Fatalf("git %v: %v\n%s", args, err, out)
++		}
++		return string(out)
++	}
++	run("init", "-q", "-b", "main")
++	_ = os.WriteFile(filepath.Join(tmp, "a"), []byte("a"), 0o644)
++	run("add", ".")
++	run("commit", "-q", "-m", "A")
++	run("push", "-q", url, "main")
++	run("checkout", "-q", "-b", "batch")
++	for _, f := range []string{"b", "c"} {
++		_ = os.WriteFile(filepath.Join(tmp, f), []byte(f), 0o644)
++		run("add", ".")
++		run("commit", "-q", "-m", f)
++	}
++	run("push", "-q", url, "batch")
++	shaC := run("rev-parse", "HEAD")[:40]
++	run("checkout", "-q", "main")
++	shaA := run("rev-parse", "HEAD")[:40]
++
++	// Happy path: main A → C is a fast-forward.
++	if err := c.FastForwardRef(ctx, "testuser", repo, "main", shaC); err != nil {
++		t.Fatalf("fast-forward A→C: %v", err)
++	}
++
++	// Non-ff: main is now at C; pushing A is a rewind. The git-level ref is
++	// synchronous even though Gitea's /branches API lags the post-receive
++	// hook, so the server-side non-ff check is reliable here.
++	err := c.FastForwardRef(ctx, "testuser", repo, "main", shaA)
++	var nff *gitea.NotFastForwardError
++	if !errors.As(err, &nff) {
++		t.Fatalf("rewind C→A: got %v, want NotFastForwardError", err)
++	}
++}
++
++// TestStackMerges_RealGitea verifies the one-clone stacker against a live
++// Gitea: two clean PR heads merge, a conflicting one is reported and skipped,
++// and the resulting branch contains both clean changes.
++func TestStackMerges_RealGitea(t *testing.T) {
++	gs := testutil.GiteaInstance()
++	if gs == nil {
++		t.Skip("gitea server not available")
++	}
++	api := testutil.NewGiteaAPI(gs.URL)
++	api.CreateToken(t)
++	c := gitea.NewHTTPClient(gs.URL, api.Token)
++	ctx := t.Context()
++
++	repo := "stack-test"
++	api.MustDo(t, "POST", "/user/repos", `{"name": "`+repo+`", "auto_init": false, "default_branch": "main"}`)
++	if err := gs.PatchRepoHooks("testuser", repo); err != nil {
++		t.Fatalf("patch hooks: %v", err)
++	}
++
++	tmp := t.TempDir()
++	url := fmt.Sprintf("http://gitea-mq:%s@%s/testuser/%s.git", api.Token, gs.URL[len("http://"):], repo)
++	run := func(args ...string) string {
++		cmd := exec.Command("git", args...)
++		cmd.Dir = tmp
++		cmd.Env = append(os.Environ(),
++			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
++			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t",
++			"GIT_TERMINAL_PROMPT=0")
++		out, err := cmd.CombinedOutput()
++		if err != nil {
++			t.Fatalf("git %v: %v\n%s", args, err, out)
++		}
++		return strings.TrimSpace(string(out))
++	}
++	write := func(name, body string) { _ = os.WriteFile(filepath.Join(tmp, name), []byte(body), 0o644) }
+
+[PATCH TRUNCATED: 167 total lines]
+
+
+====================================================================================================
+COMMIT POSITION 6
+====================================================================================================
+SHA: a19bd311fa2b3d01c5933455a0d7d2f65a48e527
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+store,queue: add batches table and queue helpers
+
+One batches row per (repo, target_branch) carries the whole bisection
+state: member/current/landed/ejected id arrays, a jsonb pending stack,
+build counter, ff_retries, and the branch name/sha. ux_batches_live keeps
+at most one forming/testing row per queue so FormBatch is idempotent
+under races. queue_entries.active_batch_id lets the check pipeline route
+an event to the engine instead of the single-PR handlers.
+
+queue.Service grows the thin tx wrappers the engine needs (FormBatch,
+SaveBatch, GetEntriesByIDs preserving caller order, ClearMergeBranch,
+ClearCheckStatuses, CancelLiveBatches).
+
+CHANGED FILES: 6
+
+--- FILE 1/6 ---
+FILE: internal/queue/batch.go
+STATUS: added
+ADDITIONS: 175
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,175 @@
++package queue
++
++import (
++	"context"
++	"errors"
++	"fmt"
++
++	"github.com/Mic92/gitea-mq/internal/store/pg"
++	"github.com/jackc/pgx/v5"
++	"github.com/jackc/pgx/v5/pgtype"
++)
++
++// FormBatch atomically takes up to max queued entries for (repo, branch),
++// creates a batch row owning them, and marks each entry testing with
++// active_batch_id set. Returns nil when there is nothing queued.
++// max <= 0 means "everything currently queued".
++func (s *Service) FormBatch(ctx context.Context, repoID int64, targetBranch string, max int) (*pg.Batch, error) {
++	var batch pg.Batch
++	if max <= 0 {
++		// Postgres LIMIT NULL is awkward through sqlc; a generous cap is
++		// effectively "all".
++		max = 1 << 30
++	}
++	err := s.withTx(ctx, func(q *pg.Queries) error {
++		entries, err := q.TakeQueuedHead(ctx, pg.TakeQueuedHeadParams{
++			RepoID:       repoID,
++			TargetBranch: targetBranch,
++			Limit:        int32(max),
++		})
++		if err != nil {
++			return fmt.Errorf("take queued head: %w", err)
++		}
++		if len(entries) == 0 {
++			return nil
++		}
++		ids := make([]int64, len(entries))
++		for i, e := range entries {
++			ids[i] = e.ID
++		}
++		batch, err = q.CreateBatch(ctx, pg.CreateBatchParams{
++			RepoID:       repoID,
++			TargetBranch: targetBranch,
++			MemberIds:    ids,
++		})
++		if err != nil {
++			return fmt.Errorf("create batch: %w", err)
++		}
++		if err := q.SetEntryActiveBatch(ctx, pg.SetEntryActiveBatchParams{
++			ActiveBatchID: pgtype.Int8{Int64: batch.ID, Valid: true},
++			Ids:           ids,
++		}); err != nil {
++			return fmt.Errorf("set active batch: %w", err)
++		}
++		return nil
++	})
++	if err != nil || batch.ID == 0 {
++		return nil, err
++	}
++	return &batch, nil
++}
++
++// GetLiveBatch returns the live (forming/testing) batch for a queue, or nil.
++func (s *Service) GetLiveBatch(ctx context.Context, repoID int64, targetBranch string) (*pg.Batch, error) {
++	b, err := s.queries().GetLiveBatch(ctx, pg.GetLiveBatchParams{
++		RepoID:       repoID,
++		TargetBranch: targetBranch,
++	})
++	if err != nil {
++		if errors.Is(err, pgx.ErrNoRows) {
++			return nil, nil
++		}
++		return nil, err
++	}
++	return &b, nil
++}
++
++// GetBatch returns a batch by ID, or nil if not found.
++func (s *Service) GetBatch(ctx context.Context, id int64) (*pg.Batch, error) {
++	b, err := s.queries().GetBatch(ctx, id)
++	if err != nil {
++		if errors.Is(err, pgx.ErrNoRows) {
++			return nil, nil
++		}
++		return nil, err
++	}
++	return &b, nil
++}
++
++// ListLiveBatches returns all live batches for a repo (across target branches).
++func (s *Service) ListLiveBatches(ctx context.Context, repoID int64) ([]pg.Batch, error) {
++	return s.queries().ListLiveBatchesByRepo(ctx, repoID)
++}
++
++// nn returns s unchanged or an empty non-nil slice; pgx maps a nil Go slice to
++// SQL NULL, which the NOT NULL array columns reject.
++func nn(s []int64) []int64 {
++	if s == nil {
++		return []int64{}
++	}
++	return s
++}
++
++// SaveBatch persists the mutable fields of a batch row.
++func (s *Service) SaveBatch(ctx context.Context, b *pg.Batch) error {
++	pending := b.Pending
++	if len(pending) == 0 {
++		pending = []byte("[]")
++	}
++	saved, err := s.queries().SaveBatch(ctx, pg.SaveBatchParams{
++		ID:               b.ID,
++		State:            b.State,
++		CurrentIds:       nn(b.CurrentIds),
++		Pending:          pending,
++		LandedIds:        nn(b.LandedIds),
++		EjectedIds:       nn(b.EjectedIds),
++		BranchName:       b.BranchName,
++		BranchSha:        b.BranchSha,
++		Builds:           b.Builds,
++		FfRetries:        b.FfRetries,
+
+[PATCH TRUNCATED: 176 total lines]
+
+--- FILE 2/6 ---
+FILE: internal/store/pg/db.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -1,6 +1,6 @@
+ // Code generated by sqlc. DO NOT EDIT.
+ // versions:
+-//   sqlc v1.30.0
++//   sqlc v1.31.1
+ 
+ package pg
+ 
+
+--- FILE 3/6 ---
+FILE: internal/store/pg/migrations/004_batches.sql
+STATUS: added
+ADDITIONS: 36
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,36 @@
++-- +goose Up
++CREATE TYPE batch_state AS ENUM ('forming', 'testing', 'done', 'cancelled');
++
++CREATE TABLE batches (
++    id                  BIGSERIAL PRIMARY KEY,
++    repo_id             BIGINT NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
++    target_branch       TEXT   NOT NULL,
++    state               batch_state NOT NULL DEFAULT 'forming',
++
++    member_ids          BIGINT[] NOT NULL,
++    current_ids         BIGINT[] NOT NULL,
++    pending             JSONB    NOT NULL DEFAULT '[]',
++    landed_ids          BIGINT[] NOT NULL DEFAULT '{}',
++    ejected_ids         BIGINT[] NOT NULL DEFAULT '{}',
++
++    branch_name         TEXT,
++    branch_sha          TEXT,
++    builds              INT NOT NULL DEFAULT 0,
++    ff_retries          INT NOT NULL DEFAULT 0,
++    flaky               BOOLEAN NOT NULL DEFAULT FALSE,
++
++    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++    testing_started_at  TIMESTAMPTZ
++);
++
++CREATE UNIQUE INDEX ux_batches_live ON batches(repo_id, target_branch)
++    WHERE state IN ('forming', 'testing');
++
++ALTER TABLE queue_entries
++    ADD COLUMN active_batch_id BIGINT REFERENCES batches(id) ON DELETE SET NULL;
++
++-- +goose Down
++ALTER TABLE queue_entries DROP COLUMN active_batch_id;
++DROP INDEX IF EXISTS ux_batches_live;
++DROP TABLE IF EXISTS batches;
++DROP TYPE IF EXISTS batch_state;
+
+--- FILE 4/6 ---
+FILE: internal/store/pg/models.go
+STATUS: modified
+ADDITIONS: 65
+DELETIONS: 1
+
+PATCH:
+@@ -1,6 +1,6 @@
+ // Code generated by sqlc. DO NOT EDIT.
+ // versions:
+-//   sqlc v1.30.0
++//   sqlc v1.31.1
+ 
+ package pg
+ 
+@@ -11,6 +11,50 @@ import (
+ 	"github.com/jackc/pgx/v5/pgtype"
+ )
+ 
++type BatchState string
++
++const (
++	BatchStateForming   BatchState = "forming"
++	BatchStateTesting   BatchState = "testing"
++	BatchStateDone      BatchState = "done"
++	BatchStateCancelled BatchState = "cancelled"
++)
++
++func (e *BatchState) Scan(src interface{}) error {
++	switch s := src.(type) {
++	case []byte:
++		*e = BatchState(s)
++	case string:
++		*e = BatchState(s)
++	default:
++		return fmt.Errorf("unsupported scan type for BatchState: %T", src)
++	}
++	return nil
++}
++
++type NullBatchState struct {
++	BatchState BatchState `json:"batch_state"`
++	Valid      bool       `json:"valid"` // Valid is true if BatchState is not NULL
++}
++
++// Scan implements the Scanner interface.
++func (ns *NullBatchState) Scan(value interface{}) error {
++	if value == nil {
++		ns.BatchState, ns.Valid = "", false
++		return nil
++	}
++	ns.Valid = true
++	return ns.BatchState.Scan(value)
++}
++
++// Value implements the driver Valuer interface.
++func (ns NullBatchState) Value() (driver.Value, error) {
++	if !ns.Valid {
++		return nil, nil
++	}
++	return string(ns.BatchState), nil
++}
++
+ type CheckState string
+ 
+ const (
+@@ -100,6 +144,25 @@ func (ns NullEntryState) Value() (driver.Value, error) {
+ 	return string(ns.EntryState), nil
+ }
+ 
++type Batch struct {
++	ID               int64              `json:"id"`
++	RepoID           int64              `json:"repo_id"`
++	TargetBranch     string             `json:"target_branch"`
++	State            BatchState         `json:"state"`
++	MemberIds        []int64            `json:"member_ids"`
++	CurrentIds       []int64            `json:"current_ids"`
++	Pending          []byte             `json:"pending"`
++	LandedIds        []int64            `json:"landed_ids"`
++	EjectedIds       []int64            `json:"ejected_ids"`
++	BranchName       pgtype.Text        `json:"branch_name"`
++	BranchSha        pgtype.Text        `json:"branch_sha"`
++	Builds           int32              `json:"builds"`
++	FfRetries        int32              `json:"ff_retries"`
++	Flaky            bool               `json:"flaky"`
++	CreatedAt        pgtype.Timestamptz `json:"created_at"`
++	TestingStartedAt pgtype.Timestamptz `json:"testing_started_at"`
++}
++
+ type CheckStatus struct {
+ 	ID           int64              `json:"id"`
+ 	QueueEntryID int64              `json:"queue_entry_id"`
+@@ -122,6 +185,7 @@ type QueueEntry struct {
+ 	MergeBranchName  pgtype.Text        `json:"merge_branch_name"`
+ 	MergeBranchSha   pgtype.Text        `json:"merge_branch_sha"`
+ 	ErrorMessage     pgtype.Text        `json:"error_message"`
++	ActiveBatchID    pgtype.Int8        `json:"active_batch_id"`
+ }
+ 
+ type Repo struct {
+
+--- FILE 5/6 ---
+FILE: internal/store/pg/query.sql
+STATUS: modified
+ADDITIONS: 59
+DELETIONS: 0
+
+PATCH:
+@@ -77,4 +77,63 @@ WHERE qe.repo_id = $1 AND qe.target_branch = $2
+ DELETE FROM queue_entries
+ WHERE repo_id = $1;
+ 
++-- name: TakeQueuedHead :many
++SELECT * FROM queue_entries
++WHERE repo_id = $1 AND target_branch = $2 AND state = 'queued'
++ORDER BY enqueued_at ASC
++LIMIT $3;
++
++-- name: GetEntriesByIDs :many
++SELECT * FROM queue_entries
++WHERE id = ANY(@ids::bigint[]);
++
++-- name: SetEntryActiveBatch :exec
++UPDATE queue_entries
++SET active_batch_id = @active_batch_id, state = 'testing',
++    testing_started_at = COALESCE(testing_started_at, NOW())
++WHERE id = ANY(@ids::bigint[]);
++
++-- name: ClearEntryMergeBranch :exec
++UPDATE queue_entries
++SET merge_branch_name = NULL, merge_branch_sha = NULL
++WHERE id = ANY(@ids::bigint[]);
++
++-- name: ClearCheckStatuses :exec
++DELETE FROM check_statuses
++WHERE queue_entry_id = ANY(@ids::bigint[]);
++
++-- name: CreateBatch :one
++INSERT INTO batches (repo_id, target_branch, member_ids, current_ids)
++VALUES ($1, $2, $3, $3)
++RETURNING *;
++
++-- name: GetBatch :one
++SELECT * FROM batches WHERE id = $1;
++
++-- name: GetLiveBatch :one
++SELECT * FROM batches
++WHERE repo_id = $1 AND target_branch = $2 AND state IN ('forming', 'testing');
++
++-- name: ListLiveBatchesByRepo :many
++SELECT * FROM batches
++WHERE repo_id = $1 AND state IN ('forming', 'testing');
++
++-- name: SaveBatch :one
++UPDATE batches SET
++    state = $2,
++    current_ids = $3,
++    pending = $4,
++    landed_ids = $5,
++    ejected_ids = $6,
++    branch_name = $7,
++    branch_sha = $8,
++    builds = $9,
++    ff_retries = $10,
++    flaky = $11,
++    testing_started_at = $12
++WHERE id = $1
++RETURNING *;
+ 
++-- name: CancelBatchesByRepo :exec
++UPDATE batches SET state = 'cancelled'
++WHERE repo_id = $1 AND state IN ('forming', 'testing');
+
+--- FILE 6/6 ---
+FILE: internal/store/pg/query.sql.go
+STATUS: modified
+ADDITIONS: 358
+DELETIONS: 7
+
+PATCH:
+@@ -1,6 +1,6 @@
+ // Code generated by sqlc. DO NOT EDIT.
+ // versions:
+-//   sqlc v1.30.0
++//   sqlc v1.31.1
+ // source: query.sql
+ 
+ package pg
+@@ -11,6 +11,37 @@ import (
+ 	"github.com/jackc/pgx/v5/pgtype"
+ )
+ 
++const cancelBatchesByRepo = `-- name: CancelBatchesByRepo :exec
++UPDATE batches SET state = 'cancelled'
++WHERE repo_id = $1 AND state IN ('forming', 'testing')
++`
++
++func (q *Queries) CancelBatchesByRepo(ctx context.Context, repoID int64) error {
++	_, err := q.db.Exec(ctx, cancelBatchesByRepo, repoID)
++	return err
++}
++
++const clearCheckStatuses = `-- name: ClearCheckStatuses :exec
++DELETE FROM check_statuses
++WHERE queue_entry_id = ANY($1::bigint[])
++`
++
++func (q *Queries) ClearCheckStatuses(ctx context.Context, ids []int64) error {
++	_, err := q.db.Exec(ctx, clearCheckStatuses, ids)
++	return err
++}
++
++const clearEntryMergeBranch = `-- name: ClearEntryMergeBranch :exec
++UPDATE queue_entries
++SET merge_branch_name = NULL, merge_branch_sha = NULL
++WHERE id = ANY($1::bigint[])
++`
++
++func (q *Queries) ClearEntryMergeBranch(ctx context.Context, ids []int64) error {
++	_, err := q.db.Exec(ctx, clearEntryMergeBranch, ids)
++	return err
++}
++
+ const countQueuePosition = `-- name: CountQueuePosition :one
+ SELECT COUNT(*) FROM queue_entries qe
+ WHERE qe.repo_id = $1 AND qe.target_branch = $2
+@@ -30,6 +61,42 @@ func (q *Queries) CountQueuePosition(ctx context.Context, arg CountQueuePosition
+ 	return count, err
+ }
+ 
++const createBatch = `-- name: CreateBatch :one
++INSERT INTO batches (repo_id, target_branch, member_ids, current_ids)
++VALUES ($1, $2, $3, $3)
++RETURNING id, repo_id, target_branch, state, member_ids, current_ids, pending, landed_ids, ejected_ids, branch_name, branch_sha, builds, ff_retries, flaky, created_at, testing_started_at
++`
++
++type CreateBatchParams struct {
++	RepoID       int64   `json:"repo_id"`
++	TargetBranch string  `json:"target_branch"`
++	MemberIds    []int64 `json:"member_ids"`
++}
++
++func (q *Queries) CreateBatch(ctx context.Context, arg CreateBatchParams) (Batch, error) {
++	row := q.db.QueryRow(ctx, createBatch, arg.RepoID, arg.TargetBranch, arg.MemberIds)
++	var i Batch
++	err := row.Scan(
++		&i.ID,
++		&i.RepoID,
++		&i.TargetBranch,
++		&i.State,
++		&i.MemberIds,
++		&i.CurrentIds,
++		&i.Pending,
++		&i.LandedIds,
++		&i.EjectedIds,
++		&i.BranchName,
++		&i.BranchSha,
++		&i.Builds,
++		&i.FfRetries,
++		&i.Flaky,
++		&i.CreatedAt,
++		&i.TestingStartedAt,
++	)
++	return i, err
++}
++
+ const dequeueAllByRepo = `-- name: DequeueAllByRepo :exec
+ DELETE FROM queue_entries
+ WHERE repo_id = $1
+@@ -59,7 +126,7 @@ const enqueuePR = `-- name: EnqueuePR :one
+ INSERT INTO queue_entries (repo_id, pr_number, pr_head_sha, target_branch)
+ VALUES ($1, $2, $3, $4)
+ ON CONFLICT (repo_id, pr_number) DO NOTHING
+-RETURNING id, repo_id, pr_number, pr_head_sha, target_branch, state, enqueued_at, testing_started_at, completed_at, merge_branch_name, merge_branch_sha, error_message
++RETURNING id, repo_id, pr_number, pr_head_sha, target_branch, state, enqueued_at, testing_started_at, completed_at, merge_branch_name, merge_branch_sha, error_message, active_batch_id
+ `
+ 
+ type EnqueuePRParams struct {
+@@ -91,6 +158,35 @@ func (q *Queries) EnqueuePR(ctx context.Context, arg EnqueuePRParams) (QueueEntr
+ 		&i.MergeBranchName,
+ 		&i.MergeBranchSha,
+ 		&i.ErrorMessage,
++		&i.ActiveBatchID,
++	)
++	return i, err
++}
++
++const getBatch = `-- name: GetBatch :one
++SELECT id, repo_id, target_branch, state, member_ids, current_ids, pending, landed_ids, ejected_ids, branch_name, branch_sha, builds, ff_retries, flaky, created_at, testing_started_at FROM batches WHERE id = $1
++`
++
++func (q *Queries) GetBatch(ctx context.Context, id int64) (Batch, error) {
++	row := q.db.QueryRow(ctx, getBatch, id)
++	var i Batch
++	err := row.Scan(
++		&i.ID,
++		&i.RepoID,
++		&i.TargetBranch,
++		&i.State,
++		&i.MemberIds,
+
+[PATCH TRUNCATED: 489 total lines]
+
+
+====================================================================================================
+COMMIT POSITION 7
+====================================================================================================
+SHA: bd33e65d4f99fec854359239abf0139e83316e46
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+config: add BATCH_MAX and BISECT_MAX_STEPS
+
+BATCH_MAX defaults to 1 so batching is opt-in and the existing path is
+untouched. 0 means take everything currently queued. BISECT_MAX_STEPS
+caps how many rebuilds a single batch may run before the remaining
+members are ejected; 0 disables the cap.
+
+CHANGED FILES: 2
+
+--- FILE 1/2 ---
+FILE: internal/config/config.go
+STATUS: modified
+ADDITIONS: 26
+DELETIONS: 0
+
+PATCH:
+@@ -23,6 +23,8 @@ type Config struct {
+ 	CheckTimeout        time.Duration
+ 	RequiredChecks      []string
+ 	SkipQueueIfUpToDate bool
++	BatchMax            int
++	BisectMaxSteps      int
+ 	RefreshInterval     time.Duration
+ 	DiscoveryInterval   time.Duration
+ 	LogLevel            string
+@@ -133,6 +135,15 @@ func Load() (*Config, error) {
+ 		return nil, err
+ 	}
+ 
++	cfg.BatchMax, err = parseInt("GITEA_MQ_BATCH_MAX", 1, 0)
++	if err != nil {
++		return nil, err
++	}
++	cfg.BisectMaxSteps, err = parseInt("GITEA_MQ_BISECT_MAX_STEPS", 0, 0)
++	if err != nil {
++		return nil, err
++	}
++
+ 	cfg.LogLevel = envOrDefault("GITEA_MQ_LOG_LEVEL", "info")
+ 	switch cfg.LogLevel {
+ 	case "debug", "info", "warn", "error":
+@@ -257,6 +268,21 @@ func parseRepos(s string, kind forge.Kind) ([]forge.RepoRef, error) {
+ 	return repos, nil
+ }
+ 
++func parseInt(envKey string, defaultVal, minVal int) (int, error) {
++	s := os.Getenv(envKey)
++	if s == "" {
++		return defaultVal, nil
++	}
++	n, err := strconv.Atoi(s)
++	if err != nil {
++		return 0, fmt.Errorf("%s: invalid integer %q", envKey, s)
++	}
++	if n < minVal {
++		return 0, fmt.Errorf("%s: must be >= %d, got %d", envKey, minVal, n)
++	}
++	return n, nil
++}
++
+ func parseBool(envKey string, defaultVal bool) (bool, error) {
+ 	s := os.Getenv(envKey)
+ 	if s == "" {
+
+--- FILE 2/2 ---
+FILE: internal/config/config_test.go
+STATUS: modified
+ADDITIONS: 33
+DELETIONS: 0
+
+PATCH:
+@@ -65,6 +65,39 @@ func with(extra map[string]string) map[string]string {
+ 	return out
+ }
+ 
++var giteaEnv = with(map[string]string{
++	"GITEA_MQ_GITEA_URL":      "https://gitea",
++	"GITEA_MQ_GITEA_TOKEN":    "t",
++	"GITEA_MQ_WEBHOOK_SECRET": "s",
++	"GITEA_MQ_REPOS":          "o/r",
++})
++
++func TestLoad_BatchMax(t *testing.T) {
++	setEnv(t, giteaEnv)
++	cfg, err := Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	if cfg.BatchMax != 1 || cfg.BisectMaxSteps != 0 {
++		t.Fatalf("defaults: BatchMax=%d BisectMaxSteps=%d", cfg.BatchMax, cfg.BisectMaxSteps)
++	}
++
++	t.Setenv("GITEA_MQ_BATCH_MAX", "0")
++	t.Setenv("GITEA_MQ_BISECT_MAX_STEPS", "5")
++	cfg, err = Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	if cfg.BatchMax != 0 || cfg.BisectMaxSteps != 5 {
++		t.Fatalf("override: BatchMax=%d BisectMaxSteps=%d", cfg.BatchMax, cfg.BisectMaxSteps)
++	}
++
++	t.Setenv("GITEA_MQ_BATCH_MAX", "-1")
++	if _, err := Load(); err == nil {
++		t.Fatal("expected error for negative BATCH_MAX")
++	}
++}
++
+ func TestLoad_NoForgeFails(t *testing.T) {
+ 	setEnv(t, baseEnv)
+ 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "no forge configured") {
+
+
+====================================================================================================
+COMMIT POSITION 8
+====================================================================================================
+SHA: ca5fbd312ec1f3fb03690e62e43587057d578d0e
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+batch: add bors-style batch engine
+
+The engine forms a batch from the queued head, builds gitea-mq/batch/<id>
+by stacking each member onto the target tip (ejecting on conflict),
+fast-forwards the target on green, and bisects on red by pushing the
+right half onto a jsonb stack and rebuilding the left from the current
+tip. A fast-forward race rebuilds up to MaxFFRetries; a push-denied error
+ejects current with an actionable message. After landing, each PR is
+polled briefly and closed with a comment if the forge has not marked it
+merged, so the merge endpoint is never called.
+
+HandleCheck is the single entry from the check pipeline: it takes the
+per-target-branch lock, loads the row, drops the event unless
+state==testing and the entry SHA matches the current branch_sha, and only
+then persists the check and evaluates. Persisting after the guard is what
+stops a late event for a superseded build from polluting the ledger that
+decides the current one. Every path that swaps current_ids without a
+fresh branch_sha persists state=forming first; FormAndBuild retries a
+forming live batch so a transient stack/clone error does not stall the
+queue until restart.
+
+Build prefers a forge-native MergeStacker when implemented (one clone for
+the whole stack on Gitea) and falls back to CreateMergeBranch+MergeInto.
+
+CHANGED FILES: 4
+
+--- FILE 1/4 ---
+FILE: internal/batch/batch.go
+STATUS: added
+ADDITIONS: 567
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,567 @@
++// Package batch implements bors-style batch testing: build a single merge
++// branch from N queued PRs, fast-forward the target on green, and bisect on
++// red. All state lives on one pg.Batch row so the loop is restart-safe.
++package batch
++
++import (
++	"cmp"
++	"context"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"log/slog"
++	"slices"
++	"sync"
++	"time"
++
++	"github.com/Mic92/gitea-mq/internal/forge"
++	"github.com/Mic92/gitea-mq/internal/merge"
++	"github.com/Mic92/gitea-mq/internal/queue"
++	"github.com/Mic92/gitea-mq/internal/store/pg"
++	"github.com/jackc/pgx/v5/pgtype"
++)
++
++// MaxFFRetries caps consecutive ErrNotFastForward rebuilds before the
++// remaining current members are ejected with an actionable error.
++const MaxFFRetries = 3
++
++// BranchPrefix is the namespace for batch merge branches.
++const BranchPrefix = merge.BranchPrefix + "batch/"
++
++// BranchName returns the canonical batch branch name.
++func BranchName(id int64) string {
++	return fmt.Sprintf("%s%d", BranchPrefix, id)
++}
++
++// Engine drives the batch lifecycle for one repository. The pg.Batch row is
++// the source of truth; the mutex serialises every public entry point so the
++// webhook handler and poller cannot mutate the same batch concurrently.
++type Engine struct {
++	Forge       forge.Forge
++	Queue       *queue.Service
++	Owner       string
++	Repo        string
++	RepoID      int64
++	ExternalURL string
++
++	BatchMax       int
++	BisectMaxSteps int
++	CheckTimeout   time.Duration
++	FallbackChecks []string
++
++	// MergedPoll controls ensureMergedOrClose. Defaults: 200ms × 50 = 10s.
++	MergedPollInterval time.Duration
++	MergedPollAttempts int
++
++	// Advance is called whenever a batch finishes so the next root can be
++	// formed without waiting for the poll tick. Optional.
++	Advance func()
++
++	mu    sync.Mutex // guards locks
++	locks map[string]*sync.Mutex
++}
++
++// lock returns the per-target-branch unlock func. Batches for different
++// branches in the same repo are independent (ux_batches_live is per branch),
++// so serialising them on one mutex would head-of-line block on forge I/O.
++func (e *Engine) lock(targetBranch string) func() {
++	e.mu.Lock()
++	if e.locks == nil {
++		e.locks = make(map[string]*sync.Mutex)
++	}
++	l, ok := e.locks[targetBranch]
++	if !ok {
++		l = &sync.Mutex{}
++		e.locks[targetBranch] = l
++	}
++	e.mu.Unlock()
++	l.Lock()
++	return l.Unlock
++}
++
++// Enabled reports whether batching is active. BatchMax==1 keeps the legacy
++// single-PR path byte-for-byte intact.
++func (e *Engine) Enabled() bool { return e != nil && e.BatchMax != 1 }
++
++// pendingStack is the JSONB stack of int64 slices stored on the batch row.
++type pendingStack [][]int64
++
++func loadPending(raw []byte) pendingStack {
++	var p pendingStack
++	if len(raw) == 0 {
++		return p
++	}
++	_ = json.Unmarshal(raw, &p)
++	return p
++}
++
++func (p pendingStack) bytes() []byte {
++	if len(p) == 0 {
++		return []byte("[]")
++	}
++	b, _ := json.Marshal(p)
++	return b
++}
++
++func (p pendingStack) drop(id int64) pendingStack {
++	eq := func(v int64) bool { return v == id }
++	out := p[:0]
++	for _, s := range p {
++		if s = slices.DeleteFunc(s, eq); len(s) > 0 {
++			out = append(out, s)
++		}
++	}
++	return out
++}
++
++// FormAndBuild forms a new root batch from the queued head and builds its
++// branch. Returns nil when there is nothing to do (queue empty or a live
++// batch already exists). Safe to call on every poll tick.
+
+[PATCH TRUNCATED: 568 total lines]
+
+--- FILE 2/4 ---
+FILE: internal/batch/batch_test.go
+STATUS: added
+ADDITIONS: 503
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,503 @@
++package batch_test
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"slices"
++	"strings"
++	"testing"
++
++	"github.com/Mic92/gitea-mq/internal/batch"
++	"github.com/Mic92/gitea-mq/internal/forge"
++	"github.com/Mic92/gitea-mq/internal/queue"
++	"github.com/Mic92/gitea-mq/internal/store/pg"
++	"github.com/Mic92/gitea-mq/internal/testutil"
++)
++
++// fakeForge is a MockForge wired so CreateMergeBranch/MergeInto/FastForward
++// behave like ghfake.hMerge: each merge encodes its parents, and a
++// fast-forward is accepted iff the new SHA contains the current target tip.
++type fakeForge struct {
++	*forge.MockForge
++	target   string // current tip of main
++	conflict map[string]bool
++	merged   map[int64]bool // PR -> reported merged by GetPR
++}
++
++func newFakeForge() *fakeForge {
++	f := &fakeForge{
++		MockForge: &forge.MockForge{},
++		target:    "main0",
++		conflict:  map[string]bool{},
++		merged:    map[int64]bool{},
++	}
++	var tip string
++	f.CreateMergeBranchFn = func(_ context.Context, _, _, _, head, _ string) (string, bool, error) {
++		if f.conflict[head] {
++			return "", true, nil
++		}
++		// Seed from the live target tip so each rebuild reflects what
++		// HandlePass already landed.
++		tip = fmt.Sprintf("m(%s,%s)", f.target, head)
++		return tip, false, nil
++	}
++	f.MergeIntoFn = func(_ context.Context, _, _, _, head string) (string, bool, error) {
++		if f.conflict[head] {
++			return "", true, nil
++		}
++		tip = fmt.Sprintf("m(%s,%s)", tip, head)
++		return tip, false, nil
++	}
++	f.FastForwardFn = func(_ context.Context, _, _, _, sha string) error {
++		if !strings.Contains(sha, f.target) {
++			return forge.ErrNotFastForward
++		}
++		f.target = sha
++		return nil
++	}
++	f.GetPRFn = func(_ context.Context, _, _ string, n int64) (*forge.PR, error) {
++		return &forge.PR{Number: n, Merged: f.merged[n], State: "open"}, nil
++	}
++	return f
++}
++
++func setup(t *testing.T, prs ...int64) (*batch.Engine, *fakeForge, *queue.Service, context.Context) {
++	t.Helper()
++	svc, ctx, repoID := testutil.TestQueueService(t)
++	for _, n := range prs {
++		if _, err := svc.Enqueue(ctx, repoID, n, fmt.Sprintf("sha%d", n), "main"); err != nil {
++			t.Fatal(err)
++		}
++	}
++	f := newFakeForge()
++	e := &batch.Engine{
++		Forge:              f.MockForge,
++		Queue:              svc,
++		Owner:              "org",
++		Repo:               "app",
++		RepoID:             repoID,
++		ExternalURL:        "http://mq",
++		BatchMax:           0,
++		MergedPollInterval: 1,
++		MergedPollAttempts: 1,
++	}
++	return e, f, svc, ctx
++}
++
++func mustLive(t *testing.T, svc *queue.Service, ctx context.Context, repoID int64) *pg.Batch {
++	t.Helper()
++	b, err := svc.GetLiveBatch(ctx, repoID, "main")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if b == nil {
++		t.Fatal("expected live batch")
++	}
++	return b
++}
++
++func TestFormAndBuild_Green(t *testing.T) {
++	e, f, svc, ctx := setup(t, 10, 20, 30)
++	f.merged[10], f.merged[20], f.merged[30] = true, true, true
++
++	b, err := e.FormAndBuild(ctx, "main")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if b.State != pg.BatchStateTesting || len(b.CurrentIds) != 3 || b.Builds != 1 {
++		t.Fatalf("unexpected batch after build: %+v", b)
++	}
++	wantSHA := "m(m(m(main0,sha10),sha20),sha30)"
++	if b.BranchSha.String != wantSHA {
++		t.Fatalf("branch sha = %q, want %q", b.BranchSha.String, wantSHA)
++	}
++	// All current entries route check events via the batch SHA.
++	for _, n := range []int64{10, 20, 30} {
++		ent, _ := svc.GetEntry(ctx, e.RepoID, n)
++		if ent.MergeBranchSha.String != wantSHA || !ent.ActiveBatchID.Valid {
++			t.Fatalf("PR #%d not wired to batch: %+v", n, ent)
+
+[PATCH TRUNCATED: 504 total lines]
+
+--- FILE 3/4 ---
+FILE: internal/batch/monitor.go
+STATUS: added
+ADDITIONS: 50
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,50 @@
++package batch
++
++import (
++	"context"
++
++	"github.com/Mic92/gitea-mq/internal/monitor"
++	"github.com/Mic92/gitea-mq/internal/store/pg"
++)
++
++// HandleCheck implements monitor.BatchHandler. It is the single entry point
++// from the check pipeline into the batch engine: lock, guard against stale
++// SHAs, and only then persist the check and evaluate. Persisting after the
++// guard is what stops a late event for a superseded build from polluting the
++// ledger that decides the current one.
++func (e *Engine) HandleCheck(ctx context.Context, entry *pg.QueueEntry, checkCtx string, state pg.CheckState, targetURL string) error {
++	defer e.lock(entry.TargetBranch)()
++
++	b, err := e.Queue.GetBatch(ctx, entry.ActiveBatchID.Int64)
++	if err != nil || b == nil || b.State != pg.BatchStateTesting {
++		return err
++	}
++	if !entry.MergeBranchSha.Valid || entry.MergeBranchSha.String != b.BranchSha.String {
++		return nil
++	}
++
++	if err := e.Queue.SaveCheckStatus(ctx, entry.ID, checkCtx, state, targetURL); err != nil {
++		return err
++	}
++	required, err := monitor.ResolveRequiredChecks(ctx, e.Forge, e.Owner, e.Repo, b.TargetBranch, e.FallbackChecks)
++	if err != nil {
++		return err
++	}
++	statuses, err := e.Queue.GetCheckStatuses(ctx, entry.ID)
++	if err != nil {
++		return err
++	}
++
++	switch r, fc, fu := monitor.EvaluateChecks(statuses, required); r {
++	case monitor.CheckSuccess:
++		return e.HandlePass(ctx, b)
++	case monitor.CheckFailure:
++		return e.HandleFail(ctx, b, fc, fu)
++	default:
++		if TimedOut(b, e.CheckTimeout) {
++			return e.HandleFail(ctx, b, "timeout", "")
++		}
++	}
++	return nil
++}
++
+
+--- FILE 4/4 ---
+FILE: internal/batch/testdb_test.go
+STATUS: added
+ADDITIONS: 12
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,12 @@
++package batch_test
++
++import (
++	"os"
++	"testing"
++
++	"github.com/Mic92/gitea-mq/internal/testutil"
++)
++
++func TestMain(m *testing.M) {
++	os.Exit(testutil.RunWithPostgres(m))
++}
+
+
+====================================================================================================
+COMMIT POSITION 9
+====================================================================================================
+SHA: 87e63950be8eb325064ed309676e837642c28830
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+wire batch engine into monitor, poller and registry
+
+monitor.ProcessCheckStatus dispatches to BatchHandler.HandleCheck before
+touching the check ledger when the entry has active_batch_id; the engine
+owns persistence behind its guard.
+
+poller.startQueuedHeads calls Engine.FormAndBuild per target branch when
+batching is enabled (after the up-to-date singleton shortcut, so that
+case still takes the legacy path). pollMergeBranchChecks drives each live
+testing batch from the row's branch_sha via the first current entry, and
+skips batch members in the per-entry loop, so a stale entry snapshot can
+never feed an old build's checks back into a new one. reconcileEntries
+calls OnMemberRemoved after dequeuing a batch member.
+
+registry builds one Engine per repo when BatchMax!=1, runs ReconcileLive
+at start, passes live batch branch names to CleanupStaleBranches via the
+new spare parameter, and cancels live batches on Remove.
+
+CHANGED FILES: 7
+
+--- FILE 1/7 ---
+FILE: cmd/gitea-mq/main.go
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -61,6 +61,7 @@ func run() error {
+ 		"github", cfg.Github != nil,
+ 		"poll_interval", cfg.PollInterval,
+ 		"check_timeout", cfg.CheckTimeout,
++		"batch_max", cfg.BatchMax,
+ 	)
+ 
+ 	// Graceful shutdown context.
+@@ -122,6 +123,8 @@ func run() error {
+ 		FallbackChecks:      cfg.RequiredChecks,
+ 		SuccessTimeout:      5 * time.Minute,
+ 		SkipQueueIfUpToDate: cfg.SkipQueueIfUpToDate,
++		BatchMax:            cfg.BatchMax,
++		BisectMaxSteps:      cfg.BisectMaxSteps,
+ 	})
+ 
+ 	discTrigger := make(chan struct{}, 1)
+
+--- FILE 2/7 ---
+FILE: internal/batch/monitor.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -48,3 +48,4 @@ func (e *Engine) HandleCheck(ctx context.Context, entry *pg.QueueEntry, checkCtx
+ 	return nil
+ }
+ 
++var _ monitor.BatchHandler = (*Engine)(nil)
+
+--- FILE 3/7 ---
+FILE: internal/merge/merge.go
+STATUS: modified
+ADDITIONS: 7
+DELETIONS: 3
+
+PATCH:
+@@ -119,19 +119,23 @@ func CleanupMergeBranch(ctx context.Context, f forge.Forge, owner, repo string,
+ }
+ 
+ // CleanupStaleBranches deletes orphaned gitea-mq/* branches not referenced by
+-// any active queue entry. Called on startup to clean up after crashes.
+-func CleanupStaleBranches(ctx context.Context, f forge.Forge, svc *queue.Service, owner, repo string, repoID int64) error {
++// any active queue entry or live batch. Called on startup to clean up after
++// crashes. spare lists additional branch names to keep (live batch branches).
++func CleanupStaleBranches(ctx context.Context, f forge.Forge, svc *queue.Service, owner, repo string, repoID int64, spare []string) error {
+ 	activeEntries, err := svc.ListActiveEntries(ctx, repoID)
+ 	if err != nil {
+ 		return fmt.Errorf("list active entries: %w", err)
+ 	}
+ 
+-	activeBranches := make(map[string]bool, len(activeEntries))
++	activeBranches := make(map[string]bool, len(activeEntries)+len(spare))
+ 	for _, e := range activeEntries {
+ 		if e.MergeBranchName.Valid && e.MergeBranchName.String != "" {
+ 			activeBranches[e.MergeBranchName.String] = true
+ 		}
+ 	}
++	for _, b := range spare {
++		activeBranches[b] = true
++	}
+ 
+ 	branches, err := f.ListBranches(ctx, owner, repo)
+ 	if err != nil {
+
+--- FILE 4/7 ---
+FILE: internal/merge/merge_test.go
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -283,7 +283,7 @@ func TestCleanupStaleBranches_DeletesOrphans(t *testing.T) {
+ 		}, nil
+ 	}
+ 
+-	if err := merge.CleanupStaleBranches(ctx, f, svc, "org", "app", repoID); err != nil {
++	if err := merge.CleanupStaleBranches(ctx, f, svc, "org", "app", repoID, nil); err != nil {
+ 		t.Fatal(err)
+ 	}
+ 
+@@ -320,7 +320,7 @@ func TestCleanupStaleBranches_DeleteErrorContinues(t *testing.T) {
+ 		return nil
+ 	}
+ 
+-	if err := merge.CleanupStaleBranches(ctx, f, svc, "org", "app", repoID); err != nil {
++	if err := merge.CleanupStaleBranches(ctx, f, svc, "org", "app", repoID, nil); err != nil {
+ 		t.Fatal(err)
+ 	}
+ 
+
+--- FILE 5/7 ---
+FILE: internal/monitor/monitor.go
+STATUS: modified
+ADDITIONS: 17
+DELETIONS: 0
+
+PATCH:
+@@ -23,6 +23,19 @@ type Deps struct {
+ 	ExternalURL    string
+ 	CheckTimeout   time.Duration
+ 	FallbackChecks []string // from GITEA_MQ_REQUIRED_CHECKS
++
++	// Batch, when non-nil, intercepts check results for entries that belong
++	// to a live batch. The single-PR success/failure handlers are skipped.
++	Batch BatchHandler
++}
++
++// BatchHandler dispatches a raw check event to the batch engine. Defined
++// here so monitor does not import internal/batch (the engine imports monitor
++// for ResolveRequiredChecks/EvaluateChecks). The engine persists the check
++// itself, after its stale-SHA guard, so a late event cannot pollute the
++// ledger of a newer build.
++type BatchHandler interface {
++	HandleCheck(ctx context.Context, entry *pg.QueueEntry, checkCtx string, state pg.CheckState, targetURL string) error
+ }
+ 
+ type CheckResult int
+@@ -218,6 +231,10 @@ func ApplyCheck(ctx context.Context, deps *Deps, entry *pg.QueueEntry, checkCtx
+ // a commit status event for a merge branch. It records the status, evaluates
+ // checks, and triggers success/failure handling as appropriate.
+ func ProcessCheckStatus(ctx context.Context, deps *Deps, entry *pg.QueueEntry, checkContext string, checkState pg.CheckState, targetURL string) error {
++	if deps.Batch != nil && entry.ActiveBatchID.Valid {
++		return deps.Batch.HandleCheck(ctx, entry, checkContext, checkState, targetURL)
++	}
++
+ 	if err := deps.Queue.SaveCheckStatus(ctx, entry.ID, checkContext, checkState, targetURL); err != nil {
+ 		return fmt.Errorf("save check status for PR #%d: %w", entry.PrNumber, err)
+ 	}
+
+--- FILE 6/7 ---
+FILE: internal/poller/poller.go
+STATUS: modified
+ADDITIONS: 81
+DELETIONS: 5
+
+PATCH:
+@@ -9,6 +9,7 @@ import (
+ 	"log/slog"
+ 	"time"
+ 
++	"github.com/Mic92/gitea-mq/internal/batch"
+ 	"github.com/Mic92/gitea-mq/internal/forge"
+ 	"github.com/Mic92/gitea-mq/internal/merge"
+ 	"github.com/Mic92/gitea-mq/internal/monitor"
+@@ -40,6 +41,9 @@ type Deps struct {
+ 	// build (e.g. a restart) leaves the head-of-queue stuck forever since
+ 	// the timeout in monitor.ProcessCheckStatus only runs on webhooks.
+ 	CheckTimeout time.Duration
++	// Batch enables bors-style batching when non-nil. The legacy single-PR
++	// path is taken when nil so BATCH_MAX=1 stays byte-for-byte unchanged.
++	Batch *batch.Engine
+ }
+ 
+ type PollResult struct {
+@@ -70,7 +74,9 @@ func removePR(ctx context.Context, deps *Deps, result *PollResult, entry *pg.Que
+ 	if opts.comment != "" {
+ 		_ = deps.Forge.Comment(ctx, deps.Owner, deps.Repo, entry.PrNumber, opts.comment)
+ 	}
+-	if dqResult.WasHead {
++	// The batch engine owns gitea-mq/batch/<id>; deleting it here can race a
++	// concurrent Build and cause MergeInto to fail with wrong attribution.
++	if dqResult.WasHead && !entry.ActiveBatchID.Valid {
+ 		merge.CleanupMergeBranch(ctx, deps.Forge, deps.Owner, deps.Repo, entry)
+ 	}
+ 
+@@ -137,7 +143,7 @@ func PollOnce(ctx context.Context, deps *Deps) (*PollResult, error) {
+ 
+ // monitorDeps adapts the poller's Deps into the monitor's Deps.
+ func monitorDeps(deps *Deps) *monitor.Deps {
+-	return &monitor.Deps{
++	m := &monitor.Deps{
+ 		Forge:          deps.Forge,
+ 		Queue:          deps.Queue,
+ 		Owner:          deps.Owner,
+@@ -147,6 +153,10 @@ func monitorDeps(deps *Deps) *monitor.Deps {
+ 		CheckTimeout:   deps.CheckTimeout,
+ 		FallbackChecks: deps.FallbackChecks,
+ 	}
++	if deps.Batch.Enabled() {
++		m.Batch = deps.Batch
++	}
++	return m
+ }
+ 
+ // pollMergeBranchChecks feeds each testing entry's merge-branch commit
+@@ -160,8 +170,56 @@ func pollMergeBranchChecks(ctx context.Context, deps *Deps, result *PollResult)
+ 	}
+ 
+ 	mDeps := monitorDeps(deps)
++
++	// Batches are driven from the row's BranchSha so we never feed checks for
++	// a stale entry SHA back into the engine after a rebuild. This loop is
++	// also the timeout safety net when CI never reports.
++	if deps.Batch.Enabled() {
++		bs, err := deps.Queue.ListLiveBatches(ctx, deps.RepoID)
++		if err != nil {
++			result.Errors = append(result.Errors, fmt.Errorf("list live batches: %w", err))
++		}
++		for i := range bs {
++			b := &bs[i]
++			if b.State != pg.BatchStateTesting || len(b.CurrentIds) == 0 {
++				continue
++			}
++			if batch.TimedOut(b, deps.CheckTimeout) {
++				if err := deps.Batch.HandleTimeout(ctx, b.TargetBranch, b.ID); err != nil {
++					result.Errors = append(result.Errors, fmt.Errorf("batch #%d timeout: %w", b.ID, err))
++				}
++				continue
++			}
++			rep, err := deps.Queue.GetEntriesByIDs(ctx, b.CurrentIds[:1])
++			if err != nil || len(rep) == 0 {
++				continue
++			}
++			// rep may have been re-stamped by a concurrent rebuild; the SHA we
++			// fetch checks for is the one HandleCheck must guard on.
++			rep[0].MergeBranchSha = b.BranchSha
++			checks, err := deps.Forge.GetCheckStates(ctx, deps.Owner, deps.Repo, b.BranchSha.String)
++			if err != nil {
++				result.Errors = append(result.Errors, fmt.Errorf("get batch #%d checks: %w", b.ID, err))
++				continue
++			}
++			for ctxName, c := range checks {
++				if forge.IsOwnContext(ctxName) {
++					continue
++				}
++				if err := monitor.ApplyCheck(ctx, mDeps, &rep[0], ctxName, c); err != nil {
++					result.Errors = append(result.Errors, fmt.Errorf("process batch #%d check: %w", b.ID, err))
++				}
++			}
++		}
++	}
++
+ 	for i := range activeEntries {
+ 		entry := &activeEntries[i]
++		// Batch members are handled by the per-batch loop above; the
++		// snapshot's merge_branch_sha may be stale here.
++		if entry.ActiveBatchID.Valid {
++			continue
++		}
+ 		if entry.State != pg.EntryStateTesting || !entry.MergeBranchSha.Valid {
+ 			continue
+ 		}
+@@ -306,10 +364,16 @@ func reconcileEntries(ctx context.Context, deps *Deps, result *PollResult, openP
+ 			matched = true
+ 			break
+ 		}
+-		if !matched {
+-			handleSuccessTimeout(ctx, deps, result, &entry)
+-			handleTestingTimeout(ctx, deps, result, &entry)
++		if matched {
++			if entry.ActiveBatchID.Valid && deps.Batch != nil {
++				if err := deps.Batch.OnMemberRemoved(ctx, entry.TargetBranch, entry.ActiveBatchID.Int64, entry.ID); err != nil {
++					result.Errors = append(result.Errors, fmt.Errorf("batch member removed PR #%d: %w", entry.PrNumber, err))
++				}
++			}
++			continue
+
+[PATCH TRUNCATED: 152 total lines]
+
+--- FILE 7/7 ---
+FILE: internal/registry/registry.go
+STATUS: modified
+ADDITIONS: 50
+DELETIONS: 13
+
+PATCH:
+@@ -10,6 +10,7 @@ import (
+ 	"sync"
+ 	"time"
+ 
++	"github.com/Mic92/gitea-mq/internal/batch"
+ 	"github.com/Mic92/gitea-mq/internal/forge"
+ 	"github.com/Mic92/gitea-mq/internal/merge"
+ 	"github.com/Mic92/gitea-mq/internal/monitor"
+@@ -35,6 +36,8 @@ type Deps struct {
+ 	FallbackChecks      []string
+ 	SuccessTimeout      time.Duration
+ 	SkipQueueIfUpToDate bool
++	BatchMax            int
++	BisectMaxSteps      int
+ }
+ 
+ // RepoRegistry manages the set of active repos. Thread-safe for concurrent
+@@ -88,9 +91,46 @@ func (r *RepoRegistry) Add(ctx context.Context, ref forge.RepoRef) error {
+ 		return err
+ 	}
+ 
+-	if err := merge.CleanupStaleBranches(ctx, f, r.deps.Queue, ref.Owner, ref.Name, repo.ID); err != nil {
++	pollerCtx, cancel := context.WithCancel(r.parentCtx)
++	// Buffer one so a webhook never blocks; coalescing is fine because the
++	// poller reconciles full state anyway.
++	trigger := make(chan struct{}, 1)
++	triggerPoll := func() {
++		select {
++		case trigger <- struct{}{}:
++		default:
++		}
++	}
++
++	var batchEngine *batch.Engine
++	if r.deps.BatchMax != 1 {
++		batchEngine = &batch.Engine{
++			Forge:          f,
++			Queue:          r.deps.Queue,
++			Owner:          ref.Owner,
++			Repo:           ref.Name,
++			RepoID:         repo.ID,
++			ExternalURL:    r.deps.ExternalURL,
++			BatchMax:       r.deps.BatchMax,
++			BisectMaxSteps: r.deps.BisectMaxSteps,
++			CheckTimeout:   r.deps.CheckTimeout,
++			FallbackChecks: r.deps.FallbackChecks,
++			Advance:        triggerPoll,
++		}
++	}
++
++	var spare []string
++	if batchEngine != nil {
++		spare, _ = batchEngine.LiveBranchNames(ctx)
++	}
++	if err := merge.CleanupStaleBranches(ctx, f, r.deps.Queue, ref.Owner, ref.Name, repo.ID, spare); err != nil {
+ 		slog.Warn("stale branch cleanup failed", "repo", key, "error", err)
+ 	}
++	if batchEngine != nil {
++		if err := batchEngine.ReconcileLive(ctx); err != nil {
++			slog.Warn("batch reconcile failed", "repo", key, "error", err)
++		}
++	}
+ 
+ 	monDeps := &monitor.Deps{
+ 		Forge:          f,
+@@ -102,23 +142,16 @@ func (r *RepoRegistry) Add(ctx context.Context, ref forge.RepoRef) error {
+ 		CheckTimeout:   r.deps.CheckTimeout,
+ 		FallbackChecks: r.deps.FallbackChecks,
+ 	}
+-
+-	pollerCtx, cancel := context.WithCancel(r.parentCtx)
+-	// Buffer one so a webhook never blocks; coalescing is fine because the
+-	// poller reconciles full state anyway.
+-	trigger := make(chan struct{}, 1)
++	if batchEngine != nil {
++		monDeps.Batch = batchEngine
++	}
+ 
+ 	managed := &ManagedRepo{
+ 		Ref:    ref,
+ 		RepoID: repo.ID,
+ 		Monitor: &webhook.RepoMonitor{
+-			Deps: monDeps,
+-			TriggerPoll: func() {
+-				select {
+-				case trigger <- struct{}{}:
+-				default:
+-				}
+-			},
++			Deps:        monDeps,
++			TriggerPoll: triggerPoll,
+ 		},
+ 		cancel: cancel,
+ 	}
+@@ -135,6 +168,7 @@ func (r *RepoRegistry) Add(ctx context.Context, ref forge.RepoRef) error {
+ 		SuccessTimeout:      r.deps.SuccessTimeout,
+ 		CheckTimeout:        r.deps.CheckTimeout,
+ 		SkipQueueIfUpToDate: r.deps.SkipQueueIfUpToDate,
++		Batch:               batchEngine,
+ 	}
+ 	go poller.Run(pollerCtx, pollerDeps, r.deps.PollInterval)
+ 
+@@ -186,6 +220,9 @@ func (r *RepoRegistry) Remove(ref forge.RepoRef) {
+ 		}
+ 	}
+ 
++	if err := r.deps.Queue.CancelLiveBatches(ctx, managed.RepoID); err != nil {
++		slog.Warn("failed to cancel batches on removal", "repo", key, "error", err)
++	}
+ 	if err := r.deps.Queue.DequeueAll(ctx, managed.RepoID); err != nil {
+ 		slog.Warn("failed to dequeue entries on removal", "repo", key, "error", err)
+ 	}
+
+
+====================================================================================================
+COMMIT POSITION 10
+====================================================================================================
+SHA: ddd0f1632b35ca698217ce9db0a7f241bfbfb83b
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+web: show live batch on repo and PR pages
+
+The repo page gains a batch header (id, branch link, build counter,
+testing C/M) with each member tagged current/pending/landed/ejected. The
+PR page shows the batch the PR belongs to and its bucket so it is obvious
+why a queued PR is not being tested on its own.
+
+CHANGED FILES: 4
+
+--- FILE 1/4 ---
+FILE: internal/web/handler.go
+STATUS: modified
+ADDITIONS: 65
+DELETIONS: 2
+
+PATCH:
+@@ -12,6 +12,7 @@ import (
+ 	"strings"
+ 	"time"
+ 
++	"github.com/Mic92/gitea-mq/internal/batch"
+ 	"github.com/Mic92/gitea-mq/internal/forge"
+ 	"github.com/Mic92/gitea-mq/internal/monitor"
+ 	"github.com/Mic92/gitea-mq/internal/queue"
+@@ -112,6 +113,18 @@ type RepoDetailEntry struct {
+ 	PrNumber     int64
+ 	TargetBranch string
+ 	State        string
++	BatchBucket  string // current/pending/landed when in a live batch
++}
++
++// RepoDetailBatch surfaces a live batch on the repo detail page.
++type RepoDetailBatch struct {
++	ID           int64
++	TargetBranch string
++	BranchName   string
++	BranchURL    string
++	Builds       int32
++	Current      int
++	Members      int
+ }
+ 
+ // RepoDetailData is the template data for the repo detail page.
+@@ -121,6 +134,7 @@ type RepoDetailData struct {
+ 	Name            string
+ 	RepoURL         string // link to the repo on the forge
+ 	Entries         []RepoDetailEntry
++	Batches         []RepoDetailBatch
+ 	RefreshInterval int // seconds
+ }
+ 
+@@ -139,6 +153,9 @@ type PRDetailData struct {
+ 	InQueue         bool
+ 	PRURL           string
+ 	MergeBranchURL  string
++	BatchID         int64
++	BatchBucket     string
++	BatchPRs        []int64
+ 	RefreshInterval int // seconds
+ }
+ 
+@@ -297,12 +314,42 @@ func serveRepoDetail(w http.ResponseWriter, r *http.Request, deps *Deps, ref for
+ 		}
+ 	}
+ 
++	batches, err := deps.Queue.ListLiveBatches(ctx, repo.ID)
++	if err != nil {
++		slog.Warn("list live batches", "error", err)
++	}
++	byID := make(map[int64]*pg.Batch, len(batches))
++	for i := range batches {
++		b := &batches[i]
++		byID[b.ID] = b
++		rb := RepoDetailBatch{
++			ID:           b.ID,
++			TargetBranch: b.TargetBranch,
++			BranchName:   b.BranchName.String,
++			Builds:       b.Builds,
++			Current:      len(b.CurrentIds),
++			Members:      len(b.MemberIds),
++		}
++		if deps.Forges != nil {
++			if f, _ := deps.Forges.For(ref); f != nil && rb.BranchName != "" {
++				rb.BranchURL = f.BranchHTMLURL(owner, name, rb.BranchName)
++			}
++		}
++		data.Batches = append(data.Batches, rb)
++	}
++
+ 	for _, e := range entries {
+-		data.Entries = append(data.Entries, RepoDetailEntry{
++		de := RepoDetailEntry{
+ 			PrNumber:     e.PrNumber,
+ 			TargetBranch: e.TargetBranch,
+ 			State:        string(e.State),
+-		})
++		}
++		if e.ActiveBatchID.Valid {
++			if b := byID[e.ActiveBatchID.Int64]; b != nil {
++				de.BatchBucket = string(batch.Bucket(b, e.ID))
++			}
++		}
++		data.Entries = append(data.Entries, de)
+ 	}
+ 
+ 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+@@ -397,6 +444,22 @@ func servePRDetail(w http.ResponseWriter, r *http.Request, deps *Deps, ref forge
+ 		}
+ 	}
+ 
++	if entry.ActiveBatchID.Valid {
++		if b, _ := deps.Queue.GetBatch(ctx, entry.ActiveBatchID.Int64); b != nil {
++			data.BatchID = b.ID
++			data.BatchBucket = string(batch.Bucket(b, entry.ID))
++			members, _ := deps.Queue.GetEntriesByIDs(ctx, b.MemberIds)
++			for _, m := range members {
++				if m.PrNumber != prNumber {
++					data.BatchPRs = append(data.BatchPRs, m.PrNumber)
++				}
++			}
++			if f != nil && b.BranchName.Valid {
++				data.MergeBranchURL = f.BranchHTMLURL(owner, name, b.BranchName.String)
++			}
++		}
++	}
++
+ 	// Fetch check statuses if head-of-queue in testing state.
+ 	// Resolve required checks so unreported ones appear as pending.
+ 	if data.Position == 1 && entry.State == pg.EntryStateTesting {
+
+--- FILE 2/4 ---
+FILE: internal/web/templates/pr.html
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 0
+
+PATCH:
+@@ -23,6 +23,11 @@ <h1>{{if .PRURL}}<a href="{{.PRURL}}">PR #{{.PrNumber}}</a>{{else}}PR #{{.PrNumb
+                 <tr><th>Position</th><td>#{{.Position}}</td></tr>
+                 <tr><th>Enqueued</th><td>{{relativeTime .EnqueuedAt}}</td></tr>
+                 {{if .MergeBranchURL}}<tr><th>Merge Branch</th><td><a href="{{.MergeBranchURL}}">view on {{forgeName .Forge}} ↗</a></td></tr>{{end}}
++                {{if .BatchID}}
++                <tr><th>Batch</th><td>#{{.BatchID}} · <span class="bucket bucket-{{.BatchBucket}}">{{.BatchBucket}}</span>
++                    {{if .BatchPRs}}· with {{range $i, $n := .BatchPRs}}{{if $i}}, {{end}}<a href="/repo/{{$.Forge}}/{{$.Owner}}/{{$.Name}}/pr/{{$n}}">#{{$n}}</a>{{end}}{{end}}
++                </td></tr>
++                {{end}}
+             </tbody>
+         </table>
+     </div>
+
+--- FILE 3/4 ---
+FILE: internal/web/templates/repo.html
+STATUS: modified
+ADDITIONS: 9
+DELETIONS: 1
+
+PATCH:
+@@ -12,6 +12,14 @@
+     <h1>🚦 {{if .RepoURL}}<a href="{{.RepoURL}}">{{.Owner}}/{{.Name}}</a>{{else}}{{.Owner}}/{{.Name}}{{end}}</h1>
+     <p class="subtitle">Merge Queue</p>
+ 
++    {{range .Batches}}
++    <div class="section batch-header">
++        📦 Batch #{{.ID}} ·
++        {{if .BranchURL}}<a href="{{.BranchURL}}">{{.BranchName}}</a>{{else}}{{.BranchName}}{{end}}
++        · build {{.Builds}} · testing {{.Current}}/{{.Members}} → {{.TargetBranch}}
++    </div>
++    {{end}}
++
+     {{if .Entries}}
+     <div class="section">
+         <table>
+@@ -29,7 +37,7 @@ <h1>🚦 {{if .RepoURL}}<a href="{{.RepoURL}}">{{.Owner}}/{{.Name}}</a>{{else}}{
+                     <td>{{inc $i}}</td>
+                     <td><a href="/repo/{{$.Forge}}/{{$.Owner}}/{{$.Name}}/pr/{{$e.PrNumber}}">PR #{{$e.PrNumber}}</a></td>
+                     <td>{{$e.TargetBranch}}</td>
+-                    <td><span class="state state-{{$e.State}}">{{$e.State}}</span></td>
++                    <td><span class="state state-{{$e.State}}">{{$e.State}}</span>{{if $e.BatchBucket}} <span class="bucket bucket-{{$e.BatchBucket}}">{{$e.BatchBucket}}</span>{{end}}</td>
+                 </tr>
+                 {{end}}
+             </tbody>
+
+--- FILE 4/4 ---
+FILE: internal/web/templates/style.css
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 0
+
+PATCH:
+@@ -17,6 +17,12 @@ a:hover { text-decoration: underline; }
+ .state-success { background: #dafbe1; color: #116329; }
+ .state-failed { background: #ffebe9; color: #cf222e; }
+ .state-cancelled { background: #eaeef2; color: #57606a; }
++.bucket { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.85em; margin-left: 4px; }
++.bucket-current { background: #fff8c5; color: #9a6700; }
++.bucket-pending { background: #eaeef2; color: #57606a; }
++.bucket-landed  { background: #dafbe1; color: #116329; }
++.bucket-ejected { background: #ffebe9; color: #cf222e; }
++.batch-header { padding: 8px 12px; background: #f6f8fa; border-left: 3px solid #9a6700; }
+ .check-icon { font-size: 16px; }
+ .empty { color: #57606a; font-style: italic; }
+ .section { max-width: 900px; }
+
+
+====================================================================================================
+COMMIT POSITION 11
+====================================================================================================
+SHA: 45d162ba9beefab80bc46bbec43c8997b6a9c9b5
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+integration,README: cover and document batching
+
+TestGithub_BatchFlow_Green enqueues three PRs with BATCH_MAX=0 against
+ghfake, lets the poller form one batch, delivers a single check_run
+success, and asserts main was fast-forwarded to the batch SHA, every PR
+is dequeued with gitea-mq=success, and the batch branch is gone.
+
+TestGitea_BatchFlow_Green does the same against a real Gitea so the
+giteaForge.StackMerges adapter, FastForwardRef, and EditIssueState are
+exercised end-to-end through the engine; that path is otherwise only
+unit-tested.
+
+The existing single-PR integration tests are unchanged, which is the
+BATCH_MAX=1 regression check.
+
+README documents the two new env vars, the merge-commit shape, the Gitea
+push-whitelist prerequisite, and the closed-not-merged cosmetic note.
+
+CHANGED FILES: 3
+
+--- FILE 1/3 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 27
+DELETIONS: 0
+
+PATCH:
+@@ -57,10 +57,37 @@ variables.
+ | `GITEA_MQ_CHECK_TIMEOUT` | no | `1h` | Timeout for required checks |
+ | `GITEA_MQ_SKIP_QUEUE_IF_UP_TO_DATE` | no | `true` | Skip the merge-branch CI run when a PR is already rebased onto the target branch tip (its own green CI already covers the merged tree) |
+ | `GITEA_MQ_REQUIRED_CHECKS` | no | - | Fallback required CI contexts when branch protection has none (comma-separated) |
++| `GITEA_MQ_BATCH_MAX` | no | `1` | Max PRs tested together as one batch. `1` = batching off (legacy behaviour). `0` = everything currently queued |
++| `GITEA_MQ_BISECT_MAX_STEPS` | no | `0` | Cap on CI builds spent bisecting one batch. `0` = unlimited |
+ | `GITEA_MQ_REFRESH_INTERVAL` | no | `10s` | Dashboard auto-refresh interval |
+ | `GITEA_MQ_DISCOVERY_INTERVAL` | no | `5m` | How often to re-scan Gitea topics and GitHub installations |
+ | `GITEA_MQ_LOG_LEVEL` | no | `info` | Log level: debug, info, warn, error |
+ 
++## Batching (bors-style)
++
++With `GITEA_MQ_BATCH_MAX` ≠ 1, gitea-mq tests up to N queued PRs at once on a
++single `gitea-mq/batch/<id>` branch. On green it **fast-forwards the target
++branch itself** to the tested SHA (the merged tree is exactly what CI saw). On
++red it bisects: split, retest the first half from the current target tip, land
++passing halves immediately, eject the failing singleton, then continue with the
++pending halves.
++
++Trade-offs and prerequisites:
++
++- gitea-mq must be allowed to push to the protected target branch.
++  - **GitHub**: the App is already a bypass actor on the `gitea-mq` ruleset it
++    creates; no extra setup.
++  - **Gitea**: add the API token's user to the branch protection's *push
++    whitelist*. If you forget, every PR in the batch is removed with a comment
++    naming the branch and the user to add.
++- Batched PRs land as **merge commits** regardless of the repo's configured
++  merge style. Repos that mandate squash/rebase should leave `BATCH_MAX=1`.
++- A semantic conflict between two PRs that bisection puts in different halves
++  can land both (each half passes alone). This matches bors-ng; keep
++  `BATCH_MAX` modest if it bothers you.
++- If the forge does not detect a PR as merged within ~10s of the fast-forward,
++  gitea-mq closes it with a "Merged as `<sha>`" comment.
++
+ ## Repo selection
+ 
+ There are three ways to tell gitea-mq which repos to manage.
+
+--- FILE 2/3 ---
+FILE: internal/integration/gitea_batch_test.go
+STATUS: added
+ADDITIONS: 200
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,200 @@
++package integration_test
++
++import (
++	"encoding/json"
++	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Mic92/gitea-mq/internal/batch"
++	"github.com/Mic92/gitea-mq/internal/gitea"
++	"github.com/Mic92/gitea-mq/internal/monitor"
++	"github.com/Mic92/gitea-mq/internal/poller"
++	"github.com/Mic92/gitea-mq/internal/queue"
++	"github.com/Mic92/gitea-mq/internal/store/pg"
++	"github.com/Mic92/gitea-mq/internal/testutil"
++	"github.com/Mic92/gitea-mq/internal/webhook"
++)
++
++// TestGitea_BatchFlow_Green drives a 2-PR batch through a real Gitea: poller
++// forms the batch via giteaForge.StackMerges (one clone), a single status
++// webhook lands it via FastForwardRef, and both PRs leave the queue. This is
++// the only test that exercises the Gitea adapter end-to-end through the batch
++// engine; the ghfake batch test covers the engine wiring, the unit tests cover
++// the primitives.
++func TestGitea_BatchFlow_Green(t *testing.T) {
++	gs := testutil.GiteaInstance()
++	if gs == nil {
++		t.Skip("gitea server not available")
++	}
++
++	pool := testutil.TestDB(t)
++	svc := queue.NewService(pool)
++	ctx := t.Context()
++
++	api := testutil.NewGiteaAPI(gs.URL)
++	api.CreateToken(t)
++	c := gitea.NewHTTPClient(gs.URL, api.Token)
++	f := gitea.NewForge(c, gs.URL)
++
++	const repoName = "batch-e2e"
++	api.MustDo(t, "POST", "/user/repos",
++		`{"name": "`+repoName+`", "auto_init": false, "default_branch": "main"}`)
++	if err := gs.PatchRepoHooks("testuser", repoName); err != nil {
++		t.Fatalf("patch hooks: %v", err)
++	}
++	api.MustDo(t, "POST", "/repos/testuser/"+repoName+"/contents/README.md",
++		`{"content": "aW5pdA==", "message": "init"}`)
++
++	// gitea-mq in required checks keeps automerge scheduled (we never set it
++	// on the PR head); enable_push lets FastForwardRef write the protected
++	// branch. GetRequiredChecks filters our own context, so the engine only
++	// waits for ci/build on the batch SHA.
++	api.MustDo(t, "POST", "/repos/testuser/"+repoName+"/branch_protections",
++		`{"branch_name":"main","enable_status_check":true,`+
++			`"status_check_contexts":["ci/build","gitea-mq"],"enable_push":true}`)
++
++	type pr struct {
++		n    int64
++		head string
++	}
++	mkPR := func(branch, file string) pr {
++		api.MustDo(t, "POST", "/repos/testuser/"+repoName+"/contents/"+file,
++			`{"content": "dGVzdA==", "message": "add `+file+`", "new_branch": "`+branch+`"}`)
++		body := api.MustDo(t, "POST", "/repos/testuser/"+repoName+"/pulls",
++			`{"title": "`+branch+`", "head": "`+branch+`", "base": "main"}`)
++		var p struct {
++			Number int64 `json:"number"`
++			Head   struct {
++				SHA string `json:"sha"`
++			} `json:"head"`
++		}
++		_ = json.Unmarshal(body, &p)
++		// CI green on the PR head so the poller enqueues it.
++		api.MustDo(t, "POST", "/repos/testuser/"+repoName+"/statuses/"+p.Head.SHA,
++			`{"context": "ci/build", "state": "success"}`)
++		for i := range 10 {
++			st, b := api.Do(t, "POST",
++				"/repos/testuser/"+repoName+"/pulls/"+itoa(p.Number)+"/merge",
++				`{"Do": "merge", "merge_when_checks_succeed": true}`)
++			if st >= 200 && st < 300 {
++				break
++			}
++			if i == 9 {
++				t.Fatalf("schedule automerge #%d: %d %s", p.Number, st, b)
++			}
++			time.Sleep(300 * time.Millisecond)
++		}
++		return pr{p.Number, p.Head.SHA}
++	}
++	prs := []pr{mkPR("feature-1", "a.txt"), mkPR("feature-2", "b.txt")}
++
++	repo, _ := svc.GetOrCreateRepo(ctx, "gitea", "testuser", repoName)
++	eng := &batch.Engine{
++		Forge: f, Queue: svc, Owner: "testuser", Repo: repoName, RepoID: repo.ID,
++		BatchMax: 0, MergedPollInterval: 200 * time.Millisecond, MergedPollAttempts: 15,
++	}
++	pollerDeps := &poller.Deps{
++		Forge: f, Queue: svc, RepoID: repo.ID, Owner: "testuser", Repo: repoName,
++		SuccessTimeout: 5 * time.Minute, CheckTimeout: time.Hour, Batch: eng,
++	}
++	monDeps := &monitor.Deps{
++		Forge: f, Queue: svc, Owner: "testuser", Repo: repoName, RepoID: repo.ID,
++		CheckTimeout: time.Hour, Batch: eng,
++	}
++	const secret = "s"
++	hooks := webhook.Handler(secret,
++		webhook.MapRepoLookup{"gitea:testuser/" + repoName: {Deps: monDeps}}, svc)
++
++	// --- Poll: enqueue 2, form batch via StackMerges, push gitea-mq/batch/<id> ---
++	if r, err := poller.PollOnce(ctx, pollerDeps); err != nil {
++		t.Fatalf("PollOnce: %v", err)
++	} else if len(r.Errors) != 0 {
++		t.Fatalf("poll errors: %v", r.Errors)
++	}
++	live, _ := svc.GetLiveBatch(ctx, repo.ID, "main")
++	if live == nil || live.State != pg.BatchStateTesting || len(live.CurrentIds) != 2 {
+
+[PATCH TRUNCATED: 201 total lines]
+
+--- FILE 3/3 ---
+FILE: internal/integration/github_batch_test.go
+STATUS: added
+ADDITIONS: 128
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,128 @@
++package integration_test
++
++import (
++	"bytes"
++	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++	"time"
++
++	"github.com/Mic92/gitea-mq/internal/batch"
++	"github.com/Mic92/gitea-mq/internal/forge"
++	githubpkg "github.com/Mic92/gitea-mq/internal/github"
++	"github.com/Mic92/gitea-mq/internal/github/ghfake"
++	"github.com/Mic92/gitea-mq/internal/monitor"
++	"github.com/Mic92/gitea-mq/internal/poller"
++	"github.com/Mic92/gitea-mq/internal/queue"
++	"github.com/Mic92/gitea-mq/internal/store/pg"
++	"github.com/Mic92/gitea-mq/internal/testutil"
++	"github.com/Mic92/gitea-mq/internal/webhook"
++)
++
++// TestGithub_BatchFlow_Green wires poller + webhook + monitor with batching
++// enabled against ghfake. Three auto-merge PRs are batched onto one branch,
++// a single check_run drives the engine to fast-forward main, and all three
++// PRs end up dequeued — proving routing through ActiveBatchID, the engine's
++// FastForward, and ensureMergedOrClose's close-fallback.
++func TestGithub_BatchFlow_Green(t *testing.T) {
++	srv := ghfake.New()
++	t.Cleanup(srv.Close)
++	srv.AddRepo("org", "app")
++	srv.AddInstallation(100, "org/app")
++	repo := srv.Repo("org", "app")
++	repo.RequiredChecks["main"] = []string{"ci"}
++	for _, n := range []int64{1, 2, 3} {
++		sha := fmt.Sprintf("sha%d", n)
++		srv.AddPR("org", "app", ghfake.PR{
++			Number: n, BaseRef: "main", HeadSHA: sha, AutoMerge: true,
++		})
++		repo.CheckRuns[sha] = []*ghfake.CheckRun{
++			{Name: "ci", Status: "completed", Conclusion: "success"},
++		}
++	}
++
++	app, err := githubpkg.NewApp(1, testutil.GithubAppKey(), srv.URL+"/api/v3")
++	if err != nil {
++		t.Fatalf("new app: %v", err)
++	}
++	ctx := t.Context()
++	if err := app.Refresh(ctx); err != nil {
++		t.Fatalf("refresh: %v", err)
++	}
++	f := githubpkg.NewForge(app, "")
++
++	pool := testutil.TestDB(t)
++	svc := queue.NewService(pool)
++	dbRepo, _ := svc.GetOrCreateRepo(ctx, "github", "org", "app")
++
++	eng := &batch.Engine{
++		Forge: f, Queue: svc, Owner: "org", Repo: "app", RepoID: dbRepo.ID,
++		BatchMax: 0, MergedPollInterval: 1, MergedPollAttempts: 1,
++	}
++	pollerDeps := &poller.Deps{
++		Forge: f, Queue: svc, RepoID: dbRepo.ID, Owner: "org", Repo: "app",
++		SuccessTimeout: 5 * time.Minute, CheckTimeout: time.Hour, Batch: eng,
++	}
++	monDeps := &monitor.Deps{
++		Forge: f, Queue: svc, Owner: "org", Repo: "app", RepoID: dbRepo.ID,
++		CheckTimeout: time.Hour, Batch: eng,
++	}
++	const secret = "s"
++	hooks := webhook.GithubHandler([]byte(secret),
++		webhook.MapRepoLookup{"github:org/app": {Deps: monDeps}}, svc, nil)
++
++	// --- Poll: enqueue 3, form one batch, build branch ---
++	if _, err := poller.PollOnce(ctx, pollerDeps); err != nil {
++		t.Fatalf("PollOnce: %v", err)
++	}
++	live, _ := svc.GetLiveBatch(ctx, dbRepo.ID, "main")
++	if live == nil || live.State != pg.BatchStateTesting || len(live.CurrentIds) != 3 {
++		t.Fatalf("live batch = %+v", live)
++	}
++	branchSHA := live.BranchSha.String
++	if repo.Refs[live.BranchName.String] != branchSHA {
++		t.Fatalf("batch branch not on server: %v", repo.Refs)
++	}
++
++	// --- CI reports success on the batch branch via check_run webhook ---
++	body := fmt.Sprintf(`{"action":"completed","check_run":{"name":"ci","status":"completed","conclusion":"success","head_sha":%q},"repository":{"name":"app","owner":{"login":"org"}}}`, branchSHA)
++	req := httptest.NewRequest(http.MethodPost, "/webhook/github", bytes.NewReader([]byte(body)))
++	req.Header.Set("Content-Type", "application/json")
++	req.Header.Set("X-GitHub-Event", "check_run")
++	req.Header.Set("X-Hub-Signature-256", "sha256="+webhook.ComputeSignature([]byte(body), secret))
++	w := httptest.NewRecorder()
++	hooks.ServeHTTP(w, req)
++	if w.Code != http.StatusOK {
++		t.Fatalf("webhook: %d %s", w.Code, w.Body.String())
++	}
++
++	// --- Engine fast-forwarded main to the tested SHA, batch done ---
++	if repo.Refs["main"] != branchSHA {
++		t.Fatalf("main = %q, want %q", repo.Refs["main"], branchSHA)
++	}
++	for _, n := range []int64{1, 2, 3} {
++		if e, _ := svc.GetEntry(ctx, dbRepo.ID, n); e != nil {
++			t.Fatalf("PR #%d still queued", n)
++		}
++		// ghfake never auto-detects merged-by-ancestry → close fallback fires.
++		if repo.PRs[n].State != "closed" {
++			t.Fatalf("PR #%d state = %q, want closed", n, repo.PRs[n].State)
++		}
++		var ok bool
++		for _, cr := range repo.CheckRuns[fmt.Sprintf("sha%d", n)] {
++			if cr.Name == forge.MQContext && cr.Conclusion == "success" {
++				ok = true
++			}
++		}
++		if !ok {
++			t.Fatalf("PR #%d missing gitea-mq success", n)
+
+[PATCH TRUNCATED: 129 total lines]
+
+
+####################################################################################################
+SECTION C — HUMAN VALIDATION
+####################################################################################################
+
+Q1. Does the earlier specification commit
+INTRODUCE or substantively MODIFY a
+behavioral requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q2. Is there a LATER commit in this PR that
+implements some or all of THAT requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q3. What is the FIRST relevant implementation
+commit?
+
+Position:
+
+SHA:
+
+Commit message:
+
+Relevant file(s):
+
+
+Q4. Was the requirement present BEFORE that
+first relevant implementation change?
+
+YES / NO / UNCERTAIN
+
+
+Q5. Requirement → implementation link confidence:
+
+HIGH / MEDIUM / LOW / NONE
+
+
+Q6. Preliminary classification:
+
+TIER_A_CANDIDATE
+TIER_B
+TIER_C
+EXCLUDE
+UNCERTAIN
+
+
+Reason:
+
+
+Relevant requirement text:
+
+
+Relevant implementation evidence:
+
+
+Notes:

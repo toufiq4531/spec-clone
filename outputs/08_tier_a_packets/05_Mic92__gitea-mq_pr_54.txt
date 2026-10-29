@@ -1,0 +1,662 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 5/15
+Repository: Mic92/gitea-mq
+PR: #54
+Tool: openspec
+Language: Go
+
+First specification commit position: 1
+First implementation commit position: 2
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: 8a534b7fedec2cd91af2e84bcef8292ddf44f2e2
+
+COMMIT MESSAGE:
+openspec: add batch-merge-queue change
+
+Proposal, design, tasks, and spec deltas for bors-style batching: build a
+single merge branch from N queued PRs, fast-forward the target on green,
+and bisect on red. All bisection state lives on one batches row so the
+loop is restart-safe. BATCH_MAX defaults to 1 which keeps the existing
+single-PR path byte-for-byte intact.
+
+FILE: openspec/changes/batch-merge-queue/design.md
+STATUS: added
+ADDITIONS: 202
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,202 @@
++## Context
++
++Current flow: one `queue_entries` row per `(repo, target_branch)` is `testing`; `merge.StartTesting` builds `gitea-mq/<pr>`; on green `monitor.HandleSuccess` flips the `gitea-mq` status and waits for the forge's automerge. gitea-mq never writes the target branch.
++
++Batching changes both: the unit under test is a set of entries, and on green gitea-mq fast-forwards the target itself so the landed tree is the tested tree.
++
++## Non-Goals
++
++Speculative pipelining; cross-branch/repo batching; rollup PRs; adaptive sizing; preserving squash/rebase merge style for batched PRs (always merge commits — documented).
++
++## Decisions
++
++### D1: One live batch row per queue; bisection state is a stack on it
++
++```sql
++CREATE TYPE batch_state AS ENUM ('forming','testing','done','cancelled');
++
++CREATE TABLE batches (
++  id                 BIGSERIAL PRIMARY KEY,
++  repo_id            BIGINT NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
++  target_branch      TEXT   NOT NULL,
++  state              batch_state NOT NULL DEFAULT 'forming',
++
++  member_ids         BIGINT[] NOT NULL,           -- original FIFO set, immutable
++  current_ids        BIGINT[] NOT NULL,           -- on branch_sha right now
++  pending            JSONB    NOT NULL DEFAULT '[]', -- stack of BIGINT[]: halves not yet tried
++  landed_ids         BIGINT[] NOT NULL DEFAULT '{}',
++  ejected_ids        BIGINT[] NOT NULL DEFAULT '{}',
++
++  branch_name        TEXT,                        -- gitea-mq/batch/<id>, reused across rebuilds
++  branch_sha         TEXT,
++  builds             INT NOT NULL DEFAULT 0,      -- CI runs consumed
++  ff_retries         INT NOT NULL DEFAULT 0,
++  flaky              BOOLEAN NOT NULL DEFAULT false,
++
++  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
++  testing_started_at TIMESTAMPTZ                  -- reset every rebuild
++);
++CREATE UNIQUE INDEX ux_batches_live ON batches(repo_id, target_branch)
++  WHERE state IN ('forming','testing');
++
++ALTER TABLE queue_entries ADD COLUMN active_batch_id BIGINT REFERENCES batches(id) ON DELETE SET NULL;
++```
++
++Invariant: `current ∪ flatten(pending) ∪ landed ∪ ejected == member_ids`. `active_batch_id` is set for every member not yet landed/ejected. `queue_entries.merge_branch_{name,sha}` mirror the batch's for entries in `current_ids` only; entries in `pending` have them NULL.
++
++*Rejected*: parent/child batch tree + `batch_members` join table — required ancestor/descendant walks on every disruption, sibling-pending storage, per-child outcome tracking, and an `advance` race guard. The stack removes all four.
++
++### D2: Mode split
++
++`BatchMax==1` → legacy path, untouched (no `batches` row, no push). Else batch path.
++
++Edge: batch mode forms a singleton *and* `SkipQueueIfUpToDate` fires → discard the row, run that entry through legacy. Avoids fast-forwarding `main` to a raw PR head and bypassing the repo's merge style.
++
++### D3: `Build(b)`
++
++```
++delete b.branch_name if exists
++tip, steps := stack(target, current[*].sha, b.branch_name)
++for e,step in zip(current, steps):
++    if step.conflict: eject(e, "Merge conflict in batch (after #<prev>)")
++    if step.err:      eject(e, "Failed to create merge branch: <err>")
++if surv empty: Next(b); return
++persist branch_sha=tip, state='testing', testing_started_at=now(), builds++
++for e in surv: e.merge_branch_* = b.branch_*
++clear check_statuses(surv)  // last, so a stale save that raced before SetMergeBranch is wiped
++if builds==1: SetMQStatus(pending, "Testing batch #<id> (N PRs)") on every member head
++```
++
++```go
++// Forge additions
++MergeInto(ctx, owner, name, branch, headSHA string) (sha string, conflict bool, err error)
++
++type MergeStacker interface { // optional
++    StackMerges(ctx, owner, name, base string, heads []string, branch string) (tip string, []MergeStep, error)
++}
++type MergeStep struct{ Conflict bool; Err error }
++```
++
++`stack()` type-asserts the forge for `MergeStacker`; otherwise loops `CreateMergeBranch` + `MergeInto`. GitHub uses the fallback (`POST /repos/{o}/{r}/merges` is cheap). Gitea implements `StackMerges` so the whole batch branch is built in **one** clone instead of N: clone `base`, then per head `fetch + merge --no-ff` (on conflict `merge --abort` and mark the step), push once. A whole-operation failure (clone/push) returns `err`; the engine leaves the row `forming` and the next `FormAndBuild` retries it.
++
++### D4: `HandlePass(b)`
++
++```
++err := FastForward(target, b.branch_sha)
++if ErrNotFastForward:
++    ff_retries++; if <3: Build(b); else eject(current, "Target branch moved repeatedly"); Next(b); return
++if permission error:
++    eject(current, "gitea-mq lacks push permission on <target>: <msg>"); Next(b); return
++ff_retries = 0
++for e in current: SetMQStatus(success, "Merged via batch #<id>"); skipStaleMirrors; dequeue; active_batch_id=NULL
++landed += current; ensureMergedOrClose(current)
++Next(b)
++```
++
++```go
++// Forge additions
++FastForward(ctx, owner, name, branch, sha string) error  // ErrNotFastForward when sha ∉ descendants(tip)
++ClosePR(ctx, owner, name string, number int64) error
++```
++
++GitHub `FastForward`: `PATCH git/refs/heads/{branch} {sha, force:false}`; 422 "not a fast forward" → `ErrNotFastForward`.
++
++Gitea `FastForward`: shell `git` over HTTPS with the API token in-URL — same
++mechanism `MergeBranches` already uses, no new dependency:
++
++```
++git init --bare -q <tmp>
++git fetch -q <authed-url> <sha>
++git push  <authed-url> <sha>:refs/heads/<target>   # non-force
++```
++
++A depth-limited fetch is *not* sufficient: the git client checks fast-forward
++locally before pushing and needs `sha`'s ancestry back to the current target
++tip. The full fetch costs the same order as `MergeBranches`' existing
++single-branch clone. stderr is parsed for `non-fast-forward`/`fetch first`
++→ `ErrNotFastForward` and `protected branch`/`not allowed to push` →
++`PushDeniedError` (token redacted).
++
++`ensureMergedOrClose(e)`: poll `GetPR` for `Merged=true` ≤10s; if still open, `ClosePR` + comment "Merged as `<sha>` via batch #<id>". The forge merge endpoint is *not* called — it could mint a second merge commit on top of the tested SHA.
++
++### D5: `HandleFail(b, failedCheck)` / `Next(b)`
++
++```
++HandleFail:
++  if len(current)==1: eject(current[0], failedCheck); Next(b); return
++  if BisectMaxSteps>0 && builds>=BisectMaxSteps:
++      eject(current ∪ flatten(pending), "Bisection limit reached"); pending=∅; Next(b); return
++  left,right := halves(current)
++  pending.push(right); current = left
++  rebuild(b)
++
++Next:
++  if pending nonempty: current = pending.pop(); rebuild(b); return
++  flaky = (ejected==∅ && builds>1)   // root failed but every slice passed
++  delete branch; state='done'; advance
++
++rebuild:
++  state='forming'; Save(b); Build(b)
++```
++
++The `forming` save before every rebuild is the crash invariant: if `Build` fails mid-forge-call the next `FormAndBuild`/`ReconcileLive` retries it, and a concurrent `HandleCheck` drops on the state guard. `BisectMaxSteps` caps **builds**, so it must drain `pending` when it fires; otherwise `Next` would keep popping and rebuilding past the cap.
++
++Every `Build` starts from the current target tip (which earlier passes just advanced), so anything landed was tested against exactly the tree it lands on. Cross-PR semantic interaction across halves still slips through — same as bors-ng; documented, mitigated by small `BATCH_MAX`. Cost: ≤ `1 + 2⌈log₂N⌉` builds per culprit.
++
++### D6: `OnMemberRemoved(b, e)` (push / unqueue / close / retarget)
++
++```
++eject(e); drop e from current and every pending slice
++if e was in current: rebuild(b)   // branch under test is stale
++// else: pending only — keep testing
++```
++
++`ux_batches_live` keeps `advance` from forming a competing root.
++
++### D7: Concurrency and check routing
++
++One `Engine` per repo holds a **per-`target_branch`** mutex. Locked entry points: `FormAndBuild`, `HandleCheck`, `HandleTimeout`, `OnMemberRemoved`, `ReconcileLive`. Batches for different branches are independent (`ux_batches_live` is per branch); a per-repo lock would head-of-line block them on forge I/O.
++
++`HandleCheck` is the only path from the check pipeline:
++
++```
++lock(entry.target_branch)
++b := GetBatch(entry.active_batch_id)
++if b.state != 'testing' || entry.merge_branch_sha != b.branch_sha: drop
++SaveCheckStatus(entry.id, ...); EvaluateChecks(entry.id) → HandlePass / HandleFail / TimedOut(b)
++```
++
++Persisting **after** the guard is what stops a late event for a superseded build from polluting the ledger of the current one. Every `current` entry carries the batch SHA; right halves are `ClearMergeBranch`'d on split; `findEntryForCommit` iterates `enqueued_at` order — so the ledger consistently lands on `current[0]`. This reuse of `check_statuses` keeps the schema small; a `batch_check_statuses` table is the obvious follow-up if any of those invariants needs to change.
++
++The poller drives each live testing batch from the **row's** `branch_sha`, pinning the representative entry's `merge_branch_sha` to that value before `ApplyCheck`, so a stale entry snapshot can never feed an old build's checks back into a new one. Mirrored `gitea-mq/<ctx>` checks land only on the representative.
++
++### D8: Setup
++
++`SetupConfig{BatchEnabled bool}`:
++- GitHub: verify App in `gitea-mq` ruleset `bypass_actors`; add if missing.
++- Gitea: log a reminder; do not mutate protections (per-pattern, may be created later — any enumeration is incomplete). `FastForward` permission errors carry the exact fix and reach every affected PR.
++
++### D9: Reconcile
++
++Startup `ReconcileLive`:
++- Reap orphan `gitea-mq/batch/*` branches (no live row).
++- Live `testing` → re-stamp `current` entries' `merge_branch_*` from the row so a crash between Build's `SaveBatch` and `SetMergeBranch` cannot strand routing.
++- Live `forming` → `Build(b)` (step 1 deletes any half-built branch).
++
++Mid-run: `FormAndBuild` also retries a `forming` live batch, so a transient `Build` error does not stall the queue until restart.
++
++### D10: Config
++
++| Var | Default | Meaning |
++|---|---|---|
++| `GITEA_MQ_BATCH_MAX` | `1` | Max PRs per root. `1` = off. `0` = unlimited. |
++| `GITEA_MQ_BISECT_MAX_STEPS` | `0` | Max `builds` per root. `0` = unlimited. |
++
++## Risks
++
++- Pushes to protected branches (opt-in, non-force, actionable error on deny).
++- Batched PRs land as merge commits regardless of repo merge style.
++- Cross-PR interaction across bisection halves can land both (bors-ng parity).
++- `jsonb` stack is opaque to SQL — acceptable; only `internal/batch` reads it.
++
++
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/batch-merge-queue/proposal.md
+STATUS: added
+ADDITIONS: 32
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,32 @@
++## Why
++
++One-at-a-time testing costs N CI runs and N× latency for N queued PRs. bors-ng batches: test all queued PRs as one tree, fast-forward target on green, bisect on red. This change brings that to gitea-mq.
++
++## What Changes
++
++- When a queue's head slot becomes free, gitea-mq forms a **batch** from up to `GITEA_MQ_BATCH_MAX` queued PRs (FIFO order) instead of taking one. Default `1` preserves current behaviour exactly; `0` means "everything currently queued".
++- A batch is tested on a single merge branch `gitea-mq/batch/<id>` built by merging each PR's head, in queue order, onto the current target tip. A PR that conflicts during construction is ejected (automerge cancelled, comment posted) and construction continues with the rest.
++- On **success**, gitea-mq **fast-forwards the target branch** to the tested batch SHA (true bors semantics: what was tested is exactly what lands), sets `gitea-mq=success` on each head, and confirms each PR shows merged (short poll, else close + comment with the landing SHA).
++- On **failure/timeout**, gitea-mq **bisects** using the batch row as a work-stack: split `current` in half, push the second half onto `pending`, rebuild+retest the first half from the *current* target tip; a passing half is **landed immediately**, a failing singleton is ejected, then the next pending half is popped. `GITEA_MQ_BISECT_MAX_STEPS` (default `0` = unlimited) caps total CI builds per root.
++- `GITEA_MQ_SKIP_QUEUE_IF_UP_TO_DATE`: a singleton batch that qualifies falls back to the legacy forge-automerge path so the repo's configured merge style is respected.
++- New `Forge` operations: `MergeInto`, `FastForward` (non-force ref update; Gitea via `git push` over HTTPS like `MergeBranches`, GitHub via refs API), `ClosePR`. GitHub auto-setup verifies the App is a ruleset bypass actor; Gitea push-whitelist is documented as an operator prerequisite and surfaced as an actionable per-PR error if missing.
++- Dashboard groups the active batch visually and the PR detail page lists co-batched PRs and bisection progress.
++
++## Capabilities
++
++### Modified Capabilities
++
++- `forge-abstraction`: `Forge` gains `MergeInto`, `FastForward`, `ClosePR`; `ErrNotFastForward` sentinel.
++- `queue-management`: Head-of-queue becomes a *batch* of one or more entries with a stack-based bisection lifecycle on a single `batches` row; fast-forward merge replaces "wait for forge automerge" when batching is enabled.
++- `check-monitoring`: Check evaluation runs against the batch branch SHA; timeout keys on the batch's `testing_started_at` (reset per rebuild); status writes capped at three per member regardless of bisection depth.
++- `automerge-integration`: On batch success gitea-mq performs the merge itself and closes PRs the forge does not auto-detect as merged. Single-PR (`BATCH_MAX=1`) path keeps the existing "let forge automerge" behaviour for zero-risk default.
++- `web-dashboard`: Repo page groups testing entries under their batch with the shared branch/SHA, build count, and current/pending sizes.
++- `pr-detail-page`: Shows batch ID, co-batched PR numbers, and whether this PR is in `current`, `pending`, `landed`, or `ejected`.
++- `repo-discovery` (setup only): GitHub `EnsureRepoSetup` verifies the App is a ruleset bypass actor when batching is enabled.
++
++## Impact
++
++- **Code**: new `internal/batch` (form/build/pass/fail/next loop, startup reconcile); `gitea.Client` gains `FastForwardRef`/`EditIssueState`; changes in `internal/{queue,merge,monitor,poller,registry,config,web}`; `forge.Forge` gains `MergeInto`/`FastForward`/`ClosePR`; both adapters and `MockForge` updated.
++- **Database**: one new `batches` table (arrays + jsonb stack); `queue_entries` gains `active_batch_id` FK; partial unique index ensuring one live batch per queue. Additive migration.
++- **Config**: `GITEA_MQ_BATCH_MAX` (default `1`), `GITEA_MQ_BISECT_MAX_STEPS` (default `0`).
++- **Permissions**: Gitea token user must be in the push whitelist of protected target branches when `BATCH_MAX != 1` (documented; failure surfaces per-PR). GitHub App already bypasses via ruleset.
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/batch-merge-queue/specs/check-monitoring/spec.md
+STATUS: added
+ADDITIONS: 24
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,24 @@
++## MODIFIED Requirements
++
++### Requirement: Commit status lifecycle reporting
++In batch mode the `gitea-mq` status on a PR's head SHALL be written at exactly three points: enqueue (`pending`, "Queued (position #N)"), the batch's first build (`pending`, "Testing batch #<id> (N PRs)"), and terminal (`success` "Merged via batch #<id>" / `failure` "Check failed: <ctx>" / `error` <reason>). Bisection rebuilds SHALL NOT post additional `gitea-mq` statuses. `gitea-mq/<ctx>` mirrored checks SHALL be posted only on the first build.
++
++#### Scenario: Batch lifecycle statuses
++- **WHEN** PR #10 is in batch #7 with 3 members
++- **THEN** on the first build its status is `pending` "Testing batch #7 (3 PRs)"
++- **WHEN** #10 lands
++- **THEN** its status is `success` "Merged via batch #7"
++
++#### Scenario: No status churn during bisection
++- **WHEN** batch #7 fails and rebuilds with `current=[#10,#20]`
++- **THEN** PR #10's `gitea-mq` status is unchanged until #10 reaches a terminal outcome
++
++## ADDED Requirements
++
++### Requirement: Batch timeout clock
++Check timeout in batch mode SHALL be measured from `batches.testing_started_at`, which SHALL be reset on every rebuild. Single-PR mode keeps the entry's `testing_started_at`.
++
++#### Scenario: Timeout resets per rebuild
++- **WHEN** the first build ran 50m of a 60m timeout before failing
++- **AND** a bisection rebuild starts
++- **THEN** the rebuild has a fresh 60m budget
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/batch-merge-queue/specs/forge-abstraction/spec.md
+STATUS: added
+ADDITIONS: 35
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,35 @@
++## ADDED Requirements
++
++### Requirement: Incremental merge into existing branch
++`Forge` SHALL provide `MergeInto(owner, name, branch, headSHA) (sha, conflict, err)` that merges `headSHA` into an existing branch and returns the new tip, or `conflict=true` on merge conflict.
++
++#### Scenario: Clean incremental merge
++- **WHEN** `MergeInto("o","r","gitea-mq/batch/7", shaB)` is called and no conflict exists
++- **THEN** the branch tip advances and the new SHA is returned
++
++#### Scenario: Conflicting incremental merge
++- **WHEN** `MergeInto` hits a conflict
++- **THEN** it returns `conflict=true` and `err=nil`
++
++### Requirement: Non-force fast-forward of protected branch
++`Forge` SHALL provide `FastForward(owner, name, branch, sha) error` that updates `branch` to `sha` without force. It SHALL return `ErrNotFastForward` when `sha` is not a descendant of the current tip, and a distinct error when the push is rejected by branch protection.
++
++#### Scenario: GitHub fast-forward
++- **WHEN** the GitHub adapter fast-forwards `main` to a descendant SHA
++- **THEN** it issues `PATCH git/refs/heads/main {sha, force:false}` and returns nil
++
++#### Scenario: Gitea fast-forward
++- **WHEN** the Gitea adapter fast-forwards `main`
++- **THEN** it performs a go-git in-memory smart-HTTP push as the token user with a non-force refspec
++
++#### Scenario: Not a fast-forward
++- **WHEN** `sha` is not a descendant of the branch tip
++- **THEN** `FastForward` returns `ErrNotFastForward`
++
++### Requirement: Close pull request
++`Forge` SHALL provide `ClosePR(owner, name, number) error` that closes an open PR without merging it. Closing an already-closed or already-merged PR SHALL return nil.
++
++#### Scenario: Close after batch landing
++- **WHEN** a PR's commits are on the target branch but the forge has not marked it merged
++- **AND** `ClosePR` is called
++- **THEN** the PR is closed and the call returns nil
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/batch-merge-queue/specs/pr-detail-page/spec.md
+STATUS: added
+ADDITIONS: 12
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,12 @@
++## ADDED Requirements
++
++### Requirement: Batch panel on PR detail page
++When a PR's entry has `active_batch_id` set, the PR detail page SHALL show a batch panel with: batch id, link to `gitea-mq/batch/<id>` on the forge, the list of co-batched PR numbers (linked), and which bucket this PR is currently in (`current` / `pending` / `landed`).
++
++#### Scenario: PR in current
++- **WHEN** PR #20 is in batch #7 with `members=[#10,#20,#30]`, `current=[#10,#20,#30]`
++- **THEN** `/repo/.../pr/20` shows "Batch #7 · current" linking to `gitea-mq/batch/7` and lists #10, #30
++
++#### Scenario: PR in pending during bisection
++- **WHEN** PR #30 is in `pending=[[#30,#40]]` of batch #7
++- **THEN** the panel shows "Batch #7 · pending"
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/batch-merge-queue/specs/queue-management/spec.md
+STATUS: added
+ADDITIONS: 112
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,112 @@
++## ADDED Requirements
++
++### Requirement: Batch formation
++When `GITEA_MQ_BATCH_MAX` ≠ 1 and no live batch exists for a `(repo, target-branch)` queue, the system SHALL form a batch from the first `min(BATCH_MAX, queued)` entries in FIFO order (`BATCH_MAX = 0` means all queued). The batch SHALL be a single `batches` row with `member_ids = current_ids =` those entry IDs; each member entry's `active_batch_id` SHALL reference it. At most one live (`forming|testing`) batch per queue SHALL exist.
++
++#### Scenario: Form batch from queued PRs
++- **WHEN** `BATCH_MAX=4`, the `main` queue holds [#10,#20,#30] and no live batch exists
++- **THEN** a batch is created with `member_ids=current_ids=[#10,#20,#30]`
++- **AND** all three entries are `testing` with `active_batch_id` set
++
++#### Scenario: BATCH_MAX=1 disables batching
++- **WHEN** `BATCH_MAX=1`
++- **THEN** no `batches` row is created and the single-PR flow runs unchanged
++
++#### Scenario: Singleton up-to-date in batch mode uses forge automerge
++- **WHEN** `BATCH_MAX=4` but only PR #10 is queued, #10 already contains target tip, and `SKIP_QUEUE_IF_UP_TO_DATE=true`
++- **THEN** the batch row is discarded and #10 is processed via the legacy forge-automerge path
++
++### Requirement: Batch merge branch
++The system SHALL build branch `gitea-mq/batch/<id>` by merging each `current_ids` member's head SHA, in order, onto the current target tip. The branch name is reused across rebuilds. A member that conflicts SHALL be ejected (automerge cancelled, `failure` status, comment) and construction continues with the rest.
++
++#### Scenario: One member conflicts during construction
++- **WHEN** building `current_ids=[#10,#20,#30]` and merging #20 conflicts
++- **THEN** #20 is ejected with `failure` "Merge conflict in batch"
++- **AND** the batch proceeds to testing with `current_ids=[#10,#30]`
++
++### Requirement: Batch pass fast-forwards target
++When all required checks pass on the batch branch, the system SHALL fast-forward the target branch to `branch_sha` (non-force), set `gitea-mq=success` on each `current_ids` member's head, dequeue them, move them to `landed_ids`, then poll each PR for `merged=true` briefly and close+comment any that the forge has not detected. Finally it SHALL pop the next slice from `pending` and rebuild, or finish if `pending` is empty.
++
++#### Scenario: Batch passes
++- **WHEN** checks on `gitea-mq/batch/7` (`current_ids=[#10,#20,#30]` → `main`) succeed
++- **THEN** `main` is updated to `branch_sha`
++- **AND** each member receives `gitea-mq` `success` "Merged via batch #7"
++- **AND** each PR is reported merged by the forge (or closed with a "Merged as <sha>" comment)
++
++#### Scenario: Target moved before fast-forward
++- **WHEN** `FastForward` returns `ErrNotFastForward`
++- **THEN** `ff_retries` is incremented and the same `current_ids` are rebuilt from the new target tip
++- **AND** after 3 consecutive `ErrNotFastForward` the `current_ids` members are ejected with `error` "Target branch moved repeatedly"
++
++#### Scenario: Push permission denied
++- **WHEN** `FastForward` is rejected by branch protection
++- **THEN** every `current_ids` member is ejected with `error` naming the branch and the user to whitelist
++
++### Requirement: Batch fail bisection
++When a batch with `len(current_ids) > 1` fails or times out, the system SHALL split `current_ids` in half, push the second half onto `pending`, set `current_ids` to the first half, and rebuild from the current target tip. When `len(current_ids) == 1` fails, that member SHALL be ejected with the failing check attributed and the next slice popped from `pending`. When `BISECT_MAX_STEPS > 0` and `builds ≥ BISECT_MAX_STEPS`, every `current_ids` member SHALL be ejected with `error` "Bisection limit reached" instead of splitting.
++
++#### Scenario: Bisect lands good halves and ejects culprit
++- **WHEN** `current=[#10,#20,#30,#40]` fails `ci/test`
++- **THEN** `pending=[[#30,#40]]`, `current=[#10,#20]`, rebuild
++- **WHEN** `[#10,#20]` passes
++- **THEN** `main` fast-forwards, #10/#20 merged, `current=[#30,#40]` popped, rebuild on new `main`
++- **WHEN** `[#30,#40]` fails, `[#30]` passes (land), `[#40]` fails
++- **THEN** #40 is ejected with `failure` "Check failed: ci/test"; batch is `done`
++
++#### Scenario: Both halves pass
++- **WHEN** the root build fails but every subsequent slice passes and `ejected_ids` is empty at `done`
++- **THEN** `flaky=true` is recorded and one informational comment is posted on each member
++
++#### Scenario: Bisection build limit
++- **WHEN** `BISECT_MAX_STEPS=2`, `builds=2`, and `current_ids` fails with size > 1
++- **THEN** every `current_ids` member is ejected with `error` "Bisection limit reached"
++
++### Requirement: Member change during live batch
++If a member entry with `active_batch_id` set is removed (new push, automerge cancelled, closed, retargeted), the system SHALL eject it, drop its id from `current_ids` and every `pending` slice, and — only if it was in `current_ids` — rebuild the trimmed `current_ids`. The batch row remains live; no new root is formed.
++
++#### Scenario: Push to a PR in current
++- **WHEN** `current=[#10,#20]` is testing and #20 receives new commits
++- **THEN** #20 is ejected, `current=[#10]`, the branch is rebuilt, and the previous `branch_sha`'s check events are ignored
++
++#### Scenario: Push to a PR only in pending
++- **WHEN** `current=[#10]` is testing, `pending=[[#20,#30]]`, and #30 receives new commits
++- **THEN** #30 is ejected, `pending=[[#20]]`, and testing of `current` continues uninterrupted
++
++### Requirement: Ignore stale batch check events
++The system SHALL act on a check-status event only if its SHA matches a batch with `state='testing'` and equals that batch's current `branch_sha`.
++
++#### Scenario: Late event for superseded build
++- **WHEN** a rebuild changed `branch_sha` from `S1` to `S2`
++- **AND** a `failure` status arrives for `S1`
++- **THEN** the event is ignored
++
++## MODIFIED Requirements
++
++### Requirement: One PR at a time per repo
++The system SHALL run at most one live **batch** per `(forge, repo, target-branch)` queue. When `BATCH_MAX=1` a batch is exactly one PR. A new root batch SHALL be formed only when no live batch exists for the queue.
++
++#### Scenario: Live batch blocks new root
++- **WHEN** a batch is `testing` on `main`
++- **AND** PR #50 is enqueued for `main`
++- **THEN** #50 stays `queued` and is not added to the live batch
++
++### Requirement: Temporary merge branch for testing
++Single-PR mode uses `gitea-mq/<pr>`. Batch mode uses `gitea-mq/batch/<id>`, reused across rebuilds. The system SHALL delete the batch branch when the batch reaches `done`/`cancelled`, and SHALL reap orphan `gitea-mq/batch/*` branches at startup.
++
++#### Scenario: Batch branch naming
++- **WHEN** batch id 12 is formed
++- **THEN** its branch is `gitea-mq/batch/12`
++
++### Requirement: Signal Gitea to merge on success
++Single-PR mode is unchanged. In batch mode the system performs the merge itself via `FastForward`; it SHALL NOT wait for forge automerge before dequeuing batch members, and SHALL close (with comment) any PR the forge does not mark merged within a short poll window.
++
++#### Scenario: Batch mode does not wait for forge automerge
++- **WHEN** a batch fast-forward succeeds
++- **THEN** members are dequeued immediately
++
++### Requirement: State persistence
++In addition to queue entries, the system SHALL persist the live batch row including `member_ids`, `current_ids`, `pending`, `landed_ids`, `ejected_ids`, `branch_sha`, `builds`, and `ff_retries`. On restart it SHALL resume monitoring a `testing` batch's `branch_sha` and SHALL re-run `Build` for a batch found in `forming`.
++
++#### Scenario: Restart mid-bisection
++- **WHEN** the service restarts while batch #7 has `current=[#30,#40]`, `pending=[]`, `state='testing'`
++- **THEN** monitoring of `branch_sha` resumes and no duplicate rebuild occurs
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/batch-merge-queue/specs/web-dashboard/spec.md
+STATUS: added
+ADDITIONS: 12
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,12 @@
++## MODIFIED Requirements
++
++### Requirement: Repository queue detail page
++When a live batch exists for a target branch, the page SHALL render its members grouped under a batch header showing batch id, branch name (linked to forge), `builds` count, and `len(current)/len(members)`. Member rows SHALL be tagged `current`, `pending`, or `landed`.
++
++#### Scenario: Active batch displayed
++- **WHEN** batch #7 has `members=[#10,#20,#30]`, `current=[#10,#20,#30]`, `builds=1`, `state=testing`
++- **THEN** the repo page shows "Batch #7 · gitea-mq/batch/7 · build 1 · testing 3/3" with rows for #10,#20,#30 tagged `current`
++
++#### Scenario: Bisection displayed
++- **WHEN** batch #7 has `current=[#10,#20]`, `pending=[[#30,#40]]`, `landed=[]`, `builds=2`
++- **THEN** the header shows "build 2 · testing 2/4" and #30,#40 rows are tagged `pending`
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/batch-merge-queue/tasks.md
+STATUS: added
+ADDITIONS: 50
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,50 @@
++## 1. Forge primitives
++
++- [x] 1.1 Add `MergeInto`, `FastForward`, `ClosePR`, `ErrNotFastForward`, `PushDeniedError` to `internal/forge/forge.go`; extend `MockForge`.
++- [x] 1.2 GitHub adapter: `MergeInto` (`POST /merges`), `FastForward` (`PATCH git/refs/heads/{b}` `force:false`), `ClosePR` (`PATCH /pulls/{n}`). `ghfake`: ancestry check on `PATCH refs`, `ProtectedRefs`, `hEditPR`. Tests: happy, non-ff, permission-denied, close.
++- [x] 1.3 `gitea.HTTPClient.FastForwardRef`: `git init --bare; fetch <sha>; push <sha>:refs/heads/<b>` over HTTPS with token-in-URL. Integration test against real Gitea (`TestFastForwardRef_RealGitea`) confirmed depth=1 is **insufficient** (client-side ff check needs ancestry) → full fetch. Stderr → `NotFastForwardError`/`ProtectedBranchError`.
++- [x] 1.4 Gitea adapter: `MergeInto` = `MergeBranches(branch, head, branch)`; `FastForward` → `FastForwardRef`; `ClosePR` → `EditIssueState`. Unit tests for error mapping + delegation.
++- [x] 1.5 `flake-fmt`; `go vet ./...`; `golangci-lint run` clean.
++
++## 2. Storage
++
++- [x] 2.1 Migration `004_batches.sql`: `batch_state` enum, `batches` table, `ux_batches_live`, `queue_entries.active_batch_id` FK.
++- [x] 2.2 Audit `merge_branch_sha`: `webhook.findEntryForCommit` / `poller.pollMergeBranchChecks` pick the first matching entry; with all `current_ids` carrying the batch SHA the representative is deterministic (lowest `enqueued_at`). `Build` clears `check_statuses` for `current_ids` so a previous build's results cannot decide a rebuild.
++- [x] 2.3 sqlc queries: `CreateBatch`, `GetBatch`, `GetLiveBatch`, `ListLiveBatchesByRepo`, `SaveBatch`, `TakeQueuedHead`, `GetEntriesByIDs`, `SetEntryActiveBatch`, `ClearEntryMergeBranch`, `ClearCheckStatuses`, `CancelBatchesByRepo`. Regen.
++- [x] 2.4 `internal/queue/batch.go`: `FormBatch`, `GetLiveBatch`, `GetBatch`, `ListLiveBatches`, `SaveBatch` (nil→`{}` for NOT NULL arrays), `GetEntriesByIDs` (preserves order), `ClearMergeBranch`, `ClearCheckStatuses`, `CancelLiveBatches`.
++
++## 3. Batch engine (`internal/batch`)
++
++- [x] 3.1 `Build`: D3. Tests: `TestFormAndBuild_Green`, `TestBuild_ConflictEjectsAndContinues`.
++- [x] 3.2 `HandlePass` + `ensureMergedOrClose`: D4. Tests: `TestFormAndBuild_Green` (merged → no close), `TestEnsureMergedOrClose_FallsBackToClose`, `TestHandlePass_NotFastForward_RetryThenCap`, `TestHandlePass_PushDenied`.
++- [x] 3.3 `HandleFail` + `next`: D5. Tests: `TestBisect_CulpritAt2` (rebuild on top of landed half + 8-status discipline), `TestBisect_BothHalvesPass_Flaky`, `TestBisectMaxSteps`, `TestPendingDrop`.
++- [x] 3.4 `OnMemberRemoved`: D6. Test: `TestOnMemberRemoved` (pending-only → no rebuild; current → rebuild).
++- [x] 3.5 `ReconcileLive` + `LiveBranchNames` (consumed by `merge.CleanupStaleBranches` `spare`).
++- [x] 3.6 `TimedOut(b, timeout)` on `b.TestingStartedAt`.
++- [x] 3.7 `HandleResult` (`monitor.BatchHandler`): stale-SHA guard. Test: `TestHandleResult_DropsStaleSHA`.
++
++## 4. Wire-up
++
++- [x] 4.1 `internal/config`: `BatchMax` (default 1), `BisectMaxSteps` (default 0); `TestLoad_BatchMax`.
++- [x] 4.2 `poller.startQueuedHeads`: `Batch.Enabled()` → `FormAndBuild`; `SkipQueueIfUpToDate` runs first so a singleton up-to-date head takes the legacy path.
++- [x] 4.3 `monitor.ProcessCheckStatus`: dispatch to `Deps.Batch.HandleResult` when `entry.ActiveBatchID` set. `BatchHandler` interface defined in `monitor` to avoid an import cycle.
++- [x] 4.4 `poller.reconcileEntries`: after a member is removed (push/close/retarget/cancel), call `Batch.OnMemberRemoved`. `handleTestingTimeout` skips batch members; `pollMergeBranchChecks` evaluates `batch.TimedOut`.
++- [x] 4.5 `registry.Add`: build `*batch.Engine` when `BatchMax!=1`, pass to monitor/poller, spare live batch branches in `CleanupStaleBranches`, `ReconcileLive`. `Remove`: `CancelLiveBatches`. `cmd/gitea-mq/main.go` plumbs config.
++
++## 5. Setup, cleanup, docs
++
++- [ ] 5.1 GitHub `EnsureRepoSetup` already lists the App as a bypass actor when it creates the ruleset; verifying on every start is deferred.
++- [x] 5.2 Orphan-branch reaper: `CleanupStaleBranches` already matches `gitea-mq/*`; live batch branches passed via `spare`.
++- [x] 5.3 README: `BATCH_MAX`/`BISECT_MAX_STEPS` rows + "Batching" section (opt-in, merge-commit caveat, Gitea push-whitelist prerequisite, cross-PR caveat, closed-not-merged note).
++
++## 6. Web
++
++- [x] 6.1 Repo page: batch header (`id · branch link · build N · testing C/M`); member rows tagged with bucket. CSS pills.
++- [x] 6.2 PR detail page: batch row (id, bucket, co-members, branch link).
++
++## 7. Integration
++
++- [x] 7.1 `TestGithub_BatchFlow_Green` (ghfake): 3 PRs → one batch → webhook → main fast-forwarded to batch SHA, all PRs dequeued + closed (fallback) + `gitea-mq=success`.
++- [x] 7.2 `TestFastForwardRef_RealGitea`: real Gitea verifies fetch+push approach and non-ff detection.
++- [x] 7.3 Existing `TestFullMergeQueueFlow` / `TestGithub_FullMergeQueueFlow` unchanged → `BATCH_MAX=1` regression-identical.
++- [x] 7.4 `TestGitea_BatchFlow_Green`: 2-PR green batch through real Gitea (StackMerges → FastForwardRef → close/merged).
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+[No commits in between]
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: 6580aaefbbad46a843346eb993cc16333ebc4800
+
+COMMIT MESSAGE:
+testutil/gitea: use a unique token name per CreateToken call
+
+Gitea rejects a second token with the same name for the same user, so two
+integration tests in the same package that each call CreateToken would
+fail. The batch work adds a second Gitea integration test.
+
+IMPLEMENTATION FILES:
+FILE: internal/testutil/gitea.go
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 1
+
+PATCH:
+@@ -270,7 +270,9 @@ func NewGiteaAPI(baseURL string) *GiteaAPI {
+ func (a *GiteaAPI) CreateToken(t *testing.T) string {
+ 	t.Helper()
+ 
+-	body := `{"name": "test-token", "scopes": ["all"]}`
++	// Unique per call so multiple tests in one package can each obtain a
++	// token against the shared Gitea instance.
++	body := fmt.Sprintf(`{"name": "test-token-%d", "scopes": ["all"]}`, time.Now().UnixNano())
+ 
+ 	req, err := http.NewRequest(http.MethodPost,
+ 		a.BaseURL+"/api/v1/users/testuser/tokens",
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

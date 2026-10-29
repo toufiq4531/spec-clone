@@ -1,0 +1,1978 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 4/15
+Repository: BlackBeltTechnology/pi-agent-dashboard
+PR: #76
+Tool: openspec
+Language: TypeScript
+
+First specification commit position: 1
+First implementation commit position: 2
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: cefe092f7fcba42d121a000c6a32a7a126d6f18d
+
+COMMIT MESSAGE:
+chore(openspec): archive wire-subagents-role-resolver
+
+Sync role:resolve-model listener requirement into dashboard-roles-ownership
+main spec and move completed change to archive/2026-06-05-.
+
+FILE: openspec/changes/archive/2026-06-05-wire-subagents-role-resolver/.openspec.yaml
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/archive/2026-06-05-wire-subagents-role-resolver/proposal.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/archive/2026-06-05-wire-subagents-role-resolver/specs/dashboard-roles-ownership/spec.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/changes/archive/2026-06-05-wire-subagents-role-resolver/tasks.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+FILE: openspec/specs/dashboard-roles-ownership/spec.md
+STATUS: modified
+ADDITIONS: 49
+DELETIONS: 0
+
+PATCH:
+@@ -129,3 +129,52 @@ To avoid duplicate file-read logic, the `model:resolve` listener in `provider-re
+ - **WHEN** `model:resolve` handles `{ ref: "@fast" }`
+ - **THEN** the listener SHALL call into the same role-reader the `flow:role-get-all` handler uses
+ - **AND** the inline `loadRoles()` helper currently inside `provider-register.ts` SHALL be removed in favor of that single reader
++
++### Requirement: pi-agent-dashboard SHALL register a `role:resolve-model` listener serving the subagents harness
++
++The dashboard extension SHALL register a `pi.events.on("role:resolve-model", probe)` listener in `role-manager.ts::activate`. This serves `pi-dashboard-subagents` (>= 0.2.0), which resolves an agent definition's `model: "@role"` frontmatter by emitting `role:resolve-model` with a probe shaped `{ ref: string, resolved?: string, available?: Record<string, string> }` and reading back `probe.resolved`.
++
++The handler SHALL:
++
++- Read `probe.ref` and ignore the event when `probe` is missing/null or `probe.ref` is not a string.
++- Strip a single leading `@` from `probe.ref` to obtain the role name; ignore the event when the resulting role name is empty.
++- Re-read `~/.pi/agent/providers.json#roles` on every event via the same role reader used by the `flow:role-*` handlers (no duplicate file-read logic).
++- Set `probe.available` to the current roles map (so the subagents harness can list assignable roles in its error output).
++- Set `probe.resolved` to the role's assigned literal `provider/modelId` when that value is a non-empty string; otherwise leave `probe.resolved` unset (the subagents harness treats an unset `probe.resolved` as a resolution failure and falls through to its own error).
++
++The handler SHALL be read-only (no writes to `providers.json`) and SHALL NOT throw on malformed input.
++
++This requirement is additive: the existing `model:resolve` and deprecated `flow:resolve-model` listeners (capability `dashboard-model-resolution`) are unchanged and continue to use their own probe shapes.
++
++#### Scenario: `@role` ref resolves to the assigned model
++
++- **GIVEN** `~/.pi/agent/providers.json#roles` contains `{ fast: "my-google/gemma-4-31b-it" }`
++- **WHEN** an emitter calls `pi.events.emit("role:resolve-model", { ref: "@fast" })`
++- **THEN** after the emit returns, `probe.resolved` SHALL equal `"my-google/gemma-4-31b-it"`
++- **AND** `probe.available` SHALL deep-equal `{ fast: "my-google/gemma-4-31b-it" }`
++
++#### Scenario: Bare role name without `@` resolves
++
++- **GIVEN** `roles` contains `{ fast: "anthropic/haiku" }`
++- **WHEN** an emitter calls `pi.events.emit("role:resolve-model", { ref: "fast" })`
++- **THEN** `probe.resolved` SHALL equal `"anthropic/haiku"`
++
++#### Scenario: Unassigned role leaves `probe.resolved` unset
++
++- **GIVEN** `roles` does NOT contain an entry named `ghost`
++- **WHEN** an emitter calls `pi.events.emit("role:resolve-model", { ref: "@ghost" })`
++- **THEN** `probe.resolved` SHALL remain `undefined`
++- **AND** `probe.available` SHALL deep-equal the current (possibly empty) roles map
++
++#### Scenario: Cross-session role edit is visible
++
++- **GIVEN** the handler is registered
++- **WHEN** another writer sets `roles.fast = "x/y"` on disk after activation
++- **AND** an emitter then calls `pi.events.emit("role:resolve-model", { ref: "@fast" })`
++- **THEN** `probe.resolved` SHALL equal `"x/y"` (the handler re-read disk)
++
++#### Scenario: Malformed probe is ignored without throwing
++
++- **WHEN** an emitter calls `pi.events.emit("role:resolve-model", {})` or `pi.events.emit("role:resolve-model", null)`
++- **THEN** the handler SHALL return without throwing
++- **AND** SHALL NOT write `~/.pi/agent/providers.json`
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+[No commits in between]
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: d95ebd315c6812ae2ac5f4f9873456e949b7ec60
+
+COMMIT MESSAGE:
+feat(client): redesign ask_user question cards + batch wizard (#redesign-ask-user-question-cards)
+
+- ConfirmRenderer: Allow/Deny → Yes/No; resolved shows both options highlighted
+- SelectRenderer: vertical full-width rows with description sub-line; resolved keeps full list
+- MultiselectRenderer: resolved shows all options with X-of-N count
+- InputRenderer: resolved shows read-only value field; empty → '(left blank)'
+- New BatchRenderer wizard: stepper, one Q per page, Back/Next, Review with Edit
+- Bridge: batch dispatches ONE ctx.ui.batch() request (not sequential loop)
+- Shared protocol: InteractiveMethod, BatchQuestion, BatchAnswer, BatchResult types
+- PromptBus type union includes 'batch'; prompt-answer-encoder handles {answers}
+- New AnsweredOption + parseOption shared helpers (DRY across renderers)
+- Tests for all renderers + batch execution + protocol types
+
+IMPLEMENTATION FILES:
+FILE: .pi/settings.json
+STATUS: modified
+ADDITIONS: 5
+DELETIONS: 2
+
+PATCH:
+@@ -1,14 +1,17 @@
+ {
+   "packages": [
+     {
+-      "source": "..",
++      "source": "/Users/robson/Project/pi-agent-dashboard",
+       "extensions": [
+         "+packages/extension/src/bridge.ts"
+       ]
+     }
+   ],
+   "worktreeInit": {
+     "gate": "test ! -d node_modules",
+-    "run": { "type": "script", "command": "npm ci && npx openspec init --tools pi --force" }
++    "run": {
++      "type": "script",
++      "command": "npm ci && npx openspec init --tools pi --force"
++    }
+   }
+ }
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/__tests__/BatchRenderer.test.tsx
+STATUS: added
+ADDITIONS: 122
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,122 @@
++import { describe, it, expect, vi, afterEach } from "vitest";
++import { render, screen, fireEvent, cleanup } from "@testing-library/react";
++import React from "react";
++import { BatchRenderer } from "../interactive-renderers/BatchRenderer.js";
++
++afterEach(cleanup);
++
++const questions = [
++  { method: "input", title: "Project name" },
++  { method: "select", title: "Language", options: ["TypeScript", "Go"] },
++  { method: "multiselect", title: "Tooling", options: ["ESLint", "Prettier", "Vitest"] },
++];
++
++const baseProps = {
++  requestId: "req-1",
++  method: "batch",
++  params: { title: "Project setup", questions },
++};
++
++function renderPending(onRespond = vi.fn(), onCancel = vi.fn()) {
++  render(<BatchRenderer {...baseProps} status="pending" onRespond={onRespond} onCancel={onCancel} />);
++  return { onRespond, onCancel };
++}
++
++describe("BatchRenderer", () => {
++  it("shows one question per page with a step count", () => {
++    renderPending();
++    expect(screen.getByText("Question 1 of 3")).toBeTruthy();
++    // First step is the input question — its field is present.
++    expect(screen.getByRole("textbox")).toBeTruthy();
++  });
++
++  it("Back preserves the previously entered answer", () => {
++    renderPending();
++    fireEvent.change(screen.getByRole("textbox"), { target: { value: "pi-plugin" } });
++    fireEvent.click(screen.getByText("Next →"));
++    // Now on step 2 (select).
++    expect(screen.getByText("Question 2 of 3")).toBeTruthy();
++    fireEvent.click(screen.getByText("← Back"));
++    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("pi-plugin");
++  });
++
++  it("withholds answers until Review submit, then sends one {answers} response", () => {
++    const { onRespond } = renderPending();
++    // Step 1: input
++    fireEvent.change(screen.getByRole("textbox"), { target: { value: "pi-plugin" } });
++    fireEvent.click(screen.getByText("Next →"));
++    // Step 2: select
++    fireEvent.click(screen.getByText("TypeScript"));
++    fireEvent.click(screen.getByText("Next →"));
++    // Step 3: multiselect — pick two
++    fireEvent.click(screen.getByText("ESLint"));
++    fireEvent.click(screen.getByText("Vitest"));
++    fireEvent.click(screen.getByText("Next →"));
++    // Review page — nothing sent yet.
++    expect(onRespond).not.toHaveBeenCalled();
++    fireEvent.click(screen.getByText(/Submit all 3/));
++    expect(onRespond).toHaveBeenCalledTimes(1);
++    expect(onRespond).toHaveBeenCalledWith({
++      answers: [
++        { value: "pi-plugin" },
++        { value: "TypeScript" },
++        { values: ["ESLint", "Vitest"] },
++      ],
++    });
++  });
++
++  it("Edit from review returns to that step preserving other answers", () => {
++    const { onRespond } = renderPending();
++    fireEvent.change(screen.getByRole("textbox"), { target: { value: "pi-plugin" } });
++    fireEvent.click(screen.getByText("Next →"));
++    fireEvent.click(screen.getByText("Go"));
++    fireEvent.click(screen.getByText("Next →"));
++    fireEvent.click(screen.getByText("Prettier"));
++    fireEvent.click(screen.getByText("Next →"));
++    // On review — edit step 1.
++    const editButtons = screen.getAllByText("Edit");
++    fireEvent.click(editButtons[0]);
++    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("pi-plugin");
++    // Jump back to review via stepper and submit — other answers intact.
++    fireEvent.click(screen.getByText("Next →")); // step 2
++    fireEvent.click(screen.getByText("Next →")); // step 3
++    fireEvent.click(screen.getByText("Next →")); // review
++    fireEvent.click(screen.getByText(/Submit all 3/));
++    expect(onRespond).toHaveBeenCalledWith({
++      answers: [{ value: "pi-plugin" }, { value: "Go" }, { values: ["Prettier"] }],
++    });
++  });
++
++  it("Cancel on the first step calls onCancel", () => {
++    const { onCancel } = renderPending();
++    fireEvent.click(screen.getByText("Cancel"));
++    expect(onCancel).toHaveBeenCalled();
++  });
++
++  it("resolved state shows a read-only Q→A summary with no Next/Submit", () => {
++    render(
++      <BatchRenderer
++        {...baseProps}
++        status="resolved"
++        result={{
++          answers: [
++            { value: "pi-plugin" },
++            { value: "TypeScript" },
++            { values: ["ESLint", "Vitest"] },
++          ],
++        }}
++        onRespond={vi.fn()}
++        onCancel={vi.fn()}
++      />,
++    );
++    expect(screen.getByText("pi-plugin")).toBeTruthy();
++    expect(screen.getByText("TypeScript")).toBeTruthy();
++    // Multiselect answers render as pills.
++    expect(screen.getByText("ESLint")).toBeTruthy();
++    expect(screen.getByText("Vitest")).toBeTruthy();
++    // No interactive controls.
++    expect(screen.queryByText("Next →")).toBeNull();
++    expect(screen.queryByText(/Submit all/)).toBeNull();
++    expect(screen.queryByText("Edit")).toBeNull();
++  });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/__tests__/ConfirmRenderer.test.tsx
+STATUS: added
+ADDITIONS: 80
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,80 @@
++import { describe, it, expect, vi, afterEach } from "vitest";
++import { render, screen, fireEvent, cleanup } from "@testing-library/react";
++import React from "react";
++import { ConfirmRenderer } from "../interactive-renderers/ConfirmRenderer.js";
++
++afterEach(cleanup);
++
++const baseProps = {
++  requestId: "req-1",
++  method: "confirm",
++  params: { title: "Initialize git?" },
++};
++
++describe("ConfirmRenderer", () => {
++  describe("pending state", () => {
++    it("renders Yes and No labels (not Allow/Deny)", () => {
++      render(<ConfirmRenderer {...baseProps} status="pending" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      expect(screen.getByText("Yes")).toBeTruthy();
++      expect(screen.getByText("No")).toBeTruthy();
++      expect(screen.queryByText("Allow")).toBeNull();
++      expect(screen.queryByText("Deny")).toBeNull();
++    });
++
++    it("Yes responds confirmed=true, No responds confirmed=false", () => {
++      const onRespond = vi.fn();
++      render(<ConfirmRenderer {...baseProps} status="pending" onRespond={onRespond} onCancel={vi.fn()} />);
++      fireEvent.click(screen.getByText("Yes"));
++      expect(onRespond).toHaveBeenCalledWith({ confirmed: true });
++      fireEvent.click(screen.getByText("No"));
++      expect(onRespond).toHaveBeenCalledWith({ confirmed: false });
++    });
++  });
++
++  describe("resolved state", () => {
++    it("renders BOTH Yes and No with the chosen one highlighted", () => {
++      render(
++        <ConfirmRenderer
++          {...baseProps}
++          status="resolved"
++          result={{ confirmed: true }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      // Both options present in the resolved card.
++      expect(screen.getByText("Yes")).toBeTruthy();
++      expect(screen.getByText("No")).toBeTruthy();
++      // Question kept as title.
++      expect(screen.getByText("Initialize git?")).toBeTruthy();
++    });
++
++    it("renders both options when denied", () => {
++      render(
++        <ConfirmRenderer
++          {...baseProps}
++          status="resolved"
++          result={{ confirmed: false }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      expect(screen.getByText("Yes")).toBeTruthy();
++      expect(screen.getByText("No")).toBeTruthy();
++    });
++  });
++
++  describe("cancelled state", () => {
++    it("displays Cancelled label", () => {
++      render(<ConfirmRenderer {...baseProps} status="cancelled" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      expect(screen.getByText("Cancelled")).toBeTruthy();
++    });
++  });
++
++  describe("dismissed state", () => {
++    it("displays Answered in terminal label", () => {
++      render(<ConfirmRenderer {...baseProps} status="dismissed" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      expect(screen.getByText("Answered in terminal")).toBeTruthy();
++    });
++  });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/__tests__/InputRenderer.test.tsx
+STATUS: modified
+ADDITIONS: 16
+DELETIONS: 1
+
+PATCH:
+@@ -145,7 +145,7 @@ describe("InputRenderer", () => {
+   });
+ 
+   describe("resolved state", () => {
+-    it("displays entered value", () => {
++    it("keeps the question as title and shows the value in a read-only field", () => {
+       render(
+         <InputRenderer
+           {...baseProps}
+@@ -156,8 +156,23 @@ describe("InputRenderer", () => {
+         />,
+       );
+ 
++      expect(screen.getByText("Enter your name")).toBeTruthy();
+       expect(screen.getByText("Alice")).toBeTruthy();
+     });
++
++    it("renders (left blank) for an empty submitted value", () => {
++      render(
++        <InputRenderer
++          {...baseProps}
++          status="resolved"
++          result={{ value: "" }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++
++      expect(screen.getByText("(left blank)")).toBeTruthy();
++    });
+   });
+ 
+   describe("cancelled state", () => {
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/__tests__/MultiselectRenderer.test.tsx
+STATUS: modified
+ADDITIONS: 11
+DELETIONS: 4
+
+PATCH:
+@@ -104,7 +104,7 @@ describe("MultiselectRenderer", () => {
+   });
+ 
+   describe("resolved state", () => {
+-    it("displays selected values", () => {
++    it("keeps the full option list with selected + unselected both shown", () => {
+       render(
+         <MultiselectRenderer
+           {...baseProps}
+@@ -115,10 +115,15 @@ describe("MultiselectRenderer", () => {
+         />,
+       );
+ 
+-      expect(screen.getByText("a.ts, c.ts")).toBeTruthy();
++      // All three options remain visible (not collapsed to just the picks).
++      expect(screen.getByText("a.ts")).toBeTruthy();
++      expect(screen.getByText("b.ts")).toBeTruthy();
++      expect(screen.getByText("c.ts")).toBeTruthy();
++      // Count summary present.
++      expect(screen.getByText(/2 of 3/)).toBeTruthy();
+     });
+ 
+-    it("displays 'None selected' when empty array", () => {
++    it("shows a 0 of N count when nothing selected", () => {
+       render(
+         <MultiselectRenderer
+           {...baseProps}
+@@ -129,7 +134,9 @@ describe("MultiselectRenderer", () => {
+         />,
+       );
+ 
+-      expect(screen.getByText("None selected")).toBeTruthy();
++      expect(screen.getByText(/0 of 3/)).toBeTruthy();
++      // Options still listed.
++      expect(screen.getByText("a.ts")).toBeTruthy();
+     });
+   });
+ 
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/__tests__/SelectRenderer.test.tsx
+STATUS: added
+ADDITIONS: 97
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,97 @@
++import { describe, it, expect, vi, afterEach } from "vitest";
++import { render, screen, fireEvent, cleanup } from "@testing-library/react";
++import React from "react";
++import { SelectRenderer } from "../interactive-renderers/SelectRenderer.js";
++
++afterEach(cleanup);
++
++const baseProps = {
++  requestId: "req-1",
++  method: "select",
++  params: { title: "Primary language?", options: ["TypeScript", "Python", "Go"] },
++};
++
++describe("SelectRenderer", () => {
++  describe("pending state", () => {
++    it("renders one full-width row per option", () => {
++      render(<SelectRenderer {...baseProps} status="pending" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      // 3 options + 1 synthetic Cancel row = 4 buttons.
++      expect(screen.getAllByRole("button")).toHaveLength(4);
++      expect(screen.getByText("TypeScript")).toBeTruthy();
++      expect(screen.getByText("Python")).toBeTruthy();
++      expect(screen.getByText("Go")).toBeTruthy();
++      expect(screen.getByText("Cancel")).toBeTruthy();
++    });
++
++    it("responds with the chosen option value", () => {
++      const onRespond = vi.fn();
++      render(<SelectRenderer {...baseProps} status="pending" onRespond={onRespond} onCancel={vi.fn()} />);
++      fireEvent.click(screen.getByText("Python"));
++      expect(onRespond).toHaveBeenCalledWith({ value: "Python" });
++    });
++
++    it("splits an option into title + dimmed description on ' — '", () => {
++      render(
++        <SelectRenderer
++          requestId="r"
++          method="select"
++          params={{ title: "Pick", options: ["Design 1 — lean one-line hook"] }}
++          status="pending"
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      expect(screen.getByText("Design 1")).toBeTruthy();
++      expect(screen.getByText("lean one-line hook")).toBeTruthy();
++    });
++
++    it("Cancel row triggers onCancel", () => {
++      const onCancel = vi.fn();
++      render(<SelectRenderer {...baseProps} status="pending" onRespond={vi.fn()} onCancel={onCancel} />);
++      fireEvent.click(screen.getByText("Cancel"));
++      expect(onCancel).toHaveBeenCalled();
++    });
++  });
++
++  describe("resolved state", () => {
++    it("keeps the full option list with the chosen option highlighted", () => {
++      render(
++        <SelectRenderer
++          {...baseProps}
++          status="resolved"
++          result={{ value: "TypeScript" }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      // All three options remain visible (not collapsed to just the pick).
++      expect(screen.getByText("TypeScript")).toBeTruthy();
++      expect(screen.getByText("Python")).toBeTruthy();
++      expect(screen.getByText("Go")).toBeTruthy();
++    });
++
++    it("renders all options with no +N more for a 10-option list", () => {
++      const opts = Array.from({ length: 10 }, (_, i) => `model-${i}`);
++      render(
++        <SelectRenderer
++          requestId="r"
++          method="select"
++          params={{ title: "Pick a base model", options: opts }}
++          status="resolved"
++          result={{ value: "model-3" }}
++          onRespond={vi.fn()}
++          onCancel={vi.fn()}
++        />,
++      );
++      for (const o of opts) expect(screen.getByText(o)).toBeTruthy();
++      expect(screen.queryByText(/\+\d+ more/)).toBeNull();
++    });
++  });
++
++  describe("cancelled state", () => {
++    it("displays Cancelled label", () => {
++      render(<SelectRenderer {...baseProps} status="cancelled" onRespond={vi.fn()} onCancel={vi.fn()} />);
++      expect(screen.getByText("Cancelled")).toBeTruthy();
++    });
++  });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/interactive-renderers/AnsweredOption.tsx
+STATUS: added
+ADDITIONS: 49
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,49 @@
++import React from "react";
++import { Icon } from "@mdi/react";
++import { mdiCheck } from "@mdi/js";
++
++/**
++ * AnsweredOption — one row in a resolved select/multiselect/confirm card.
++ *
++ * Collapse emphasis, not information: answered cards keep the full option
++ * list. The chosen option(s) render highlighted (`picked`); the rest render
++ * dimmed (`skip`). Shared by ConfirmRenderer, SelectRenderer and
++ * MultiselectRenderer so the pick/skip styling stays in one place.
++ *
++ * See change: redesign-ask-user-question-cards.
++ */
++export function AnsweredOption({
++  title,
++  description,
++  picked,
++}: {
++  title: string;
++  description?: string;
++  picked: boolean;
++}) {
++  return (
++    <div
++      className={
++        picked
++          ? "flex items-start gap-2 px-2.5 py-1.5 rounded-md text-xs border border-green-500/35 bg-green-500/10 text-[var(--text-primary)]"
++          : "flex items-start gap-2 px-2.5 py-1.5 rounded-md text-xs border border-transparent text-[var(--text-tertiary)]"
++      }
++    >
++      <span
++        className={
++          picked
++            ? "mt-0.5 w-4 h-4 rounded grid place-items-center bg-green-500 text-[#06210f] shrink-0"
++            : "mt-0.5 w-4 h-4 rounded border-[1.5px] border-[var(--border-secondary)] shrink-0"
++        }
++      >
++        {picked && <Icon path={mdiCheck} size={0.5} />}
++      </span>
++      <span className="min-w-0">
++        <span>{title}</span>
++        {description && (
++          <span className="block text-[var(--text-tertiary)]">{description}</span>
++        )}
++      </span>
++    </div>
++  );
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/interactive-renderers/BatchRenderer.tsx
+STATUS: added
+ADDITIONS: 366
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,366 @@
++import React, { useState } from "react";
++import { Icon } from "@mdi/react";
++import { mdiCheck, mdiCheckCircle, mdiViewListOutline } from "@mdi/js";
++import type { InteractiveRendererProps } from "./types.js";
++import { InlineMarkdown } from "./InlineMarkdown.js";
++import { parseOption, isCancelOption } from "./parseOption.js";
++
++/**
++ * BatchRenderer — renders a `batch` ask_user request as a single wizard card:
++ * stepper header, one sub-question per page, Back/Next, a Review page with
++ * per-row Edit, and a final Submit. Answers are held in component state and
++ * sent only on Submit (one `{answers}` response). A multiselect step yields
++ * multiple values (rendered as pills).
++ *
++ * See change: redesign-ask-user-question-cards.
++ */
++
++interface SubQuestion {
++  method: "confirm" | "select" | "multiselect" | "input";
++  title: string;
++  message?: string;
++  options?: string[];
++  placeholder?: string;
++}
++
++type Answer =
++  | { confirmed: boolean }
++  | { value: string }
++  | { values: string[] };
++
++function initialAnswer(q: SubQuestion): Answer | undefined {
++  if (q.method === "input") return { value: "" };
++  if (q.method === "multiselect") return { values: [] };
++  return undefined; // confirm / select require an explicit pick
++}
++
++function answerToText(q: SubQuestion, a: Answer | undefined): React.ReactNode {
++  if (!a) return <span className="text-[var(--text-tertiary)] italic">(unanswered)</span>;
++  if ("confirmed" in a) return a.confirmed ? "Yes" : "No";
++  if ("values" in a) {
++    if (a.values.length === 0) return <span className="text-[var(--text-tertiary)] italic">(none)</span>;
++    return (
++      <span className="flex flex-wrap gap-1">
++        {a.values.map((v) => (
++          <span key={v} className="inline-block rounded px-2 py-0.5 text-[11px] bg-blue-500/15 text-blue-300">
++            {v}
++          </span>
++        ))}
++      </span>
++    );
++  }
++  if ("value" in a) {
++    return a.value === "" ? <span className="text-[var(--text-tertiary)] italic">(left blank)</span> : a.value;
++  }
++  return null;
++}
++
++export function BatchRenderer({ params, status, result, onRespond, onCancel }: InteractiveRendererProps) {
++  const title = (params.title as string) ?? "Questions";
++  const questions = ((params.questions as SubQuestion[]) ?? []).filter(Boolean);
++  const resolvedAnswers = (result as any)?.answers as Answer[] | undefined;
++
++  const [answers, setAnswers] = useState<Array<Answer | undefined>>(() =>
++    questions.map(initialAnswer),
++  );
++  // step in 0..questions.length-1 are questions; questions.length is Review.
++  const [step, setStep] = useState(0);
++
++  // ── Resolved / cancelled / dismissed: read-only summary ──────────
++  if (status !== "pending") {
++    if (status === "cancelled" || status === "dismissed") {
++      return (
++        <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
++          <Icon path={mdiViewListOutline} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
++          <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
++          <span className="ml-1 text-[var(--text-tertiary)]">
++            {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++          </span>
++        </div>
++      );
++    }
++    return (
++      <div className="mx-4 my-1 bg-[var(--bg-hover)] rounded-lg overflow-hidden text-xs">
++        <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center gap-2">
++          <Icon path={mdiCheckCircle} size={0.55} className="text-green-400 shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++          <span className="ml-auto text-green-400">{resolvedAnswers?.length ?? 0} answers</span>
++        </div>
++        <div className="p-3 flex flex-col gap-2">
++          {questions.map((q, i) => (
++            <ReviewRow key={i} num={i + 1} question={q} answer={resolvedAnswers?.[i]} />
++          ))}
++        </div>
++      </div>
++    );
++  }
++
++  const onReview = step >= questions.length;
++  const current = questions[step];
++
++  function setAnswer(a: Answer) {
++    setAnswers((prev) => {
++      const next = prev.slice();
++      next[step] = a;
++      return next;
++    });
++  }
++
++  const canAdvance = onReview || answers[step] !== undefined;
++
++  return (
++    <div className="mx-4 my-2 bg-[var(--bg-hover)] border border-[var(--border-secondary)] rounded-xl overflow-hidden">
++      {/* Header + stepper */}
++      <div className="px-4 py-3 border-b border-[var(--border-subtle)]">
++        <div className="flex items-center gap-2">
++          <Icon path={mdiViewListOutline} size={0.6} className="text-blue-400 shrink-0" />
++          <span className="text-sm font-medium text-[var(--text-primary)]"><InlineMarkdown content={title} /></span>
++          <span className="ml-auto text-[11px] text-[var(--text-tertiary)]">
++            {onReview ? "Review" : `Question ${step + 1} of ${questions.length}`}
++          </span>
++        </div>
++        <div className="flex gap-1.5 mt-3">
++          {questions.map((q, i) => {
++            const done = answers[i] !== undefined;
++            const active = i === step;
++            return (
++              <button
++                key={i}
++                onClick={() => setStep(i)}
++                className="flex-1 flex flex-col gap-1.5 text-left"
++                title={q.title}
++              >
++                <span
++                  className={
++                    active
++                      ? "h-1 rounded bg-blue-500"
++                      : done
++                        ? "h-1 rounded bg-green-500"
++                        : "h-1 rounded bg-[var(--border-secondary)]"
++                  }
++                />
++                <span
++                  className={
++                    active
++                      ? "text-[10px] text-[var(--text-primary)] truncate"
++                      : done
++                        ? "text-[10px] text-green-400 truncate"
++                        : "text-[10px] text-[var(--text-tertiary)] truncate"
++                  }
++                >
++                  {q.title}
++                </span>
++              </button>
++            );
++          })}
++        </div>
++      </div>
++
++      {/* Body */}
++      <div className="px-4 py-4">
++        {onReview ? (
++          <div className="flex flex-col gap-2">
++            <div className="text-sm font-medium text-[var(--text-primary)] mb-1">Review your answers</div>
++            {questions.map((q, i) => (
++              <ReviewRow
++                key={i}
++                num={i + 1}
++                question={q}
++                answer={answers[i]}
++                onEdit={() => setStep(i)}
++              />
++            ))}
++          </div>
++        ) : (
++          <StepBody
++            question={current}
++            answer={answers[step]}
++            onChange={setAnswer}
++          />
++        )}
++      </div>
++
++      {/* Footer */}
++      <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex items-center gap-2">
++        {step > 0 ? (
++          <button
++            onClick={() => setStep((s) => s - 1)}
++            className="px-3 py-1 text-xs rounded bg-transparent hover:bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-secondary)] transition-colors"
++          >
++            ← Back
++          </button>
++        ) : (
++          <button
++            onClick={onCancel}
++            className="px-3 py-1 text-xs rounded bg-transparent hover:bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-secondary)] transition-colors"
++          >
++            Cancel
++          </button>
++        )}
++        <div className="flex-1" />
++        {onReview ? (
++          <button
++            onClick={() => onRespond({ answers })}
++            className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-500 text-white transition-colors inline-flex items-center gap-1"
++          >
++            <Icon path={mdiCheck} size={0.5} /> Submit all {questions.length}
++          </button>
++        ) : (
++          <button
++            onClick={() => setStep((s) => s + 1)}
++            disabled={!canAdvance}
++            className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
++          >
++            Next →
++          </button>
++        )}
++      </div>
++    </div>
++  );
++}
++
++function ReviewRow({
++  num,
++  question,
++  answer,
++  onEdit,
++}: {
++  num: number;
++  question: SubQuestion;
++  answer: Answer | undefined;
++  onEdit?: () => void;
++}) {
++  return (
++    <div className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
++      <span className="w-5 h-5 rounded grid place-items-center text-[11px] font-semibold bg-green-500/20 text-green-400 shrink-0">
++        {num}
++      </span>
++      <div className="min-w-0 flex-1">
++        <div className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">{question.title}</div>
++        <div className="text-xs text-[var(--text-primary)] font-medium mt-0.5">{answerToText(question, answer)}</div>
++      </div>
++      {onEdit && (
++        <button onClick={onEdit} className="text-[11px] text-blue-400 hover:text-blue-300 self-center shrink-0">
++          Edit
++        </button>
++      )}
++    </div>
++  );
++}
++
++function StepBody({
++  question,
++  answer,
++  onChange,
++}: {
++  question: SubQuestion;
++  answer: Answer | undefined;
++  onChange: (a: Answer) => void;
++}) {
++  return (
++    <div>
++      <div className="text-sm font-medium text-[var(--text-primary)] mb-1">{question.title}</div>
++      {question.message && (
++        <div className="text-[11px] text-[var(--text-tertiary)] mb-3"><InlineMarkdown content={question.message} /></div>
++      )}
++      {question.method === "input" && (
++        <input
++          type="text"
++          autoFocus
++          value={(answer as { value: string } | undefined)?.value ?? ""}
++          placeholder={question.placeholder}
++          onChange={(e) => onChange({ value: e.target.value })}
++          className="w-full px-2.5 py-1.5 text-xs rounded bg-[var(--bg-primary)] border border-[var(--border-secondary)] text-[var(--text-primary)] outline-none focus:border-blue-500"
++        />
++      )}
++      {question.method === "confirm" && (
++        <div className="flex gap-2">
++          {(["Yes", "No"] as const).map((label) => {
++            const val = label === "Yes";
++            const picked = (answer as { confirmed: boolean } | undefined)?.confirmed === val;
++            return (
++              <button
++                key={label}
++                onClick={() => onChange({ confirmed: val })}
++                className={
++                  picked
++                    ? val
++                      ? "px-3 py-1 text-xs rounded bg-green-600 text-white"
++                      : "px-3 py-1 text-xs rounded bg-red-600 text-white"
++                    : "px-3 py-1 text-xs rounded bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-secondary)]"
++                }
++              >
++                {label}
++              </button>
++            );
++          })}
++        </div>
++      )}
++      {question.method === "select" && (
++        <div className="flex flex-col gap-1.5">
++          {(question.options ?? []).filter((o) => !isCancelOption(o)).map((option) => {
++            const { title: oTitle, description } = parseOption(option);
++            const picked = (answer as { value: string } | undefined)?.value === option;
++            return (
++              <button
++                key={option}
++                onClick={() => onChange({ value: option })}
++                className={
++                  picked
++                    ? "w-full text-left flex items-start gap-2 px-3 py-2 rounded-lg border border-blue-500 bg-blue-500/10 text-[var(--text-primary)]"
++                    : "w-full text-left flex items-start gap-2 px-3 py-2 rounded-lg border border-[var(--border-secondary)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:border-blue-500"
++                }
++              >
++                <span className="min-w-0">
++                  <span className="block text-xs font-medium">{oTitle}</span>
++                  {description && <span className="block text-[11px] text-[var(--text-tertiary)] mt-0.5">{description}</span>}
++                </span>
++              </button>
++            );
++          })}
++        </div>
++      )}
++      {question.method === "multiselect" && (
++        <MultiselectStep
++          options={question.options ?? []}
++          values={(answer as { values: string[] } | undefined)?.values ?? []}
++          onChange={(values) => onChange({ values })}
++        />
++      )}
++    </div>
++  );
++}
++
++function MultiselectStep({
++  options,
++  values,
++  onChange,
++}: {
++  options: string[];
++  values: string[];
++  onChange: (values: string[]) => void;
++}) {
++  function toggle(option: string) {
++    onChange(values.includes(option) ? values.filter((v) => v !== option) : [...values, option]);
++  }
++  return (
++    <div className="flex flex-col gap-1">
++      {options.map((option) => {
++        const on = values.includes(option);
++        return (
++          <label
++            key={option}
++            className={
++              on
++                ? "flex items-center gap-2.5 px-3 py-2 rounded-lg border border-blue-500/40 bg-blue-500/10 text-[var(--text-primary)] text-xs cursor-pointer"
++                : "flex items-center gap-2.5 px-3 py-2 rounded-lg border border-transparent text-[var(--text-primary)] text-xs cursor-pointer hover:bg-[var(--bg-surface)]"
++            }
++          >
++            <input type="checkbox" checked={on} onChange={() => toggle(option)} className="accent-blue-500" />
++            <span>{option}</span>
++          </label>
++        );
++      })}
++    </div>
++  );
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/interactive-renderers/ConfirmRenderer.tsx
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 16
+
+PATCH:
+@@ -1,32 +1,39 @@
+ import React from "react";
+ import { Icon } from "@mdi/react";
+-import { mdiCheckCircle, mdiCloseCircle, mdiShieldAlert } from "@mdi/js";
++import { mdiShieldAlert } from "@mdi/js";
+ import type { InteractiveRendererProps } from "./types.js";
+ import { InlineMarkdown } from "./InlineMarkdown.js";
+ import { MarkdownContent } from "../MarkdownContent.js";
++import { AnsweredOption } from "./AnsweredOption.js";
+ 
+ export function ConfirmRenderer({ params, status, result, onRespond, onCancel }: InteractiveRendererProps) {
+   const title = params.title as string;
+   const message = params.message as string | undefined;
+   const confirmed = (result as any)?.confirmed;
+ 
+-  if (status !== "pending") {
++  if (status === "cancelled" || status === "dismissed") {
+     return (
+       <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
+         <Icon path={mdiShieldAlert} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
+         <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
+-        {status === "resolved" && confirmed && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-green-400"><Icon path={mdiCheckCircle} size={0.55} /> Allowed</span>
+-        )}
+-        {status === "resolved" && !confirmed && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-red-400"><Icon path={mdiCloseCircle} size={0.55} /> Denied</span>
+-        )}
+-        {status === "cancelled" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Cancelled</span>
+-        )}
+-        {status === "dismissed" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Answered in terminal</span>
+-        )}
++        <span className="ml-1 text-[var(--text-tertiary)]">
++          {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++        </span>
++      </div>
++    );
++  }
++
++  if (status === "resolved") {
++    return (
++      <div className="mx-4 my-1 p-3 bg-[var(--bg-hover)] rounded-lg text-xs">
++        <div className="flex items-center gap-2 mb-2">
++          <Icon path={mdiShieldAlert} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++        </div>
++        <div className="flex gap-2 ml-6">
++          <AnsweredOption title="Yes" picked={!!confirmed} />
++          <AnsweredOption title="No" picked={!confirmed} />
++        </div>
+       </div>
+     );
+   }
+@@ -45,13 +52,13 @@ export function ConfirmRenderer({ params, status, result, onRespond, onCancel }:
+           onClick={() => onRespond({ confirmed: true })}
+           className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-500 text-white transition-colors"
+         >
+-          Allow
++          Yes
+         </button>
+         <button
+           onClick={() => onRespond({ confirmed: false })}
+           className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-500 text-white transition-colors"
+         >
+-          Deny
++          No
+         </button>
+         <button
+           onClick={onCancel}
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/interactive-renderers/InputRenderer.tsx
+STATUS: modified
+ADDITIONS: 25
+DELETIONS: 12
+
+PATCH:
+@@ -12,22 +12,35 @@ export function InputRenderer({ params, status, result, onRespond, onCancel }: I
+   const enteredValue = (result as any)?.value as string | undefined;
+   const [text, setText] = useState("");
+ 
+-  if (status !== "pending") {
++  if (status === "cancelled" || status === "dismissed") {
+     return (
+       <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
+         <Icon path={mdiFormTextbox} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
+         <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
+-        {status === "resolved" && enteredValue !== undefined && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-green-400">
+-            <Icon path={mdiCheckCircle} size={0.55} /> {enteredValue}
+-          </span>
+-        )}
+-        {status === "cancelled" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Cancelled</span>
+-        )}
+-        {status === "dismissed" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Answered in terminal</span>
+-        )}
++        <span className="ml-1 text-[var(--text-tertiary)]">
++          {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++        </span>
++      </div>
++    );
++  }
++
++  if (status === "resolved") {
++    const isBlank = enteredValue === undefined || enteredValue === "";
++    return (
++      <div className="mx-4 my-1 p-3 bg-[var(--bg-hover)] rounded-lg text-xs">
++        <div className="flex items-center gap-2 mb-2">
++          <Icon path={mdiCheckCircle} size={0.55} className="text-green-400 shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++        </div>
++        <div
++          className={
++            isBlank
++              ? "ml-6 px-3 py-2 rounded-md bg-[var(--bg-primary)] border border-[var(--border-secondary)] text-[var(--text-tertiary)] italic whitespace-pre-wrap break-words"
++              : "ml-6 px-3 py-2 rounded-md bg-[var(--bg-primary)] border border-[var(--border-secondary)] text-[var(--text-primary)] whitespace-pre-wrap break-words"
++          }
++        >
++          {isBlank ? "(left blank)" : enteredValue}
++        </div>
+       </div>
+     );
+   }
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/interactive-renderers/MultiselectRenderer.tsx
+STATUS: modified
+ADDITIONS: 24
+DELETIONS: 14
+
+PATCH:
+@@ -4,6 +4,7 @@ import { mdiCheckCircle, mdiCheckboxMarkedOutline } from "@mdi/js";
+ import type { InteractiveRendererProps } from "./types.js";
+ import { InlineMarkdown } from "./InlineMarkdown.js";
+ import { MarkdownContent } from "../MarkdownContent.js";
++import { AnsweredOption } from "./AnsweredOption.js";
+ 
+ export function MultiselectRenderer({ params, status, result, onRespond, onCancel }: InteractiveRendererProps) {
+   const title = params.title as string;
+@@ -31,25 +32,34 @@ export function MultiselectRenderer({ params, status, result, onRespond, onCance
+     else setChecked(new Set(options));
+   }
+ 
+-  if (status !== "pending") {
++  if (status === "cancelled" || status === "dismissed") {
+     return (
+       <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
+         <Icon path={mdiCheckboxMarkedOutline} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
+         <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
+-        {status === "resolved" && selectedValues && selectedValues.length > 0 && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-green-400">
+-            <Icon path={mdiCheckCircle} size={0.55} /> {selectedValues.join(", ")}
++        <span className="ml-1 text-[var(--text-tertiary)]">
++          {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++        </span>
++      </div>
++    );
++  }
++
++  if (status === "resolved") {
++    const picks = selectedValues ?? [];
++    return (
++      <div className="mx-4 my-1 p-3 bg-[var(--bg-hover)] rounded-lg text-xs">
++        <div className="flex items-center gap-2 mb-2">
++          <Icon path={mdiCheckboxMarkedOutline} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++          <span className="ml-auto inline-flex items-center gap-0.5 text-green-400">
++            <Icon path={mdiCheckCircle} size={0.5} /> {picks.length} of {options.length}
+           </span>
+-        )}
+-        {status === "resolved" && (!selectedValues || selectedValues.length === 0) && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">None selected</span>
+-        )}
+-        {status === "cancelled" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Cancelled</span>
+-        )}
+-        {status === "dismissed" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Answered in terminal</span>
+-        )}
++        </div>
++        <div className="flex flex-col gap-1 ml-6">
++          {options.map((option) => (
++            <AnsweredOption key={option} title={option} picked={picks.includes(option)} />
++          ))}
++        </div>
+       </div>
+     );
+   }
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/interactive-renderers/SelectRenderer.tsx
+STATUS: modified
+ADDITIONS: 74
+DELETIONS: 31
+
+PATCH:
+@@ -1,36 +1,56 @@
+ import React from "react";
+ import { Icon } from "@mdi/react";
+-import { mdiCheckCircle, mdiFormatListBulleted } from "@mdi/js";
++import { mdiFormatListBulleted } from "@mdi/js";
+ import type { InteractiveRendererProps } from "./types.js";
+ import { InlineMarkdown } from "./InlineMarkdown.js";
+ import { MarkdownContent } from "../MarkdownContent.js";
++import { AnsweredOption } from "./AnsweredOption.js";
++import { parseOption, isCancelOption } from "./parseOption.js";
+ 
+ export function SelectRenderer({ params, status, result, onRespond, onCancel }: InteractiveRendererProps) {
+   const title = params.title as string;
+   const message = params.message as string | undefined;
+   const options = (params.options as string[]) ?? [];
+   const selectedValue = (result as any)?.value as string | undefined;
+ 
+-  if (status !== "pending") {
++  if (status === "cancelled" || status === "dismissed") {
+     return (
+       <div className="mx-4 my-1 p-2 bg-[var(--bg-hover)] rounded text-xs flex items-center gap-2">
+         <Icon path={mdiFormatListBulleted} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
+         <span className="text-[var(--text-secondary)]"><InlineMarkdown content={title} /></span>
+-        {status === "resolved" && selectedValue && (
+-          <span className="ml-1 inline-flex items-center gap-0.5 text-green-400">
+-            <Icon path={mdiCheckCircle} size={0.55} /> {selectedValue}
+-          </span>
+-        )}
+-        {status === "cancelled" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Cancelled</span>
+-        )}
+-        {status === "dismissed" && (
+-          <span className="ml-1 text-[var(--text-tertiary)]">Answered in terminal</span>
+-        )}
++        <span className="ml-1 text-[var(--text-tertiary)]">
++          {status === "cancelled" ? "Cancelled" : "Answered in terminal"}
++        </span>
++      </div>
++    );
++  }
++
++  if (status === "resolved") {
++    return (
++      <div className="mx-4 my-1 p-3 bg-[var(--bg-hover)] rounded-lg text-xs">
++        <div className="flex items-center gap-2 mb-2">
++          <Icon path={mdiFormatListBulleted} size={0.55} className="text-[var(--text-secondary)] shrink-0" />
++          <span className="text-[var(--text-primary)] font-medium"><InlineMarkdown content={title} /></span>
++        </div>
++        <div className="flex flex-col gap-1 ml-6">
++          {options.map((option) => {
++            const { title: oTitle, description } = parseOption(option);
++            return (
++              <AnsweredOption
++                key={option}
++                title={oTitle}
++                description={description}
++                picked={option === selectedValue}
++              />
++            );
++          })}
++        </div>
+       </div>
+     );
+   }
+ 
++  const hasCancelOption = options.some(isCancelOption);
++
+   return (
+     <div className="mx-4 my-2 p-3 bg-[var(--bg-hover)] border border-[var(--border-secondary)] rounded-lg">
+       <div className="flex items-center gap-2 mb-2">
+@@ -40,31 +60,54 @@ export function SelectRenderer({ params, status, result, onRespond, onCancel }:
+       {message && (
+         <div className="text-xs text-[var(--text-secondary)] mb-3 ml-6"><MarkdownContent content={message} /></div>
+       )}
+-      <div className="flex flex-wrap gap-2 ml-6">
++      <div className="flex flex-col gap-1.5 ml-6">
+         {options.map((option) => {
+-          const isCancel = /^cancel$/i.test(option.trim());
++          const cancel = isCancelOption(option);
++          const { title: oTitle, description } = parseOption(option);
+           return (
+-            <button
++            <OptionRow
+               key={option}
+-              onClick={() => isCancel ? onCancel() : onRespond({ value: option })}
+-              className={isCancel
+-                ? "px-3 py-1 text-xs rounded bg-transparent hover:bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-secondary)] transition-colors"
+-                : "px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+-              }
+-            >
+-              {option}
+-            </button>
++              title={oTitle}
++              description={cancel ? undefined : description}
++              cancel={cancel}
++              onClick={() => (cancel ? onCancel() : onRespond({ value: option }))}
++            />
+           );
+         })}
+-        {!options.some((o) => /^cancel$/i.test(o.trim())) && (
+-          <button
+-            onClick={onCancel}
+-            className="px-3 py-1 text-xs rounded bg-transparent hover:bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-secondary)] transition-colors"
+-          >
+-            Cancel
+-          </button>
++        {!hasCancelOption && (
++          <OptionRow title="Cancel" cancel onClick={onCancel} />
+         )}
+       </div>
+     </div>
+   );
+ }
++
++function OptionRow({
++  title,
++  description,
++  cancel,
++  onClick,
++}: {
++  title: string;
++  description?: string;
++  cancel?: boolean;
++  onClick: () => void;
++}) {
++  return (
++    <button
++      onClick={onClick}
++      className={
++        cancel
++          ? "w-full text-left flex items-start gap-2.5 px-3 py-2 rounded-lg border border-dashed border-[var(--border-secondary)] bg-transparent text-[var(--text-tertiary)] hover:border-red-500 hover:bg-red-500/10 transition-colors"
++          : "w-full text-left flex items-start gap-2.5 px-3 py-2 rounded-lg border border-[var(--border-secondary)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:border-blue-500 hover:bg-blue-500/10 transition-colors"
++      }
++    >
++      <span className="min-w-0">
++        <span className="block text-xs font-medium">{title}</span>
++        {description && (
++          <span className="block text-[11px] text-[var(--text-tertiary)] mt-0.5">{description}</span>
++        )}
++      </span>
++    </button>
++  );
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/interactive-renderers/parseOption.ts
+STATUS: added
+ADDITIONS: 21
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,21 @@
++/**
++ * parseOption — split an option string into a title and an optional
++ * description sub-line on the first ` — ` (em dash) or ` · ` (middot)
++ * separator. Used by SelectRenderer rows and the batch wizard so long
++ * options render a dimmed description under the title.
++ *
++ * See change: redesign-ask-user-question-cards.
++ */
++export function parseOption(option: string): { title: string; description?: string } {
++  const sep = /\s(?:—|·)\s/.exec(option);
++  if (!sep) return { title: option };
++  return {
++    title: option.slice(0, sep.index),
++    description: option.slice(sep.index + sep[0].length),
++  };
++}
++
++/** True when an option is a Cancel affordance (case-insensitive). */
++export function isCancelOption(option: string): boolean {
++  return /^cancel$/i.test(option.trim());
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/components/interactive-renderers/registry.ts
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -5,6 +5,7 @@ import { InputRenderer } from "./InputRenderer.js";
+ import { EditorRenderer } from "./EditorRenderer.js";
+ import { MultiselectRenderer } from "./MultiselectRenderer.js";
+ import { NotifyRenderer } from "./NotifyRenderer.js";
++import { BatchRenderer } from "./BatchRenderer.js";
+ import { GenericInteractiveRenderer } from "./GenericInteractiveRenderer.js";
+ 
+ const renderers = new Map<string, InteractiveRenderer>([
+@@ -14,6 +15,7 @@ const renderers = new Map<string, InteractiveRenderer>([
+   ["editor", EditorRenderer],
+   ["multiselect", MultiselectRenderer],
+   ["notify", NotifyRenderer],
++  ["batch", BatchRenderer],
+ ]);
+ 
+ /** Register a custom interactive renderer for a method */
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/hooks/useMessageHandler.ts
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -625,6 +625,9 @@ export function useMessageHandler(
+               message: msg.prompt?.metadata?.message as string | undefined,
+               options: msg.prompt?.options,
+               defaultValue: msg.prompt?.defaultValue,
++              // For method "batch": sub-questions travel in metadata.questions.
++              // See change: redesign-ask-user-question-cards.
++              questions: msg.prompt?.metadata?.questions,
+               _promptBusComponent: msg.component,
+               _promptBusPlacement: msg.placement,
+             },
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/client/src/lib/prompt-answer-encoder.ts
+STATUS: modified
+ADDITIONS: 8
+DELETIONS: 4
+
+PATCH:
+@@ -6,10 +6,11 @@
+  * Encoding precedence (order matters):
+  *
+  *   1. Cancellation                        → undefined  (no answer at all)
+- *   2. result.values is array (multiselect) → JSON.stringify(values)
+- *   3. result.value is defined (select / input / editor) → result.value as string
+- *   4. result.confirmed (confirm)          → "true" / "false"
+- *   5. fallback                            → String(result ?? "")
++ *   2. result.answers is array (batch)     → JSON.stringify(answers)
++ *   3. result.values is array (multiselect) → JSON.stringify(values)
++ *   4. result.value is defined (select / input / editor) → result.value as string
++ *   5. result.confirmed (confirm)          → "true" / "false"
++ *   6. fallback                            → String(result ?? "")
+  *
+  * The multiselect arm distinguishes empty selection (`answer: "[]"`) from
+  * cancellation (`answer: undefined`, `cancelled: true`) — the bridge
+@@ -25,6 +26,9 @@ export function encodePromptAnswer(
+   if (cancelled) return undefined;
+   if (typeof result === "object" && result !== null) {
+     const r = result as Record<string, unknown>;
++    if (Array.isArray(r.answers)) {
++      return JSON.stringify(r.answers);
++    }
+     if (Array.isArray(r.values)) {
+       return JSON.stringify(r.values);
+     }
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/extension/src/__tests__/ask-user-tool.test.ts
+STATUS: modified
+ADDITIONS: 32
+DELETIONS: 27
+
+PATCH:
+@@ -377,28 +377,30 @@ describe("registerAskUserTool", () => {
+   });
+ 
+   describe("batch execution", () => {
+-    function getToolAndMockCtx() {
++    function getToolAndMockCtx(batchImpl?: any) {
+       const pi = createMockPi();
+       registerAskUserTool(pi as any);
+       const tool = pi.registerTool.mock.calls[0][0];
+-      const custom = vi.fn().mockImplementation(async (factory: any) => {
+-        return await new Promise<unknown>((resolve) => {
+-          const component: any = factory({}, {}, {}, (r: unknown) => resolve(r));
+-          component?.onConfirm?.(["A"]);
+-        });
+-      });
++      const batch =
++        batchImpl ??
++        vi.fn().mockResolvedValue([
++          { value: "hello" },
++          { value: "A" },
++          { confirmed: true },
++        ]);
+       const ctx = {
+         ui: {
+           confirm: vi.fn().mockResolvedValue(true),
+           select: vi.fn().mockResolvedValue("A"),
+           input: vi.fn().mockResolvedValue("hello"),
+-          custom,
++          custom: vi.fn(),
++          batch,
+         },
+       };
+       return { tool, ctx };
+     }
+ 
+-    it("invokes ctx.ui primitives sequentially for each sub-question", async () => {
++    it("issues exactly ONE ctx.ui.batch request with all questions (no per-question dispatch)", async () => {
+       const { tool, ctx } = getToolAndMockCtx();
+       const result = await tool.execute(
+         "id",
+@@ -415,37 +417,41 @@ describe("registerAskUserTool", () => {
+         undefined,
+         ctx,
+       );
+-      expect(ctx.ui.input).toHaveBeenCalledTimes(1);
+-      expect(ctx.ui.select).toHaveBeenCalledTimes(1);
+-      expect(ctx.ui.confirm).toHaveBeenCalledTimes(1);
++      expect(ctx.ui.batch).toHaveBeenCalledTimes(1);
++      // No per-question dispatch.
++      expect(ctx.ui.input).not.toHaveBeenCalled();
++      expect(ctx.ui.select).not.toHaveBeenCalled();
++      expect(ctx.ui.confirm).not.toHaveBeenCalled();
++      // questions[] passed through to the single request.
++      const passedQuestions = ctx.ui.batch.mock.calls[0][1];
++      expect(passedQuestions).toHaveLength(3);
++      expect(passedQuestions[1]).toMatchObject({ method: "select", options: ["TS", "Py"] });
++      // Answers mapped index-aligned to the legacy result shape.
+       expect(result.details.method).toBe("batch");
+       expect(result.details.results).toEqual(["hello", "A", true]);
+       expect(result.details.cancelled).toBe(false);
+     });
+ 
+-    it("prepends batch title to sub-question titles", async () => {
+-      const { tool, ctx } = getToolAndMockCtx();
+-      await tool.execute(
++    it("maps a multiselect sub-question answer to {values} → string[]", async () => {
++      const batch = vi.fn().mockResolvedValue([{ values: ["ESLint", "Vitest"] }]);
++      const { tool, ctx } = getToolAndMockCtx(batch);
++      const result = await tool.execute(
+         "id",
+         {
+           method: "batch",
+           title: "Setup",
+-          questions: [{ method: "input", title: "Name?" }],
++          questions: [{ method: "multiselect", title: "Tooling", options: ["ESLint", "Vitest", "Husky"] }],
+         },
+         undefined,
+         undefined,
+         ctx,
+       );
+-      const firstCallTitle = ctx.ui.input.mock.calls[0][0];
+-      expect(firstCallTitle).toContain("Setup");
+-      expect(firstCallTitle).toContain("Name?");
++      expect(result.details.results).toEqual([["ESLint", "Vitest"]]);
+     });
+ 
+-    it("stops on cancellation and returns partial results with cancelled=true", async () => {
+-      const { tool, ctx } = getToolAndMockCtx();
+-      // First sub-question returns a value; second cancels (undefined); third should not be called.
+-      ctx.ui.input.mockResolvedValueOnce("first");
+-      ctx.ui.select.mockResolvedValueOnce(undefined); // cancel
++    it("returns a cancel summary with cancelled=true when ctx.ui.batch resolves undefined", async () => {
++      const batch = vi.fn().mockResolvedValue(undefined);
++      const { tool, ctx } = getToolAndMockCtx(batch);
+       const result = await tool.execute(
+         "id",
+         {
+@@ -454,16 +460,15 @@ describe("registerAskUserTool", () => {
+           questions: [
+             { method: "input", title: "Q1" },
+             { method: "select", title: "Q2", options: ["a", "b"] },
+-            { method: "confirm", title: "Q3" },
+           ],
+         },
+         undefined,
+         undefined,
+         ctx,
+       );
+       expect(result.details.cancelled).toBe(true);
+-      expect(result.details.results).toEqual(["first", null]);
+-      expect(ctx.ui.confirm).not.toHaveBeenCalled();
++      expect(result.details.results).toEqual([]);
++      expect(result.content[0].text).toMatch(/cancelled batch/i);
+     });
+ 
+     it("surfaces __normalizations warnings in details.warnings", async () => {
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/extension/src/ask-user-tool.ts
+STATUS: modified
+ADDITIONS: 43
+DELETIONS: 57
+
+PATCH:
+@@ -328,73 +328,59 @@ export function registerAskUserTool(pi: ExtensionAPI): void {
+       };
+ 
+       // ── Batch branch ─────────────────────────────────────────────────
++      // Dispatch ALL sub-questions as ONE UI request (method:"batch"). The
++      // dashboard renders a single BatchRenderer wizard and returns one
++      // index-aligned `answers[]` response, enabling review/edit before
++      // submit. The previous per-question sequential loop could not support
++      // that. See change: redesign-ask-user-question-cards.
+       if (params.method === "batch" && Array.isArray(params.questions)) {
+-        const results: Array<unknown> = [];
+-        let cancelled = false;
+-
++        // Validate options up front (same contract as single-method dispatch).
+         for (const sq of params.questions) {
+-          const subTitle = `${params.title} — ${sq.title ?? "Question"}`;
+-          const subMsg = withTcid(params.message ? { message: params.message } : undefined);
+-
+-          let answer: unknown;
+-          try {
+-            switch (sq.method) {
+-              case "confirm":
+-                answer = await ctx.ui.confirm(
+-                  subTitle,
+-                  sq.message ?? params.message ?? "",
+-                  withTcid(undefined),
+-                );
+-                break;
+-              case "select": {
+-                const opts = Array.isArray(sq.options) ? sq.options : [];
+-                if (opts.length === 0) {
+-                  throw new Error(
+-                    `ask_user batch: sub-question method "select" requires a non-empty "options" array.`,
+-                  );
+-                }
+-                answer = await ctx.ui.select(subTitle, opts, subMsg);
+-                break;
+-              }
+-              case "multiselect": {
+-                const opts = Array.isArray(sq.options) ? sq.options : [];
+-                if (opts.length === 0) {
+-                  throw new Error(
+-                    `ask_user batch: sub-question method "multiselect" requires a non-empty "options" array.`,
+-                  );
+-                }
+-                answer = await polyfillMultiselect(ctx, subTitle, opts, subMsg);
+-                break;
+-              }
+-              case "input":
+-                answer = await ctx.ui.input(subTitle, sq.placeholder, subMsg);
+-                break;
+-              default:
+-                throw new Error(`ask_user batch: unknown sub-question method "${sq.method}"`);
+-            }
+-          } catch (err) {
+-            // Propagate hard errors (schema/logic bugs); cancellation is signalled by undefined.
+-            throw err;
+-          }
+-
+-          // Treat `undefined` from input/select/multiselect as cancellation.
+-          // (confirm always resolves to a boolean and has no cancel path.)
+           if (
+-            (sq.method === "input" || sq.method === "select" || sq.method === "multiselect") &&
+-            answer === undefined
++            (sq.method === "select" || sq.method === "multiselect") &&
++            (!Array.isArray(sq.options) || sq.options.length === 0)
+           ) {
+-            cancelled = true;
+-            results.push(null);
+-            break;
++            throw new Error(
++              `ask_user batch: sub-question method "${sq.method}" requires a non-empty "options" array.`,
++            );
+           }
+-
+-          results.push(answer);
+         }
+ 
++        const questions = params.questions.map((sq: any) => ({
++          method: sq.method,
++          title: sq.title ?? "Question",
++          message: sq.message,
++          options: Array.isArray(sq.options) ? sq.options : undefined,
++          placeholder: sq.placeholder,
++        }));
++
++        // ONE request. ctx.ui.batch resolves to BatchAnswer[] on submit or
++        // undefined on cancel.
++        const answers: Array<any> | undefined = await (ctx.ui as any).batch(
++          params.title || "Questions",
++          questions,
++          withTcid(params.message ? { message: params.message } : undefined),
++        );
++
++        const cancelled = answers === undefined;
++        // Map each BatchAnswer back to the legacy result shape
++        // (confirm→boolean, select/input→string, multiselect→string[]) so
++        // details.results stays index-aligned and unchanged for the model.
++        const results: Array<unknown> = cancelled
++          ? []
++          : answers.map((a) => {
++              if (a && typeof a === "object") {
++                if ("confirmed" in a) return (a as any).confirmed;
++                if ("values" in a) return (a as any).values;
++                if ("value" in a) return (a as any).value;
++              }
++              return a;
++            });
++
+         const warnings: string[] = (params as any).__normalizations ?? [];
+         const lines: string[] = [];
+         if (cancelled) {
+-          lines.push(`User cancelled batch after ${results.filter((r) => r !== null).length} of ${params.questions.length} answers.`);
++          lines.push(`User cancelled batch (0 of ${params.questions.length} answers submitted).`);
+         } else {
+           lines.push(`User completed batch (${results.length} answers).`);
+         }
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/extension/src/bridge.ts
+STATUS: modified
+ADDITIONS: 23
+DELETIONS: 0
+
+PATCH:
+@@ -1725,6 +1725,29 @@ function initBridge(pi: ExtensionAPI) {
+           metadata: opts?.message ? { message: opts.message } : undefined,
+         }).then(decodeMultiselectAnswer);
+ 
++      // ── Batch ────────────────────────────────────────────────────
++      // ctx.ui.batch is NOT a built-in pi method. The ask_user tool calls it
++      // to dispatch a multi-question batch as ONE bus request carrying
++      // `questions[]` in metadata; the dashboard renders a BatchRenderer
++      // wizard and returns one `{answers}` response (JSON-encoded in the bus
++      // `answer` string). Resolves to BatchAnswer[] on submit, or undefined on
++      // cancel. See change: redesign-ask-user-question-cards.
++      (ctx.ui as any).batch = (title: string, questions: unknown[], opts?: any) =>
++        bus.request({
++          pipeline: "command",
++          type: "batch",
++          question: title,
++          metadata: { ...(buildMeta(opts) ?? {}), questions },
++        }).then((r) => {
++          if (r.cancelled || r.answer == null) return undefined;
++          try {
++            const parsed = JSON.parse(r.answer);
++            return Array.isArray(parsed) ? parsed : undefined;
++          } catch {
++            return undefined;
++          }
++        });
++
+       // Notify is fire-and-forget: call original + forward to dashboard
+       (ctx.ui as any).notify = (message: string, level?: string) => {
+         originalNotify?.(message, level);
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/extension/src/prompt-bus.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -25,7 +25,7 @@ export interface PromptClaim {
+ export interface PromptRequest {
+   id: string;
+   pipeline: string;
+-  type: "select" | "input" | "confirm" | "editor" | "multiselect";
++  type: "select" | "input" | "confirm" | "editor" | "multiselect" | "batch";
+   question: string;
+   options?: string[];
+   defaultValue?: string;
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/shared/src/__tests__/browser-protocol-types.test.ts
+STATUS: modified
+ADDITIONS: 30
+DELETIONS: 0
+
+PATCH:
+@@ -13,6 +13,8 @@ import type {
+   BrowserPromptCancelMessage,
+   BrowserExtUiDecoratorMessage,
+   BrowserAssetRegisterMessage,
++  BatchQuestion,
++  BatchAnswer,
+ } from "../browser-protocol.js";
+ import type {
+   ExtensionToServerMessage,
+@@ -77,6 +79,34 @@ describe("ServerToBrowserMessage includes PromptBus messages", () => {
+     };
+     expect(extractPromptType(msg)).toBe("p1");
+   });
++
++  it("batch prompt_request carries questions[] in metadata", () => {
++    const questions: BatchQuestion[] = [
++      { method: "input", title: "Project name" },
++      { method: "select", title: "Language", options: ["TS", "Go"] },
++      { method: "multiselect", title: "Tooling", options: ["ESLint", "Vitest"] },
++    ];
++    const msg: BrowserPromptRequestMessage = {
++      type: "prompt_request",
++      sessionId: "s1",
++      promptId: "p1",
++      prompt: { question: "Project setup", type: "batch", metadata: { questions } },
++      component: { type: "generic-dialog", props: {} },
++      placement: "inline",
++    };
++    expect(extractPromptType(msg)).toBe("p1");
++    expect((msg.prompt.metadata!.questions as BatchQuestion[]).length).toBe(3);
++  });
++
++  it("BatchAnswer covers confirm/value/values shapes", () => {
++    const answers: BatchAnswer[] = [
++      { value: "pi-dashboard" },
++      { value: "TS" },
++      { values: ["ESLint", "Vitest"] },
++      { confirmed: true },
++    ];
++    expect(answers).toHaveLength(4);
++  });
+ });
+ 
+ // Phase-2: ext_ui_decorator switch-arm reachability.
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/shared/src/browser-protocol.ts
+STATUS: modified
+ADDITIONS: 11
+DELETIONS: 0
+
+PATCH:
+@@ -23,6 +23,15 @@ import type { TerminalSession } from "./terminal-types.js";
+ import type { EditorInstanceStatus } from "./editor-types.js";
+ import type { DisplayPrefs, PartialDisplayPrefs } from "./display-prefs.js";
+ 
++// Batch ask_user contracts live in protocol.ts; re-export so browser-side
++// consumers import from one place. See change: redesign-ask-user-question-cards.
++export type {
++  InteractiveMethod,
++  BatchQuestion,
++  BatchAnswer,
++  BatchResult,
++} from "./protocol.js";
++
+ // ── Configurable chat display ───────────────────────────────────────
+ // See change: configurable-chat-display.
+ 
+@@ -375,10 +384,12 @@ export interface BrowserPromptRequestMessage {
+   promptId: string;
+   prompt: {
+     question: string;
++    /** Interactive method, incl. "batch". See InteractiveMethod in protocol.ts. */
+     type: string;
+     options?: string[];
+     defaultValue?: string;
+     pipeline?: string;
++    /** For type: "batch", carries questions: BatchQuestion[]. */
+     metadata?: Record<string, unknown>;
+   };
+   component: {
+
+----------------------------------------------------------------------------------------------------
+FILE: packages/shared/src/protocol.ts
+STATUS: modified
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -259,16 +259,57 @@ export interface SpawnNewSessionMessage {
+ 
+ // ── PromptBus protocol messages ─────────────────────────────────────
+ 
++/**
++ * Interactive `ask_user` methods carried by `prompt.type`. The wire field
++ * stays `string` (adapters/plugins emit custom types) but this union is the
++ * authoritative set the built-in renderers handle. `"batch"` dispatches all
++ * sub-questions as ONE request answered together.
++ * See change: redesign-ask-user-question-cards.
++ */
++export type InteractiveMethod =
++  | "confirm"
++  | "select"
++  | "multiselect"
++  | "input"
++  | "editor"
++  | "batch";
++
++/** One sub-question inside a `batch` prompt (no nesting — cannot be `batch`). */
++export interface BatchQuestion {
++  method: "confirm" | "select" | "multiselect" | "input";
++  title: string;
++  message?: string;
++  options?: string[];
++  placeholder?: string;
++}
++
++/**
++ * One answer in a `batch` response, index-aligned with `BatchQuestion[]`.
++ * `confirm` → `{confirmed}`, `select`/`input` → `{value}`,
++ * `multiselect` → `{values}`.
++ */
++export type BatchAnswer =
++  | { confirmed: boolean }
++  | { value: string }
++  | { values: string[] };
++
++/** Result payload returned by a resolved `batch` prompt. */
++export interface BatchResult {
++  answers: BatchAnswer[];
++}
++
+ export interface PromptRequestMessage {
+   type: "prompt_request";
+   sessionId: string;
+   promptId: string;
+   prompt: {
+     question: string;
++    /** Interactive method. See {@link InteractiveMethod}. */
+     type: string;
+     options?: string[];
+     defaultValue?: string;
+     pipeline?: string;
++    /** For `type: "batch"`, carries `questions: BatchQuestion[]`. */
+     metadata?: Record<string, unknown>;
+   };
+   component: {
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

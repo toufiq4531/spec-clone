@@ -1,0 +1,3626 @@
+====================================================================================================
+CORRECTED TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 10/15
+Repository: mazrean/kessoku
+PR: #47
+Tool: speckit
+Language: Go
+Total PR commits: 7
+
+Earlier specification commit position: 1
+Step-7 automated 'first code' hint: 2
+
+IMPORTANT:
+The Step-7 code position is only a screening hint.
+Your task is to identify the FIRST LATER COMMIT that actually implements the earlier requirement.
+
+####################################################################################################
+SECTION A — EARLIER SPECIFICATION COMMIT
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 1
+====================================================================================================
+SHA: 0f783784feb557be5dd5bf65d62f3f196bd14615
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add agent skills setup feature specification
+
+Add design documents for the llm-setup subcommand feature that
+provides kessoku usage instructions as coding agent skills.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 8
+
+--- FILE 1/8 ---
+FILE: specs/002-agent-skills-setup/checklists/requirements.md
+STATUS: added
+ADDITIONS: 36
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,36 @@
++# Specification Quality Checklist: Agent Skills Setup Subcommand
++
++**Purpose**: Validate specification completeness and quality before proceeding to planning
++**Created**: 2026-01-03
++**Feature**: [spec.md](../spec.md)
++
++## Content Quality
++
++- [x] No implementation details (languages, frameworks, APIs)
++- [x] Focused on user value and business needs
++- [x] Written for non-technical stakeholders
++- [x] All mandatory sections completed
++
++## Requirement Completeness
++
++- [x] No [NEEDS CLARIFICATION] markers remain
++- [x] Requirements are testable and unambiguous
++- [x] Success criteria are measurable
++- [x] Success criteria are technology-agnostic (no implementation details)
++- [x] All acceptance scenarios are defined
++- [x] Edge cases are identified
++- [x] Scope is clearly bounded
++- [x] Dependencies and assumptions identified
++
++## Feature Readiness
++
++- [x] All functional requirements have clear acceptance criteria
++- [x] User scenarios cover primary flows
++- [x] Feature meets measurable outcomes defined in Success Criteria
++- [x] No implementation details leak into specification
++
++## Notes
++
++- All checklist items passed validation
++- Specification is ready for `/speckit.clarify` or `/speckit.plan`
++- The spec correctly focuses on WHAT (install skills, extensible architecture) and WHY (help developers use kessoku with Claude Code) without specifying HOW (no specific code patterns, data structures, or implementation approaches mentioned)
+
+--- FILE 2/8 ---
+FILE: specs/002-agent-skills-setup/contracts/README.md
+STATUS: added
+ADDITIONS: 189
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,189 @@
++# Contracts: Agent Skills Setup Subcommand
++
++**Status**: CLI-only feature (no HTTP/RPC API)
++
++This feature is a CLI subcommand with no HTTP/RPC API contracts. All contracts are CLI-based.
++
++---
++
++## CLI Interface Contracts
++
++### Command: `kessoku llm-setup claude-code [--user] [--path <dir>]`
++
++**Purpose**: Install Claude Code Skills file
++
++**Input**:
++| Flag | Type | Required | Description |
++|------|------|----------|-------------|
++| `--user` | bool | No | Install to user-level directory instead of project-level |
++| `--path`, `-p` | string | No | Custom installation directory (overrides `--user`) |
++
++**Output (Success)**:
++- Stream: stdout
++- Format: `Skills installed to: <absolute-path>`
++- Exit code: `0`
++
++**Output (Error)**:
++- Stream: stderr
++- Format: `Error: <message>`
++- Exit code: `1`
++
++---
++
++### Command: `kessoku llm-setup` (no subcommand)
++
++**Purpose**: Display available agents
++
++**Input**: None
++
++**Output**:
++- Stream: stdout
++- Format: Usage help listing available agents
++- Exit code: `0`
++
++**Example Output**:
++```
++Usage: kessoku llm-setup <command>
++
++Setup coding agent skills
++
++Commands:
++  claude-code    Install Claude Code skills
++
++Run "kessoku llm-setup <command> --help" for more information on a command.
++```
++
++**Note**: The `--user` and `--path` flags are defined on each agent subcommand (e.g., `claude-code`), not on the parent `llm-setup` command.
++
++---
++
++### Command: `kessoku llm-setup <unknown-agent>`
++
++**Purpose**: Handle unknown agent subcommand
++
++**Input**: Unknown agent name
++
++**Output**:
++- Stream: stderr
++- Format: Error message with available agents
++- Exit code: `1`
++
++**Example Output**:
++```
++Error: unknown command "unknown-agent"
++
++Available agents:
++  claude-code    Install Claude Code skills
++```
++
++---
++
++## Error Message Contracts
++
++| Error Condition | Message Format | Exit Code |
++|----------------|----------------|-----------|
++| HOME not set (--user) | `cannot determine home directory: $HOME not set (use --path flag)` | 1 |
++| Unsupported OS (--user) | `unsupported operating system: <os>. Use --path flag` | 1 |
++| Path is file | `path is a file, not a directory: <path>` | 1 |
++| Permission denied | `permission denied: <path>` | 1 |
++| Cannot create dir | `cannot create directory: <path>: <err>` | 1 |
++| Cannot write file | `cannot write file: <err>` | 1 |
++| Cannot install | `cannot install file: <err>` | 1 |
++| Tilde expansion fail | `cannot determine home directory for tilde expansion` | 1 |
++| Cannot get cwd | `cannot determine current directory: <err>` | 1 |
++| Cannot access path | `cannot access path: <path>: <err>` | 1 |
++
++---
++
++## File Contract
++
++### Installed File
++
++**Path (Project-Level - Default)**: `./.claude/skills/kessoku.md` (relative to cwd)
++**Path (User-Level)**: `~/.claude/skills/kessoku.md` (or custom via `--path`)
++
++**Format**: Markdown (UTF-8, LF line endings)
++
++**Content**: Kessoku usage documentation (embedded at compile time)
++
++**Permissions**: `0644` (rw-r--r--)
++
++**Directory Permissions**: `0755` (rwxr-xr-x) if created
++
++---
++
++## Path Resolution Contract
++
++### Input Processing
++
++| Input Type | Processing |
+
+[PATCH TRUNCATED: 190 total lines]
+
+--- FILE 3/8 ---
+FILE: specs/002-agent-skills-setup/data-model.md
+STATUS: added
+ADDITIONS: 227
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,227 @@
++# Data Model: Agent Skills Setup Subcommand
++
++**Date**: 2026-01-03
++**Feature**: 002-agent-skills-setup
++
++## Entities
++
++### 1. Agent
++
++Represents a supported coding agent with its configuration.
++
++| Field | Type | Description | Validation |
++|-------|------|-------------|------------|
++| `Name` | string | Subcommand identifier (e.g., "claude-code") | Alphanumeric, hyphens allowed |
++| `Description` | string | Help text for the subcommand | Non-empty |
++| `SkillsFileName` | string | Output filename (e.g., "kessoku.md") | Valid filename |
++| `ProjectSubPath` | string | Relative path for project-level install | No leading slash, forward slashes |
++| `UserSubPath` | string | Relative path for user-level install | No leading slash, forward slashes |
++
++**Supported Agents (Initial)**:
++- `claude-code`: Claude Code coding agent
++  - `ProjectSubPath`: `.claude/skills`
++  - `UserSubPath`: `.claude/skills`
++  - `SkillsFileName`: `kessoku.md`
++
++**Path Resolution**:
++
++| Scope | Base Directory | Subpath | Example Result |
++|-------|----------------|---------|----------------|
++| Project (default) | `os.Getwd()` | `agent.ProjectSubPath()` | `./myproject/.claude/skills` |
++| User (`--user`) | `$HOME` or `%USERPROFILE%` (env var, fails if unset) | `agent.UserSubPath()` | `~/.claude/skills` |
++| Custom (`--path`) | User-specified | N/A | `/custom/path/` |
++
++**Note**: User-level resolution explicitly checks the environment variable (`os.Getenv("HOME")` or `os.Getenv("USERPROFILE")`) and fails with an error if the variable is not set. This ensures the mandated failure behavior per FR-012a.
++
++### 2. SkillsContent
++
++Embedded Skills file content.
++
++| Field | Type | Description |
++|-------|------|-------------|
++| `Content` | string | Markdown content (embedded via `go:embed`) |
++| `FileName` | string | Output file name (`kessoku.md`) |
++
++**Invariants**:
++- LF line endings on all platforms
++- UTF-8 encoded
++
++### 3. InstallationConfig
++
++Configuration for a Skills installation operation.
++
++| Field | Type | Description | Default |
++|-------|------|-------------|---------|
++| `TargetDir` | string | Directory to install Skills | Computed from scope |
++| `FileName` | string | Output file name | `kessoku.md` |
++| `FileMode` | os.FileMode | File permissions | `0644` |
++| `DirMode` | os.FileMode | Directory permissions | `0755` |
++| `Scope` | InstallScope | Project, User, or Custom | Project |
++
++### 4. InstallScope
++
++Enum for installation scope.
++
++| Value | Flag | Description |
++|-------|------|-------------|
++| `ScopeProject` | (default) | Install to `./<subpath>` |
++| `ScopeUser` | `--user` | Install to `~/<subpath>` |
++| `ScopeCustom` | `--path` | Install to user-specified path |
++
++### 5. InstallationResult
++
++Result of a Skills installation operation.
++
++| Field | Type | Description |
++|-------|------|-------------|
++| `Success` | bool | Whether installation succeeded |
++| `Path` | string | Full path to installed file |
++| `Error` | error | Error if installation failed |
++
++## State Transitions
++
++```
++                    ┌─────────────────┐
++                    │  Initial State  │
++                    │  (No Skills)    │
++                    └────────┬────────┘
++                             │
++                             ▼
++                    ┌─────────────────┐
++        ┌───────────│   Installing    │───────────┐
++        │           └────────┬────────┘           │
++        ▼                    │                    ▼
++┌───────────────┐           │           ┌─────────────────┐
++│    Error      │           ▼           │    Success      │
++│ (No changes)  │   ┌───────────────┐   │(Skills installed)│
++└───────────────┘   │   Installed   │   └─────────────────┘
++                    │ (Idempotent)  │
++                    └───────────────┘
++                             │
++                             ▼ (Run again)
++                    ┌─────────────────┐
++                    │    Updated      │
++                    │ (Atomic replace)│
++                    └─────────────────┘
++```
++
++## Error States
++
++| Error Type | Condition | Exit Code | Message Pattern |
++|------------|-----------|-----------|-----------------|
++| `ErrHomeNotSet` | `HOME`/`USERPROFILE` env var not set (--user or tilde) | 1 | "cannot determine home directory: $HOME not set (use --path flag)" |
++| `ErrPathIsFile` | Target path is a file, not directory | 1 | "path is a file, not a directory: <path>" |
++| `ErrPermissionDenied` | Cannot create dir or write file | 1 | "permission denied: <path>" |
++| `ErrWriteFailed` | File write fails mid-operation | 1 | "cannot write file: <reason>" |
++| `ErrUnknownAgent` | Invalid agent subcommand | 1 | "unknown command \"<name>\"" (Kong default) |
++| `ErrUnsupportedOS` | OS not Windows/macOS/Linux (--user) | 1 | "unsupported operating system: <os>. Use --path flag" |
++| `ErrTildeExpansion` | Tilde path but HOME not set | 1 | "cannot determine home directory for tilde expansion" |
++| `ErrDirCreate` | Cannot create target directory | 1 | "cannot create directory: <path>: <err>" |
+
+[PATCH TRUNCATED: 228 total lines]
+
+--- FILE 4/8 ---
+FILE: specs/002-agent-skills-setup/plan.md
+STATUS: added
+ADDITIONS: 452
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,452 @@
++# Implementation Plan: Agent Skills Setup Subcommand
++
++**Branch**: `002-agent-skills-setup` | **Date**: 2026-01-03 | **Spec**: [spec.md](spec.md)
++**Input**: Feature specification from `/specs/002-agent-skills-setup/spec.md`
++
++## Summary
++
++Add a `kessoku llm-setup <agent>` subcommand that installs kessoku usage documentation as Skills files for coding agents. The initial implementation supports Claude Code by embedding a `kessoku.md` Skills file via `go:embed`. By default, Skills are installed at the **project level** (`./.claude/skills/`), with an optional `--user` flag for user-level installation (`~/.claude/skills/`). The architecture is designed for extensibility to support additional coding agents in the future.
++
++## Technical Context
++
++**Language/Version**: Go 1.24+
++**Primary Dependencies**: github.com/alecthomas/kong (CLI framework, already in use)
++**Storage**: File-based output (Skills files installed to filesystem)
++**Testing**: go test (standard Go testing)
++**Target Platform**: Linux, macOS, Windows (cross-platform CLI tool)
++**Project Type**: Single Go module with CLI tool
++**Performance Goals**: N/A (one-shot file installation, not performance-critical)
++**Constraints**: Must use `go:embed` for Skills files; atomic file operations for installation
++**Scale/Scope**: Single agent (Claude Code) in initial implementation; designed for multi-agent extensibility
++
++## Constitution Check
++
++*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
++
++**Status**: PASSED (No specific gates defined)
++
++The constitution file is currently a template without project-specific principles. No gates to enforce. The implementation follows existing patterns:
++- Kong CLI framework (consistent with existing `generate` and `migrate` commands)
++- Standard Go project structure (internal/ packages)
++- Test-driven development approach (per CLAUDE.md guidelines)
++
++## Project Structure
++
++### Documentation (this feature)
++
++```text
++specs/002-agent-skills-setup/
++├── plan.md              # This file
++├── research.md          # Phase 0 output
++├── data-model.md        # Phase 1 output
++├── quickstart.md        # Phase 1 output
++├── contracts/           # Phase 1 output (N/A for CLI-only feature)
++└── tasks.md             # Phase 2 output (/speckit.tasks command)
++```
++
++### Source Code (repository root)
++
++```text
++internal/
++├── config/
++│   └── config.go        # Add LLMSetupCmd to CLI struct
++├── llmsetup/            # NEW: LLM setup subcommand implementation
++│   ├── llmsetup.go      # LLMSetupCmd with agent subcommands
++│   ├── agent.go         # Agent interface and registry
++│   ├── install.go       # Atomic file installation logic
++│   ├── path.go          # Path resolution logic
++│   ├── claudecode.go    # Claude Code agent implementation
++│   ├── skills/          # Embedded Skills files
++│   │   └── kessoku.md   # Claude Code Skills content
++│   ├── llmsetup_test.go # Unit tests for llm-setup command
++│   ├── install_test.go  # Unit tests for atomic installation
++│   └── path_test.go     # Unit tests for path resolution
++├── kessoku/             # Existing: codegen engine
++└── migrate/             # Existing: wire migration
++```
++
++**Structure Decision**: Follows existing pattern in internal/ with a new `llmsetup` package. Skills files embedded in `internal/llmsetup/skills/` subdirectory.
++
++---
++
++## Path Resolution Algorithm (FR-011–FR-016a)
++
++### Algorithm
++
++```
++ResolvePath(customPath string, userFlag bool, agent Agent) -> (string, error):
++
++1. IF customPath is provided (--path flag):
++   a. IF customPath starts with "~":
++      - home := getHomeDir()  // see helper below
++      - IF error: return error "cannot determine home directory for tilde expansion"
++      - path := home + customPath[1:]
++   b. ELSE IF customPath is relative (not absolute):
++      - path := filepath.Abs(customPath)  // resolve relative to cwd
++   c. ELSE:
++      - path := customPath
++   d. GOTO step 4
++
++2. ELSE IF userFlag is true (--user flag):
++   a. goos := runtime.GOOS
++   b. IF goos NOT IN ["linux", "darwin", "windows"]:
++      - return error "unsupported operating system: <goos>. Use --path flag"
++   c. home := getHomeDir()  // explicitly checks env var
++   d. IF error:
++      - return error "cannot determine home directory: <err> (use --path flag)"
++   e. path := filepath.Join(home, agent.UserSubPath())
++      // e.g., home="/home/user", subpath=".claude/skills" -> "/home/user/.claude/skills"
++   f. GOTO step 4
++
++3. ELSE (default: project-level):
++   a. cwd := os.Getwd()
++   b. IF error: return error "cannot determine current directory: <err>"
++   c. path := filepath.Join(cwd, agent.ProjectSubPath())
++      // e.g., cwd="/home/user/myproject", subpath=".claude/skills" -> "/home/user/myproject/.claude/skills"
++
++4. Validate path:
++   a. info, err := os.Stat(path)
++   b. IF err == nil AND info.IsDir() == false:
++      - return error "path is a file, not a directory: <path>"
++   c. IF os.IsNotExist(err):
++      - // OK: directory will be created during installation
++   d. ELSE IF err != nil:
++      - return error "cannot access path: <path>: <err>"
++   e. RETURN path, nil
++
++
++// Helper: getHomeDir() - explicitly checks environment variable per FR-012a
++getHomeDir() -> (string, error):
+
+[PATCH TRUNCATED: 453 total lines]
+
+--- FILE 5/8 ---
+FILE: specs/002-agent-skills-setup/quickstart.md
+STATUS: added
+ADDITIONS: 233
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,233 @@
++# Quickstart: Agent Skills Setup Subcommand
++
++**Date**: 2026-01-03
++**Feature**: 002-agent-skills-setup
++
++## Overview
++
++The `kessoku llm-setup` command installs kessoku usage documentation as Skills files for coding agents, enabling AI assistants to help with kessoku-specific tasks.
++
++## Prerequisites
++
++- kessoku installed and available in PATH
++- Claude Code installed (for `claude-code` agent)
++
++## Basic Usage
++
++### Install Claude Code Skills (Project-Level - Default)
++
++```bash
++# Install to project directory (./.claude/skills/)
++kessoku llm-setup claude-code
++
++# Expected output (stdout):
++# Skills installed to: /home/user/myproject/.claude/skills/kessoku.md
++```
++
++### Install Claude Code Skills (User-Level)
++
++```bash
++# Install to user home directory (~/.claude/skills/)
++kessoku llm-setup claude-code --user
++
++# Expected output (stdout):
++# Skills installed to: /home/user/.claude/skills/kessoku.md
++```
++
++### List Available Agents
++
++```bash
++# Show available agent subcommands (exit 0)
++kessoku llm-setup --help
++
++# Or just run llm-setup without subcommand (also exit 0)
++kessoku llm-setup
++
++# Output:
++# Usage: kessoku llm-setup <command>
++#
++# Setup coding agent skills
++#
++# Commands:
++#   claude-code    Install Claude Code skills
++#
++# Run "kessoku llm-setup <command> --help" for more information on a command.
++
++# Show claude-code specific options
++kessoku llm-setup claude-code --help
++
++# Output:
++# Usage: kessoku llm-setup claude-code [--user] [--path <dir>]
++#
++# Install Claude Code skills
++#
++# Flags:
++#   -h, --help         Show help
++#   --user             Install to user-level directory
++#   -p, --path <dir>   Custom installation directory
++```
++
++### Custom Installation Path
++
++```bash
++# Install to custom directory (overrides --user if both specified)
++kessoku llm-setup claude-code --path /custom/path
++
++# With tilde expansion
++kessoku llm-setup claude-code --path ~/my-skills
++
++# With relative path (resolved from cwd)
++kessoku llm-setup claude-code --path ./skills
++```
++
++## Installation Scopes
++
++| Scope | Flag | Path | Use Case |
++|-------|------|------|----------|
++| Project (default) | (none) | `./.claude/skills/` | Team collaboration, per-project config |
++| User | `--user` | `~/.claude/skills/` | Personal, cross-project config |
++| Custom | `--path <dir>` | User-specified | Testing, non-standard setups |
++
++**Note**: `--path` takes precedence over `--user` if both are specified.
++
++## Error Handling
++
++### Unknown Agent
++
++```bash
++# Unknown agent exits with code 1
++kessoku llm-setup unknown-agent
++
++# Output (stderr):
++# Error: unknown command "unknown-agent"
++#
++# Available agents:
++#   claude-code    Install Claude Code skills
++```
++
++### Home Directory Not Set (--user mode)
++
++```bash
++# If HOME/USERPROFILE not set when using --user (exit 1)
++# Output (stderr):
++# Error: cannot determine home directory: $HOME not set (use --path flag)
++
++# Workaround: use --path
++kessoku llm-setup claude-code --path /explicit/path
++```
++
++### Unsupported Operating System (--user mode)
+
+[PATCH TRUNCATED: 234 total lines]
+
+--- FILE 6/8 ---
+FILE: specs/002-agent-skills-setup/research.md
+STATUS: added
+ADDITIONS: 257
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,257 @@
++# Research: Agent Skills Setup Subcommand
++
++**Date**: 2026-01-03
++**Feature**: 002-agent-skills-setup
++
++## 1. Go's `go:embed` Directive
++
++### Decision
++Use `//go:embed` with `string` type for embedding the single `kessoku.md` Skills file.
++
++### Rationale
++- **Simplest approach** for single file embedding
++- No extra overhead of `embed.FS` filesystem abstraction
++- Direct string access without file I/O at runtime
++- Compile-time embedding with zero runtime overhead
++
++### Alternatives Considered
++| Approach | Use Case | Why Rejected |
++|----------|----------|--------------|
++| `[]byte` | Binary data | Markdown is text, not binary |
++| `embed.FS` | Multiple files/dirs | Single file; extra complexity |
++| External file | Runtime loading | Violates spec requirement for embedded files |
++
++### Implementation Pattern
++```go
++package setup
++
++import _ "embed"
++
++//go:embed skills/kessoku.md
++var claudeCodeSkills string
++
++func GetClaudeCodeSkills() string {
++    return claudeCodeSkills
++}
++```
++
++### Gotchas
++- Path must be relative to package directory
++- Forward slashes only (even on Windows)
++- Cannot embed files with `..` parent references
++- Hidden files (`.filename`) require explicit embedding
++
++---
++
++## 2. Kong CLI Nested Subcommands
++
++### Decision
++Use Kong's native nested command struct pattern with `kong:"cmd"` tags.
++
++### Rationale
++- Consistent with existing `GenerateCmd` and `MigrateCmd` patterns
++- Kong automatically generates help for nested commands
++- Clean separation of concerns per agent type
++- Easy to add new agent subcommands
++
++### Implementation Pattern
++```go
++// CLI root struct (in config.go)
++type CLI struct {
++    LogLevel string      `kong:"short='l',..."`
++    Generate GenerateCmd `kong:"cmd,default='withargs',..."`
++    Migrate  MigrateCmd  `kong:"cmd,..."`
++    Setup    SetupCmd    `kong:"cmd,help='Setup coding agent skills'"`
++    Version  kong.VersionFlag `kong:"short='v',..."`
++}
++
++// Setup command with agent subcommands
++type SetupCmd struct {
++    ClaudeCode ClaudeCodeCmd `kong:"cmd,name='claude-code',help='Install Claude Code skills'"`
++}
++
++// When setup called without subcommand, show usage
++func (c *SetupCmd) Run(ctx *kong.Context) error {
++    // This runs when no subcommand is selected
++    ctx.PrintUsage(true)
++    return nil
++}
++
++// Claude Code agent implementation
++type ClaudeCodeCmd struct {
++    Path string `kong:"short='p',help='Custom installation path'"`
++}
++
++func (c *ClaudeCodeCmd) Run(cli *CLI) error {
++    // Install skills to path
++    return installSkills(c.Path)
++}
++```
++
++### Handling Missing Subcommand
++Kong calls the parent command's `Run()` method when no subcommand is specified. The `SetupCmd.Run()` method prints usage information (FR-003).
++
++### Help Generation
++Kong automatically generates help:
++- `kessoku setup --help` → Lists available agent subcommands
++- `kessoku setup claude-code --help` → Shows claude-code options
++
++---
++
++## 3. Atomic File Writes
++
++### Decision
++Use write-to-temp + rename pattern with platform-specific handling for Windows.
++
++### Rationale
++- **Atomicity**: `os.Rename()` is atomic within same filesystem on Unix
++- **Failure safety**: No partial files on interruption (FR-008)
++- **Cross-platform**: Works on Linux, macOS, Windows with minor adjustments
++- **Same directory**: Temp file in target directory ensures same filesystem
++
++### Implementation Pattern
++```go
++func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
++    dir := filepath.Dir(path)
++
++    // Create directory if needed (FR-016)
++    if err := os.MkdirAll(dir, 0755); err != nil {
++        return fmt.Errorf("create directory: %w", err)
+
+[PATCH TRUNCATED: 258 total lines]
+
+--- FILE 7/8 ---
+FILE: specs/002-agent-skills-setup/spec.md
+STATUS: added
+ADDITIONS: 187
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,187 @@
++# Feature Specification: Agent Skills Setup Subcommand
++
++**Feature Branch**: `002-agent-skills-setup`
++**Created**: 2026-01-03
++**Status**: Draft
++**Input**: User description: "kessokuの使い方をClaude CodeのSkillsとして提供する機能を作成して。ただし、この際今後の拡張性を考え、指定したコーディングエージェント用の設定を行うサブコマンドとして提供する形にして。また、Skillsのファイルはgo:embedでバイナリに埋め込まれるようにして、サブコマンドが実行された際にSkillsの設定ディレクトリへ展開するようにして。"
++
++## User Scenarios & Testing *(mandatory)*
++
++### User Story 1 - Install Claude Code Skills (Project-Level) (Priority: P1)
++
++A developer using kessoku wants to install kessoku usage instructions as Claude Code Skills at the project level so that Claude Code can assist them with kessoku-specific tasks like creating providers, setting up dependency injection, and using the migrate command.
++
++**Why this priority**: This is the core functionality requested. Without this, the feature has no value. Claude Code is the primary target agent. Project-level is the default for team collaboration.
++
++**Independent Test**: Can be fully tested by running the llm-setup subcommand and verifying that the Skills file (`kessoku.md`) appears in the project-level skills directory with correct content.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user has kessoku installed in a project, **When** they run `kessoku llm-setup claude-code`, **Then** the `kessoku.md` Skills file is installed to `./.claude/skills/kessoku.md` (project-level) and the command exits with code 0.
++2. **Given** Skills are already installed, **When** the user runs `kessoku llm-setup claude-code` again, **Then** the existing `kessoku.md` is atomically replaced with the latest version and the command exits with code 0.
++3. **Given** a user runs the llm-setup command, **When** the installation completes successfully, **Then** a success message showing the installation path is printed to stdout.
++4. **Given** a user runs the llm-setup command, **When** the installation fails, **Then** an error message is printed to stderr and the command exits with a non-zero exit code.
++
++---
++
++### User Story 2 - Install Claude Code Skills (User-Level) (Priority: P2)
++
++A developer wants to install kessoku Skills at the user level so they are available across all projects without per-project setup.
++
++**Why this priority**: Secondary to project-level, but important for users who prefer global configuration.
++
++**Independent Test**: Can be tested by running `kessoku llm-setup claude-code --user` and verifying the file is installed to the user-level skills directory.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user wants user-level skills, **When** they run `kessoku llm-setup claude-code --user`, **Then** `kessoku.md` is installed to `~/.claude/skills/kessoku.md` (user-level) instead of project-level.
++2. **Given** user-level skills are already installed, **When** the user runs `kessoku llm-setup claude-code --user` again, **Then** the existing file is atomically replaced.
++
++---
++
++### User Story 3 - List Available Agents (Priority: P2)
++
++A developer wants to see which coding agents are supported by kessoku's llm-setup command so they can choose the appropriate one for their workflow.
++
++**Why this priority**: Helps discoverability of supported agents, but secondary to actual installation functionality.
++
++**Independent Test**: Can be tested by running `kessoku llm-setup --help` and verifying the list of available agent subcommands is displayed.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user runs `kessoku llm-setup --help`, **When** the help is displayed, **Then** a list of available agent subcommands (e.g., `claude-code`) is shown with descriptions.
++2. **Given** a user runs `kessoku llm-setup` without specifying an agent, **When** the command executes, **Then** usage information with available agents is displayed and the command exits with code 0 (not an error).
++
++---
++
++### User Story 4 - Custom Installation Path (Priority: P3)
++
++A developer wants to install Skills to a custom location instead of the default skills directory (e.g., for testing or non-standard setups).
++
++**Why this priority**: Edge case for advanced users; most users will use the default path.
++
++**Independent Test**: Can be tested by running the llm-setup command with a custom path flag and verifying the `kessoku.md` file is installed to the specified location.
++
++**Acceptance Scenarios**:
++
++1. **Given** a user wants to install Skills to a custom path, **When** they run `kessoku llm-setup claude-code --path /custom/path`, **Then** `kessoku.md` is installed to `/custom/path/kessoku.md` instead of the default location.
++2. **Given** a custom path that doesn't exist, **When** the user runs the llm-setup command with that path, **Then** the directory is created with mode 0755 and Skills are installed.
++3. **Given** a custom path with a relative path like `./skills`, **When** the user runs the llm-setup command, **Then** the path is resolved relative to the current working directory.
++4. **Given** a custom path with tilde expansion like `~/my-skills`, **When** the user runs the llm-setup command, **Then** the tilde is expanded to the user's home directory.
++5. **Given** both `--user` and `--path` are specified, **When** the user runs the command, **Then** `--path` takes precedence and the file is installed to the custom path.
++
++---
++
++### Edge Cases
++
++- **Directory doesn't exist**: The skills directory (default or custom) is created automatically with mode 0755 (rwxr-xr-x).
++- **Path is an existing file**: If `--path` points to an existing file (not a directory), print error message to stderr: `Error: path is a file, not a directory: <path>` and exit with code 1.
++- **Cannot create directory**: If the directory cannot be created (e.g., parent path is a file, or invalid path characters), print error message to stderr with the specific path and reason, then exit with code 1.
++- **Permission denied**: If the directory cannot be created or written to, print error message to stderr with the specific path and exit with code 1.
++- **Disk full / Write failure**: If file write fails mid-operation, remove any partial file and exit with code 1.
++- **HOME/USERPROFILE not set (--user mode)**: If the home directory environment variable is not set when using `--user`, print error message to stderr explaining the issue and suggesting `--path` flag, then exit with code 1.
++- **Unsupported OS (--user mode)**: If the operating system is not Windows, macOS, or Linux when using `--user`, print error message to stderr and exit with code 1 (custom `--path` can still be used).
++- **Unknown agent**: If user runs `kessoku llm-setup unknown-agent`, print error message listing available agents and exit with code 1.
++- **Symlink in path**: Symlinks in the path are followed; no special handling required.
++- **Read-only filesystem**: Treated as permission denied error.
++
++## Requirements *(mandatory)*
++
++### Functional Requirements
++
++#### Command Structure
++
++- **FR-001**: System MUST provide a `llm-setup` subcommand with agent-specific subcommands (e.g., `kessoku llm-setup claude-code`).
++- **FR-002**: System MUST support `claude-code` as the initial agent subcommand under `llm-setup`.
++- **FR-003**: When `kessoku llm-setup` is run without an agent subcommand, the system MUST display usage information listing available agents and exit with code 0.
++- **FR-004**: When `kessoku llm-setup <unknown-agent>` is run, the system MUST display an error message listing available agents and exit with code 1.
++
++#### File Embedding and Installation
++
++- **FR-005**: System MUST embed Skills files in the binary using Go's `go:embed` directive at compile time.
++- **FR-006**: System MUST install a single Skills file named `kessoku.md` to the target directory.
++- **FR-007**: System MUST perform atomic file installation: write to a temporary file in the same directory, then rename to the final filename.
++- **FR-008**: If atomic rename fails or is interrupted, the system MUST NOT leave partial or corrupted files in the target directory.
++- **FR-009**: System MUST overwrite existing `kessoku.md` when running llm-setup again (idempotent operation).
++- **FR-010**: The installed file MUST have the same byte content as the embedded source file.
++
++#### Path Resolution
++
++- **FR-011**: System MUST default to project-level installation:
++  - **Default (project-level)**: `./.claude/skills/` (relative to current working directory)
++- **FR-012**: System MUST provide a `--user` flag for user-level installation:
++  - **Linux**: `$HOME/.claude/skills/`
++  - **macOS**: `$HOME/.claude/skills/`
++  - **Windows**: `%USERPROFILE%\.claude\skills\`
++- **FR-012a**: If `HOME` (Linux/macOS) or `USERPROFILE` (Windows) environment variable is not set when `--user` is specified, the system MUST fail with a clear error message suggesting the `--path` flag.
++- **FR-013**: System MUST provide a `--path` flag to specify a custom installation directory. If provided, `--path` takes precedence over `--user`.
++- **FR-014**: System MUST resolve relative paths (e.g., `./skills`) relative to the current working directory.
++- **FR-015**: System MUST expand tilde (`~`) to the user's home directory.
+
+[PATCH TRUNCATED: 188 total lines]
+
+--- FILE 8/8 ---
+FILE: specs/002-agent-skills-setup/tasks.md
+STATUS: added
+ADDITIONS: 269
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,269 @@
++# Tasks: Agent Skills Setup Subcommand
++
++**Input**: Design documents from `/specs/002-agent-skills-setup/`
++**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
++
++**Tests**: Unit tests ARE included as they are part of the implementation plan (TDD approach per CLAUDE.md guidelines).
++
++**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
++
++## Format: `[ID] [P?] [Story] Description`
++
++- **[P]**: Can run in parallel (different files, no dependencies)
++- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
++- Include exact file paths in descriptions
++
++## Path Conventions
++
++- **Project Type**: Single Go module with CLI tool
++- **New Package**: `internal/llmsetup/` for the llm-setup subcommand implementation
++- **Skills Files**: `internal/llmsetup/skills/` for embedded content
++
++---
++
++## Phase 1: Setup (Shared Infrastructure)
++
++**Purpose**: Project initialization and basic structure
++
++- [x] [T001] Create directory structure `internal/llmsetup/` and `internal/llmsetup/skills/`
++
++---
++
++## Phase 2: Foundational (Blocking Prerequisites)
++
++**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
++
++- [x] [T002] [P] Create Agent interface and registry in `internal/llmsetup/agent.go`
++- [x] [T003] [P] Create embedded Skills content file at `internal/llmsetup/skills/kessoku.md`
++- [x] [T004] [P] Create Claude Code agent implementation in `internal/llmsetup/claudecode.go`
++- [x] [T005] [P] Create LLMSetupCmd structure and ClaudeCodeCmd in `internal/llmsetup/llmsetup.go`
++- [x] [T006] Integrate LLMSetupCmd into CLI struct in `internal/config/config.go`
++
++**Checkpoint**: Foundation ready - user story implementation can now begin
++
++---
++
++## Phase 3: User Story 1 - Install Claude Code Skills (Project-Level) (Priority: P1)
++
++**Goal**: Users can install kessoku Skills for Claude Code at project-level with `kessoku llm-setup claude-code`
++
++**Independent Test**: Run `kessoku llm-setup claude-code` and verify `kessoku.md` appears in `./.claude/skills/` with correct content
++
++### Tests for User Story 1
++
++> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
++
++- [x] [T007] [P] [US1] Unit test for project-level path resolution in `internal/llmsetup/path_test.go` (TestResolvePath_ProjectLevel)
++- [x] [T008] [P] [US1] Unit test for directory creation in `internal/llmsetup/install_test.go` (TestInstallFile_CreatesDirectory)
++- [x] [T009] [P] [US1] Unit test for atomic overwrite in `internal/llmsetup/install_test.go` (TestInstallFile_AtomicOverwrite)
++- [x] [T010] [P] [US1] Unit test for idempotent install in `internal/llmsetup/install_test.go` (TestInstallFile_Idempotent)
++- [x] [T011] [P] [US1] Unit test for partial file cleanup in `internal/llmsetup/install_test.go` (TestInstallFile_CleansUpOnError)
++- [x] [T012] [P] [US1] Unit test for success output in `internal/llmsetup/llmsetup_test.go` (TestClaudeCodeCmd_SuccessOutput)
++- [x] [T013] [P] [US1] Unit test for error output in `internal/llmsetup/llmsetup_test.go` (TestClaudeCodeCmd_ErrorOutput)
++
++### Implementation for User Story 1
++
++- [x] [T014] [P] [US1] Implement ResolvePath function for project-level in `internal/llmsetup/path.go`
++- [x] [T015] [P] [US1] Implement ValidatePath function in `internal/llmsetup/path.go`
++- [x] [T016] [US1] Implement InstallFile function with atomic write in `internal/llmsetup/install.go`
++- [x] [T017] [US1] Implement Install function (orchestrates path resolution and file install) in `internal/llmsetup/install.go`
++- [x] [T018] [US1] Implement ClaudeCodeCmd.Run() method in `internal/llmsetup/llmsetup.go`
++- [x] [T019] [US1] Add success message output ("Skills installed to: <path>") in `internal/llmsetup/llmsetup.go`
++- [x] [T020] [US1] Add error handling and stderr output in `internal/llmsetup/llmsetup.go`
++
++**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
++
++---
++
++## Phase 4: User Story 2 - Install Claude Code Skills (User-Level) (Priority: P2)
++
++**Goal**: Users can install kessoku Skills at user-level with `kessoku llm-setup claude-code --user`
++
++**Independent Test**: Run `kessoku llm-setup claude-code --user` and verify file is installed to `~/.claude/skills/kessoku.md`
++
++### Tests for User Story 2
++
++- [x] [T021] [P] [US2] Unit test for user-level path resolution (Linux) in `internal/llmsetup/path_test.go` (TestResolvePath_UserLevel_Linux)
++- [x] [T022] [P] [US2] Unit test for user-level path resolution (Darwin) in `internal/llmsetup/path_test.go` (TestResolvePath_UserLevel_Darwin)
++- [x] [T023] [P] [US2] Unit test for user-level path resolution (Windows) in `internal/llmsetup/path_test.go` (TestResolvePath_UserLevel_Windows)
++- [x] [T024] [P] [US2] Unit test for HOME not set error in `internal/llmsetup/path_test.go` (TestResolvePath_HomeNotSet)
++- [x] [T025] [P] [US2] Unit test for unsupported OS error in `internal/llmsetup/path_test.go` (TestResolvePath_UnsupportedOS)
++
++### Implementation for User Story 2
++
++- [x] [T026] [US2] Add `--user` flag to ClaudeCodeCmd struct in `internal/llmsetup/llmsetup.go`
++- [x] [T027] [US2] Implement getHomeDir helper (explicit env var check) in `internal/llmsetup/path.go`
++- [x] [T028] [US2] Extend ResolvePath for user-level paths in `internal/llmsetup/path.go`
++- [x] [T029] [US2] Add OS validation (linux, darwin, windows) in `internal/llmsetup/path.go`
++
++**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
++
++---
++
++## Phase 5: User Story 3 - List Available Agents (Priority: P2)
++
++**Goal**: Users can see available agents with `kessoku llm-setup` or `kessoku llm-setup --help`
++
++**Independent Test**: Run `kessoku llm-setup` and verify it prints usage with available agents and exits with code 0
++
++### Tests for User Story 3
++
++- [x] [T030] [P] [US3] Unit test for no subcommand exit 0 in `internal/llmsetup/llmsetup_test.go` (TestLLMSetupCmd_NoSubcommand)
++- [x] [T031] [P] [US3] Unit test for unknown agent exit 1 in `internal/llmsetup/llmsetup_test.go` (TestLLMSetupCmd_UnknownAgent)
++
++### Implementation for User Story 3
++
++- [x] [T032] [US3] Implement LLMSetupCmd.Run() to print usage and exit 0 in `internal/llmsetup/llmsetup.go`
++- [x] [T033] [US3] Configure Kong help text for agent subcommands in `internal/llmsetup/llmsetup.go`
++
++**Checkpoint**: Users can now discover available agents
+
+[PATCH TRUNCATED: 270 total lines]
+
+
+####################################################################################################
+SECTION B — ALL LATER COMMITS IN THIS PR
+####################################################################################################
+
+====================================================================================================
+COMMIT POSITION 2  [STEP-7 AUTOMATED CODE HINT — NOT GROUND TRUTH]
+====================================================================================================
+SHA: bad0a9d72ae46b5baa73cace1ff5bda7baa06619
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: add llm-setup subcommand for coding agent skills
+
+Add a new subcommand `kessoku llm-setup` that installs kessoku
+usage instructions as coding agent skills files.
+
+Features:
+- `llm-setup claude-code`: Install Claude Code skills
+- `--user` flag: Install to user-level directory
+- `-p/--path` flag: Custom installation path
+- Atomic file installation with proper cleanup
+
+The skills file is embedded via go:embed and installed to
+the appropriate skills directory based on the target agent.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 15
+
+--- FILE 1/15 ---
+FILE: CLAUDE.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -112,6 +112,8 @@ Migration tool location: `internal/migrate/`
+ ## Active Technologies
+ - Go 1.24+ + github.com/alecthomas/kong (CLI), golang.org/x/tools (AST parsing, type checking) (001-wire-migrate)
+ - N/A (file-based input/output, no persistent storage) (001-wire-migrate)
++- Go 1.24+ + github.com/alecthomas/kong (CLI framework, already in use) (002-agent-skills-setup)
++- File-based output (Skills files installed to filesystem) (002-agent-skills-setup)
+ 
+ ## Recent Changes
+ - 001-wire-migrate: Added Go 1.24+ + github.com/alecthomas/kong (CLI), golang.org/x/tools (AST parsing, type checking)
+
+--- FILE 2/15 ---
+FILE: internal/config/config.go
+STATUS: modified
+ADDITIONS: 6
+DELETIONS: 4
+
+PATCH:
+@@ -9,6 +9,7 @@ import (
+ 
+ 	"github.com/alecthomas/kong"
+ 	"github.com/mazrean/kessoku/internal/kessoku"
++	"github.com/mazrean/kessoku/internal/llmsetup"
+ 	"github.com/mazrean/kessoku/internal/migrate"
+ )
+ 
+@@ -20,10 +21,11 @@ var (
+ 
+ // CLI is the root command configuration with subcommands.
+ type CLI struct {
+-	LogLevel string           `kong:"short='l',help='Log level',enum='debug,info,warn,error',default='info'"`
+-	Generate GenerateCmd      `kong:"cmd,default='withargs',help='Generate DI code (default)'"`
+-	Migrate  MigrateCmd       `kong:"cmd,help='Migrate wire config to kessoku'"`
+-	Version  kong.VersionFlag `kong:"short='v',help='Show version and exit.'"`
++	LogLevel string               `kong:"short='l',help='Log level',enum='debug,info,warn,error',default='info'"`
++	Generate GenerateCmd          `kong:"cmd,default='withargs',help='Generate DI code (default)'"`
++	Migrate  MigrateCmd           `kong:"cmd,help='Migrate wire config to kessoku'"`
++	LLMSetup llmsetup.LLMSetupCmd `kong:"cmd,name='llm-setup',help='Setup coding agent skills'"`
++	Version  kong.VersionFlag     `kong:"short='v',help='Show version and exit.'"`
+ }
+ 
+ // GenerateCmd is the default command for generating DI code.
+
+--- FILE 3/15 ---
+FILE: internal/llmsetup/agent.go
+STATUS: added
+ADDITIONS: 35
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,35 @@
++// Package llmsetup provides functionality for setting up coding agent Skills.
++package llmsetup
++
++import "embed"
++
++// Agent defines configuration for a coding agent.
++type Agent interface {
++	Name() string           // Subcommand name (e.g., "claude-code")
++	Description() string    // Help text
++	SkillsFS() embed.FS     // Embedded skill files (directory with SKILL.md and support files)
++	SkillsSrcDir() string   // Source directory path in embed.FS (e.g., "skills/kessoku-di")
++	SkillsDirName() string  // Skill directory name for installation (e.g., "kessoku-di")
++	ProjectSubPath() string // Subpath for project-level (e.g., ".claude/skills")
++	UserSubPath() string    // Subpath for user-level (e.g., ".claude/skills")
++}
++
++// agents is the registry of all supported coding agents.
++var agents = []Agent{
++	&ClaudeCodeAgent{},
++}
++
++// GetAgent returns the agent with the given name, if it exists.
++func GetAgent(name string) (Agent, bool) {
++	for _, a := range agents {
++		if a.Name() == name {
++			return a, true
++		}
++	}
++	return nil, false
++}
++
++// ListAgents returns all registered agents in a consistent order.
++func ListAgents() []Agent {
++	return agents
++}
+
+--- FILE 4/15 ---
+FILE: internal/llmsetup/claudecode.go
+STATUS: added
+ADDITIONS: 44
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,44 @@
++package llmsetup
++
++import "embed"
++
++//go:embed skills/*
++var claudeCodeSkillsFS embed.FS
++
++// ClaudeCodeAgent implements the Agent interface for Claude Code.
++type ClaudeCodeAgent struct{}
++
++// Name returns the subcommand name.
++func (a *ClaudeCodeAgent) Name() string {
++	return "claude-code"
++}
++
++// Description returns the help text.
++func (a *ClaudeCodeAgent) Description() string {
++	return "Install Claude Code skills"
++}
++
++// SkillsFS returns the embedded skill files.
++func (a *ClaudeCodeAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *ClaudeCodeAgent) SkillsSrcDir() string {
++	return "skills"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *ClaudeCodeAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *ClaudeCodeAgent) ProjectSubPath() string {
++	return ".claude/skills"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *ClaudeCodeAgent) UserSubPath() string {
++	return ".claude/skills"
++}
+
+--- FILE 5/15 ---
+FILE: internal/llmsetup/install.go
+STATUS: added
+ADDITIONS: 106
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,106 @@
++package llmsetup
++
++import (
++	"fmt"
++	"io/fs"
++	"os"
++	"path"
++	"path/filepath"
++)
++
++// File permission constants.
++const (
++	// DirMode is the permission for created directories (rwxr-xr-x).
++	DirMode os.FileMode = 0o755
++	// FileMode is the permission for installed files (rw-r--r--).
++	FileMode os.FileMode = 0o644
++)
++
++// InstallFile installs a file to the target directory using atomic rename.
++// It creates the directory if needed, writes to a temp file, then renames.
++// Note: Does not fsync the directory, so durability is not guaranteed on crash.
++func InstallFile(targetDir string, fileName string, content []byte) (retErr error) {
++	if err := os.MkdirAll(targetDir, DirMode); err != nil {
++		return fmt.Errorf("cannot create directory: %s: %w", targetDir, err)
++	}
++
++	tmp, err := os.CreateTemp(targetDir, ".tmp-*")
++	if err != nil {
++		return fmt.Errorf("cannot create temp file: %w", err)
++	}
++	tmpName := tmp.Name()
++	closed := false
++
++	defer func() {
++		if !closed {
++			_ = tmp.Close()
++		}
++		if retErr != nil {
++			_ = os.Remove(tmpName)
++		}
++	}()
++
++	if _, err := tmp.Write(content); err != nil {
++		return fmt.Errorf("cannot write file: %w", err)
++	}
++
++	if err := tmp.Sync(); err != nil {
++		return fmt.Errorf("cannot sync file: %w", err)
++	}
++
++	if err := tmp.Close(); err != nil {
++		return fmt.Errorf("cannot close temp file: %w", err)
++	}
++	closed = true
++
++	if err := os.Chmod(tmpName, FileMode); err != nil {
++		return fmt.Errorf("cannot set file permissions: %w", err)
++	}
++
++	finalPath := filepath.Join(targetDir, fileName)
++
++	if err := os.Rename(tmpName, finalPath); err != nil {
++		return fmt.Errorf("cannot install file %s: %w", finalPath, err)
++	}
++
++	return nil
++}
++
++// Install performs a complete Skills installation for the given agent.
++// Skills files (SKILL.md and support files) are installed into a single directory.
++func Install(agent Agent, customPath string, userFlag bool) (string, error) {
++	basePath, err := ResolvePath(customPath, userFlag, agent)
++	if err != nil {
++		return "", err
++	}
++
++	if err = ValidatePath(basePath); err != nil {
++		return "", err
++	}
++
++	skillPath := filepath.Join(basePath, agent.SkillsDirName())
++	skillsFS := agent.SkillsFS()
++	srcDir := agent.SkillsSrcDir()
++
++	entries, err := fs.ReadDir(skillsFS, srcDir)
++	if err != nil {
++		return "", fmt.Errorf("cannot read skills directory: %w", err)
++	}
++
++	for _, entry := range entries {
++		if entry.IsDir() {
++			continue
++		}
++
++		content, readErr := fs.ReadFile(skillsFS, path.Join(srcDir, entry.Name()))
++		if readErr != nil {
++			return "", fmt.Errorf("cannot read embedded file %s: %w", entry.Name(), readErr)
++		}
++
++		if installErr := InstallFile(skillPath, entry.Name(), content); installErr != nil {
++			return "", installErr
++		}
++	}
++
++	return skillPath, nil
++}
+
+--- FILE 6/15 ---
+FILE: internal/llmsetup/install_test.go
+STATUS: added
+ADDITIONS: 179
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,179 @@
++package llmsetup
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++// TestInstallFile_CreatesDirectory tests directory creation with 0755 permissions (T008).
++func TestInstallFile_CreatesDirectory(t *testing.T) {
++	tmpDir, err := os.MkdirTemp("", "test-install-*")
++	if err != nil {
++		t.Fatalf("failed to create temp dir: %v", err)
++	}
++	defer func() { _ = os.RemoveAll(tmpDir) }()
++
++	targetDir := filepath.Join(tmpDir, "new", "nested", "dir")
++	content := []byte("test content")
++
++	err = InstallFile(targetDir, "test.md", content)
++	if err != nil {
++		t.Fatalf("InstallFile failed: %v", err)
++	}
++
++	// Verify directory was created
++	info, err := os.Stat(targetDir)
++	if err != nil {
++		t.Fatalf("directory was not created: %v", err)
++	}
++	if !info.IsDir() {
++		t.Error("path is not a directory")
++	}
++
++	// Verify directory permissions (0755)
++	perm := info.Mode().Perm()
++	if perm != 0755 {
++		t.Errorf("directory permissions = %o, want 0755", perm)
++	}
++
++	// Verify file was created
++	filePath := filepath.Join(targetDir, "test.md")
++	fileInfo, err := os.Stat(filePath)
++	if err != nil {
++		t.Fatalf("file was not created: %v", err)
++	}
++
++	// Verify file permissions (0644)
++	filePerm := fileInfo.Mode().Perm()
++	if filePerm != 0644 {
++		t.Errorf("file permissions = %o, want 0644", filePerm)
++	}
++
++	// Verify file content
++	readContent, err := os.ReadFile(filePath)
++	if err != nil {
++		t.Fatalf("failed to read file: %v", err)
++	}
++	if string(readContent) != string(content) {
++		t.Errorf("file content = %q, want %q", string(readContent), string(content))
++	}
++}
++
++// TestInstallFile_AtomicOverwrite tests atomic overwrite of existing file (T009).
++func TestInstallFile_AtomicOverwrite(t *testing.T) {
++	tmpDir, err := os.MkdirTemp("", "test-install-*")
++	if err != nil {
++		t.Fatalf("failed to create temp dir: %v", err)
++	}
++	defer func() { _ = os.RemoveAll(tmpDir) }()
++
++	fileName := "test.md"
++	filePath := filepath.Join(tmpDir, fileName)
++
++	// Create initial file
++	initialContent := []byte("initial content")
++	err = os.WriteFile(filePath, initialContent, 0644)
++	if err != nil {
++		t.Fatalf("failed to create initial file: %v", err)
++	}
++
++	// Overwrite with new content
++	newContent := []byte("new content")
++	err = InstallFile(tmpDir, fileName, newContent)
++	if err != nil {
++		t.Fatalf("InstallFile failed: %v", err)
++	}
++
++	// Verify new content
++	readContent, err := os.ReadFile(filePath)
++	if err != nil {
++		t.Fatalf("failed to read file: %v", err)
++	}
++	if string(readContent) != string(newContent) {
++		t.Errorf("file content = %q, want %q", string(readContent), string(newContent))
++	}
++}
++
++// TestInstallFile_Idempotent tests that running install twice produces identical result (T010).
++func TestInstallFile_Idempotent(t *testing.T) {
++	tmpDir, err := os.MkdirTemp("", "test-install-*")
++	if err != nil {
++		t.Fatalf("failed to create temp dir: %v", err)
++	}
++	defer func() { _ = os.RemoveAll(tmpDir) }()
++
++	fileName := "test.md"
++	content := []byte("test content")
++
++	// Install first time
++	err = InstallFile(tmpDir, fileName, content)
++	if err != nil {
++		t.Fatalf("first InstallFile failed: %v", err)
++	}
++
++	// Install second time (same content)
++	err = InstallFile(tmpDir, fileName, content)
++	if err != nil {
++		t.Fatalf("second InstallFile failed: %v", err)
++	}
+
+[PATCH TRUNCATED: 180 total lines]
+
+--- FILE 7/15 ---
+FILE: internal/llmsetup/llmsetup.go
+STATUS: added
+ADDITIONS: 68
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,68 @@
++package llmsetup
++
++import (
++	"fmt"
++	"io"
++	"os"
++
++	"github.com/alecthomas/kong"
++)
++
++// LLMSetupCmd is the parent command for coding agent setup.
++type LLMSetupCmd struct {
++	Usage      UsageCmd      `kong:"cmd,default='1',hidden"`
++	ClaudeCode ClaudeCodeCmd `kong:"cmd,name='claude-code',help='Install Claude Code skills'"`
++}
++
++// UsageCmd is a hidden default command that prints usage (FR-003).
++type UsageCmd struct{}
++
++// Run prints usage information and exits with code 0.
++func (c *UsageCmd) Run(ctx *kong.Context) error {
++	return ctx.PrintUsage(false)
++}
++
++// ClaudeCodeCmd is the subcommand for installing Claude Code Skills.
++type ClaudeCodeCmd struct {
++	// Stdout and Stderr for output (defaults to os.Stdout/os.Stderr)
++	Stdout io.Writer `kong:"-"`
++	Stderr io.Writer `kong:"-"`
++	Path   string    `kong:"short='p',help='Custom installation directory'"`
++	User   bool      `kong:"help='Install to user-level directory'"`
++}
++
++// Run installs the Claude Code Skills file.
++func (c *ClaudeCodeCmd) Run() error {
++	agent := &ClaudeCodeAgent{}
++
++	installedPath, err := Install(agent, c.Path, c.User)
++	if err != nil {
++		c.writeError(err)
++		return err
++	}
++
++	c.writeSuccess(installedPath)
++	return nil
++}
++
++func (c *ClaudeCodeCmd) stdout() io.Writer {
++	if c.Stdout != nil {
++		return c.Stdout
++	}
++	return os.Stdout
++}
++
++func (c *ClaudeCodeCmd) stderr() io.Writer {
++	if c.Stderr != nil {
++		return c.Stderr
++	}
++	return os.Stderr
++}
++
++func (c *ClaudeCodeCmd) writeSuccess(path string) {
++	_, _ = fmt.Fprintf(c.stdout(), "Skills installed to: %s\n", path)
++}
++
++func (c *ClaudeCodeCmd) writeError(err error) {
++	_, _ = fmt.Fprintf(c.stderr(), "Error: %v\n", err)
++}
+
+--- FILE 8/15 ---
+FILE: internal/llmsetup/llmsetup_test.go
+STATUS: added
+ADDITIONS: 253
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,253 @@
++package llmsetup
++
++import (
++	"bytes"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++// TestClaudeCodeCmd_SuccessOutput tests success message output (T012).
++func TestClaudeCodeCmd_SuccessOutput(t *testing.T) {
++	tmpDir, err := os.MkdirTemp("", "test-claudecode-*")
++	if err != nil {
++		t.Fatalf("failed to create temp dir: %v", err)
++	}
++	defer func() { _ = os.RemoveAll(tmpDir) }()
++
++	var stdout bytes.Buffer
++	var stderr bytes.Buffer
++
++	cmd := &ClaudeCodeCmd{
++		Path:   tmpDir,
++		User:   false,
++		Stdout: &stdout,
++		Stderr: &stderr,
++	}
++
++	err = cmd.Run()
++	if err != nil {
++		t.Fatalf("ClaudeCodeCmd.Run failed: %v", err)
++	}
++
++	output := stdout.String()
++	if !strings.Contains(output, "Skills installed to:") {
++		t.Errorf("stdout = %q, want to contain 'Skills installed to:'", output)
++	}
++
++	// Now we show the skill directory path since multiple files are installed
++	expectedPath := filepath.Join(tmpDir, "kessoku-di")
++	if !strings.Contains(output, expectedPath) {
++		t.Errorf("stdout = %q, want to contain path %q", output, expectedPath)
++	}
++
++	if stderr.Len() > 0 {
++		t.Errorf("stderr should be empty, got %q", stderr.String())
++	}
++}
++
++// TestClaudeCodeCmd_ErrorOutput tests error message output (T013).
++func TestClaudeCodeCmd_ErrorOutput(t *testing.T) {
++	// Create a file where we expect a directory
++	tmpFile, err := os.CreateTemp("", "test-file-*")
++	if err != nil {
++		t.Fatalf("failed to create temp file: %v", err)
++	}
++	_ = tmpFile.Close()
++	defer func() { _ = os.Remove(tmpFile.Name()) }()
++
++	var stdout bytes.Buffer
++	var stderr bytes.Buffer
++
++	cmd := &ClaudeCodeCmd{
++		Path:   tmpFile.Name(), // This is a file, not a directory
++		User:   false,
++		Stdout: &stdout,
++		Stderr: &stderr,
++	}
++
++	err = cmd.Run()
++	if err == nil {
++		t.Fatal("ClaudeCodeCmd.Run should fail when path is a file")
++	}
++
++	errOutput := stderr.String()
++	if !strings.Contains(errOutput, "Error:") {
++		t.Errorf("stderr = %q, want to contain 'Error:'", errOutput)
++	}
++}
++
++// TestClaudeCodeAgent_Interface tests that ClaudeCodeAgent implements Agent correctly.
++func TestClaudeCodeAgent_Interface(t *testing.T) {
++	var _ Agent = &ClaudeCodeAgent{} // Compile-time check
++
++	agent := &ClaudeCodeAgent{}
++
++	if agent.Name() != "claude-code" {
++		t.Errorf("Name() = %q, want %q", agent.Name(), "claude-code")
++	}
++
++	if agent.Description() == "" {
++		t.Error("Description() should not be empty")
++	}
++
++	// Verify SkillsFS returns a valid embed.FS with files
++	skillsFS := agent.SkillsFS()
++	entries, err := skillsFS.ReadDir(agent.SkillsSrcDir())
++	if err != nil {
++		t.Errorf("SkillsFS().ReadDir() failed: %v", err)
++	}
++	if len(entries) == 0 {
++		t.Error("SkillsFS() should contain at least one file")
++	}
++
++	// Verify SKILL.md exists
++	_, err = skillsFS.ReadFile(agent.SkillsSrcDir() + "/SKILL.md")
++	if err != nil {
++		t.Errorf("SKILL.md not found in SkillsFS: %v", err)
++	}
++
++	if agent.SkillsSrcDir() != "skills" {
++		t.Errorf("SkillsSrcDir() = %q, want %q", agent.SkillsSrcDir(), "skills")
++	}
++
++	if agent.SkillsDirName() != "kessoku-di" {
++		t.Errorf("SkillsDirName() = %q, want %q", agent.SkillsDirName(), "kessoku-di")
++	}
++
++	if agent.ProjectSubPath() != ".claude/skills" {
+
+[PATCH TRUNCATED: 254 total lines]
+
+--- FILE 9/15 ---
+FILE: internal/llmsetup/path.go
+STATUS: added
+ADDITIONS: 61
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,61 @@
++package llmsetup
++
++import (
++	"fmt"
++	"os"
++	"path/filepath"
++)
++
++// ResolvePath resolves the installation path based on flags and agent configuration.
++// Priority: customPath > userFlag > project-level (default)
++func ResolvePath(customPath string, userFlag bool, agent Agent) (string, error) {
++	if customPath != "" {
++		return filepath.Abs(customPath)
++	}
++
++	if userFlag {
++		return resolveUserPath(agent)
++	}
++
++	return resolveProjectPath(agent)
++}
++
++// resolveUserPath resolves the user-level installation path.
++func resolveUserPath(agent Agent) (string, error) {
++	home, err := os.UserHomeDir()
++	if err != nil {
++		return "", fmt.Errorf("cannot determine home directory: %w (use --path flag)", err)
++	}
++
++	return filepath.Join(home, agent.UserSubPath()), nil
++}
++
++// resolveProjectPath resolves the project-level installation path.
++func resolveProjectPath(agent Agent) (string, error) {
++	cwd, err := os.Getwd()
++	if err != nil {
++		return "", fmt.Errorf("cannot determine current directory: %w", err)
++	}
++
++	return filepath.Join(cwd, agent.ProjectSubPath()), nil
++}
++
++// ValidatePath validates that the path is usable for installation.
++// Returns nil if path doesn't exist (will be created) or is a directory.
++// Returns error if path exists and is a file.
++func ValidatePath(path string) error {
++	info, err := os.Stat(path)
++	if err == nil {
++		if !info.IsDir() {
++			return fmt.Errorf("path is a file, not a directory: %s", path)
++		}
++		return nil
++	}
++
++	if os.IsNotExist(err) {
++		// Path doesn't exist, that's OK - will be created
++		return nil
++	}
++
++	return fmt.Errorf("cannot access path: %s: %w", path, err)
++}
+
+--- FILE 10/15 ---
+FILE: internal/llmsetup/path_test.go
+STATUS: added
+ADDITIONS: 259
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,259 @@
++package llmsetup
++
++import (
++	"embed"
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++//go:embed testdata/mock-skill/*
++var mockSkillsFS embed.FS
++
++// mockAgent implements the Agent interface for testing.
++type mockAgent struct {
++	name           string
++	description    string
++	skillsFS       embed.FS
++	skillsSrcDir   string
++	skillsDirName  string
++	projectSubPath string
++	userSubPath    string
++}
++
++func (m *mockAgent) Name() string           { return m.name }
++func (m *mockAgent) Description() string    { return m.description }
++func (m *mockAgent) SkillsFS() embed.FS     { return m.skillsFS }
++func (m *mockAgent) SkillsSrcDir() string   { return m.skillsSrcDir }
++func (m *mockAgent) SkillsDirName() string  { return m.skillsDirName }
++func (m *mockAgent) ProjectSubPath() string { return m.projectSubPath }
++func (m *mockAgent) UserSubPath() string    { return m.userSubPath }
++
++func newMockAgent() *mockAgent {
++	return &mockAgent{
++		name:           "test-agent",
++		description:    "Test agent",
++		skillsFS:       mockSkillsFS,
++		skillsSrcDir:   "testdata/mock-skill",
++		skillsDirName:  "test-skill",
++		projectSubPath: ".test/skills",
++		userSubPath:    ".test/skills",
++	}
++}
++
++// TestResolvePath_ProjectLevel tests project-level path resolution (T007).
++func TestResolvePath_ProjectLevel(t *testing.T) {
++	agent := newMockAgent()
++
++	// Get current working directory
++	cwd, err := os.Getwd()
++	if err != nil {
++		t.Fatalf("failed to get cwd: %v", err)
++	}
++
++	// Call ResolvePath with no custom path and no user flag (default: project-level)
++	path, err := ResolvePath("", false, agent)
++	if err != nil {
++		t.Fatalf("ResolvePath failed: %v", err)
++	}
++
++	expected := filepath.Join(cwd, agent.ProjectSubPath())
++	if path != expected {
++		t.Errorf("ResolvePath = %q, want %q", path, expected)
++	}
++}
++
++// TestResolvePath_UserLevel_Linux tests user-level path resolution on Linux (T021).
++func TestResolvePath_UserLevel_Linux(t *testing.T) {
++	if os.Getenv("HOME") == "" {
++		t.Skip("HOME not set")
++	}
++
++	agent := newMockAgent()
++	home := os.Getenv("HOME")
++
++	path, err := ResolvePath("", true, agent)
++	if err != nil {
++		t.Fatalf("ResolvePath failed: %v", err)
++	}
++
++	expected := filepath.Join(home, agent.UserSubPath())
++	if path != expected {
++		t.Errorf("ResolvePath = %q, want %q", path, expected)
++	}
++}
++
++// TestResolvePath_UserLevel_Darwin tests user-level path resolution on Darwin (T022).
++// Note: On Darwin (macOS), the behavior is identical to Linux - uses $HOME.
++// This test verifies the path structure when running on any Unix-like system.
++func TestResolvePath_UserLevel_Darwin(t *testing.T) {
++	if os.Getenv("HOME") == "" {
++		t.Skip("HOME not set")
++	}
++
++	agent := newMockAgent()
++	home := os.Getenv("HOME")
++
++	path, err := ResolvePath("", true, agent)
++	if err != nil {
++		t.Fatalf("ResolvePath failed: %v", err)
++	}
++
++	// Darwin uses the same path structure as Linux
++	expected := filepath.Join(home, agent.UserSubPath())
++	if path != expected {
++		t.Errorf("ResolvePath = %q, want %q", path, expected)
++	}
++}
++
++// TestResolvePath_UserLevel_Windows tests user-level path resolution on Windows (T023).
++// Note: On Windows, the behavior uses %USERPROFILE% instead of $HOME.
++// This test runs on all platforms but uses HOME when available.
++// A true Windows test would require running on Windows where USERPROFILE is set.
++func TestResolvePath_UserLevel_Windows(t *testing.T) {
++	// On non-Windows, this tests the same code path as Linux/Darwin
++	// On Windows, it would use USERPROFILE
++	if os.Getenv("HOME") == "" && os.Getenv("USERPROFILE") == "" {
++		t.Skip("Neither HOME nor USERPROFILE is set")
++	}
++
+
+[PATCH TRUNCATED: 260 total lines]
+
+--- FILE 11/15 ---
+FILE: internal/llmsetup/skills/MIGRATION.md
+STATUS: added
+ADDITIONS: 232
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,232 @@
++# Wire to Kessoku Migration Guide
++
++Guide for migrating from google/wire to kessoku.
++
++## Migration Command
++
++```bash
++# Migrate current directory
++go tool kessoku migrate
++
++# Migrate specific package
++go tool kessoku migrate ./pkg/di
++
++# Migrate with custom output file
++go tool kessoku migrate -o providers.go
++
++# Migrate multiple patterns
++go tool kessoku migrate ./pkg/... -o kessoku.go
++```
++
++The command reads files with `//go:build wireinject` tag and generates kessoku configuration.
++
++## Pattern Mappings
++
++### Direct Mappings
++
++| Wire | Kessoku |
++|------|---------|
++| `wire.NewSet(a, b, c)` | `kessoku.Set(a, b, c)` |
++| `wire.Value(v)` | `kessoku.Value(v)` |
++| Provider function `NewFoo` | `kessoku.Provide(NewFoo)` |
++| Set variable reference | Preserved as-is |
++
++### Bind Mapping
++
++```go
++// Wire
++wire.Bind(new(Repository), new(*PostgresRepo))
++
++// Kessoku
++kessoku.Bind[Repository](kessoku.Provide(NewPostgresRepo))
++```
++
++**Note**: In kessoku, `Bind` wraps a provider, not just a type reference.
++
++### InterfaceValue Mapping
++
++```go
++// Wire
++wire.InterfaceValue(new(io.Writer), os.Stdout)
++
++// Kessoku
++kessoku.Bind[io.Writer](kessoku.Value(os.Stdout))
++```
++
++### Struct Mapping (Important!)
++
++**Wire's `wire.Struct` does NOT map to `kessoku.Struct`**. They serve different purposes.
++
++```go
++// Wire - creates struct from injected fields
++wire.Struct(new(Config), "DBHost", "DBPort")
++
++// Kessoku (generated by migrate command)
++kessoku.Provide(func(dBHost string, dBPort int) *Config {
++    return &Config{
++        DBHost: dBHost,
++        DBPort: dBPort,
++    }
++})
++```
++
++The migrate command generates a constructor function.
++
++### FieldsOf Mapping
++
++```go
++// Wire - extracts fields from struct
++wire.FieldsOf(new(*Config), "DBHost", "DBPort")
++
++// Kessoku (generated by migrate command)
++kessoku.Provide(func(s *Config) (string, int) {
++    return s.DBHost, s.DBPort
++})
++```
++
++The migrate command generates an accessor function.
++
++### Build (Injector) Mapping
++
++```go
++// Wire
++//go:build wireinject
++
++func InitializeApp() (*App, error) {
++    wire.Build(
++        NewConfig,
++        NewDB,
++        NewApp,
++    )
++    return nil, nil
++}
++
++// Kessoku
++//go:generate go tool kessoku $GOFILE
++
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Provide(NewConfig),
++    kessoku.Provide(NewDB),
++    kessoku.Provide(NewApp),
++)
++```
++
++## Complete Migration Example
++
++### Before (wire.go)
++
++```go
+
+[PATCH TRUNCATED: 233 total lines]
+
+--- FILE 12/15 ---
+FILE: internal/llmsetup/skills/PATTERNS.md
+STATUS: added
+ADDITIONS: 394
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,394 @@
++# Kessoku Design Patterns
++
++Detailed patterns and examples for kessoku dependency injection.
++
++## Provider Patterns
++
++### Basic Provider
++
++A provider is any function that returns a value:
++
++```go
++func NewConfig() *Config {
++    return &Config{Host: "localhost", Port: 8080}
++}
++
++func NewDB(cfg *Config) *DB {
++    return &DB{host: cfg.Host, port: cfg.Port}
++}
++
++var _ = kessoku.Inject[*DB](
++    "InitializeDB",
++    kessoku.Provide(NewConfig),
++    kessoku.Provide(NewDB),
++)
++// Generates: func InitializeDB() *DB
++```
++
++### Provider with Error
++
++When a provider returns an error, the generated injector also returns error:
++
++```go
++func NewDB(cfg *Config) (*DB, error) {
++    db, err := sql.Open("postgres", cfg.DSN)
++    if err != nil {
++        return nil, fmt.Errorf("failed to open db: %w", err)
++    }
++    return &DB{db: db}, nil
++}
++
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Provide(NewConfig),
++    kessoku.Provide(NewDB),
++    kessoku.Provide(NewApp),
++)
++// Generates: func InitializeApp() (*App, error)
++```
++
++### Provider with Cleanup
++
++Return a cleanup function for resource management:
++
++```go
++func NewDB() (*DB, func(), error) {
++    db, err := sql.Open("postgres", dsn)
++    if err != nil {
++        return nil, nil, err
++    }
++    cleanup := func() { db.Close() }
++    return &DB{db: db}, cleanup, nil
++}
++
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Provide(NewDB),
++    kessoku.Provide(NewApp),
++)
++// Generates: func InitializeApp() (*App, func(), error)
++```
++
++Usage:
++
++```go
++app, cleanup, err := InitializeApp()
++if err != nil {
++    log.Fatal(err)
++}
++defer cleanup()
++```
++
++### Multiple Return Values
++
++Providers can return multiple values (all become available as dependencies):
++
++```go
++func NewDBAndCache(cfg *Config) (*DB, *Cache) {
++    return &DB{...}, &Cache{...}
++}
++
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Provide(NewConfig),
++    kessoku.Provide(NewDBAndCache),  // Provides both *DB and *Cache
++    kessoku.Provide(NewApp),         // Can receive *DB and *Cache
++)
++```
++
++## Async Patterns
++
++### Basic Async
++
++Mark slow providers with Async for parallel execution:
++
++```go
++func NewDB(ctx context.Context) (*DB, error) {
++    // Slow operation - database connection
++    return connectDB(ctx)
++}
++
++func NewCache(ctx context.Context) (*Cache, error) {
++    // Slow operation - cache connection
++    return connectCache(ctx)
++}
++
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Async(kessoku.Provide(NewDB)),    // }
++    kessoku.Async(kessoku.Provide(NewCache)), // } Run concurrently
+
+[PATCH TRUNCATED: 395 total lines]
+
+--- FILE 13/15 ---
+FILE: internal/llmsetup/skills/SKILL.md
+STATUS: added
+ADDITIONS: 130
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,130 @@
++---
++name: kessoku-di
++description: Kessoku compile-time DI with parallel initialization for Go. Use when writing or debugging kessoku providers/injectors, enabling async dependencies, migrating from google/wire, or fixing go:generate/codegen issues in Go services.
++---
++
++# Kessoku: Parallel DI for Go
++
++Kessoku is a compile-time dependency injection library that speeds up Go application startup through **parallel initialization**. Unlike google/wire (sequential), kessoku runs independent providers concurrently.
++
++**Use this skill when** you are building or debugging kessoku injectors/providers, wiring async dependencies, migrating from google/wire, or troubleshooting `go tool kessoku` generation problems.
++
++**Supporting files:** [PATTERNS.md](PATTERNS.md) for examples, [MIGRATION.md](MIGRATION.md) for wire migration, [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common errors.
++
++## When to Use Kessoku
++
++- **Slow startup**: Multiple DB connections, API clients, or cache initialization
++- **Cold start optimization**: Serverless/Lambda functions timing out
++- **google/wire alternative**: Want compile-time DI with parallel execution
++
++## Quick Start
++
++```go
++//go:generate go tool kessoku $GOFILE
++
++package main
++
++import "github.com/mazrean/kessoku"
++
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Async(kessoku.Provide(NewDB)),     // Parallel
++    kessoku.Async(kessoku.Provide(NewCache)),  // Parallel
++    kessoku.Provide(NewApp),                   // Waits for deps
++)
++```
++
++Run: `go generate ./...` → generates `*_band.go`
++
++## API Reference
++
++| API | Syntax | Purpose |
++|-----|--------|---------|
++| **Inject** | `var _ = kessoku.Inject[T]("Name", ...)` | Define injector function |
++| **Provide** | `kessoku.Provide(NewFn)` | Wrap provider function |
++| **Async** | `kessoku.Async(kessoku.Provide(...))` | Enable parallel execution |
++| **Bind** | `kessoku.Bind[Interface](provider)` | Interface→implementation |
++| **Value** | `kessoku.Value(v)` | Inject constant value |
++| **Set** | `kessoku.Set(providers...)` | Group providers |
++| **Struct** | `kessoku.Struct[T]()` | Expand struct fields as deps |
++
++## Common Patterns
++
++### Basic Injector
++
++```go
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Provide(NewConfig),
++    kessoku.Provide(NewDB),
++    kessoku.Provide(NewApp),
++)
++// Generates: func InitializeApp() *App
++```
++
++### Parallel Initialization (Async)
++
++```go
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Async(kessoku.Provide(NewDB)),      // }
++    kessoku.Async(kessoku.Provide(NewCache)),   // } Run in parallel
++    kessoku.Async(kessoku.Provide(NewClient)),  // }
++    kessoku.Provide(NewApp),
++)
++// Generates: func InitializeApp(ctx context.Context) (*App, error)
++```
++
++### Interface Binding
++
++```go
++var _ = kessoku.Inject[*App](
++    "InitializeApp",
++    kessoku.Bind[Repository](kessoku.Provide(NewPostgresRepo)),
++    kessoku.Provide(NewApp),  // Receives Repository interface
++)
++```
++
++### Provider Sets (Reusability)
++
++```go
++var DatabaseSet = kessoku.Set(
++    kessoku.Provide(NewConfig),
++    kessoku.Async(kessoku.Provide(NewDB)),
++)
++
++var _ = kessoku.Inject[*App]("InitializeApp",
++    DatabaseSet,
++    kessoku.Provide(NewApp),
++)
++```
++
++### Struct Field Expansion
++
++```go
++var _ = kessoku.Inject[*DB](
++    "InitializeDB",
++    kessoku.Provide(NewConfig),   // Returns *Config{Host, Port}
++    kessoku.Struct[*Config](),    // Expands to Host, Port fields
++    kessoku.Provide(NewDB),       // Receives Host, Port separately
++)
++```
++
++## Key Points
++
++- **No build tag needed**: Unlike wire's `//go:build wireinject`
++- **Async requires context**: Generated function gets `context.Context` parameter
++- **Error propagation**: Providers returning `error` make injector return `error`
++- **Cleanup functions**: Providers can return `func()` for cleanup
++
+
+[PATCH TRUNCATED: 131 total lines]
+
+--- FILE 14/15 ---
+FILE: internal/llmsetup/skills/TROUBLESHOOTING.md
+STATUS: added
+ADDITIONS: 354
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,354 @@
++# Kessoku Troubleshooting Guide
++
++Common issues and solutions when using kessoku.
++
++## Code Generation Issues
++
++### Generated file not created
++
++**Symptom**: No `*_band.go` file after running `go generate`
++
++**Causes & Solutions**:
++
++1. **Missing go:generate directive**
++   ```go
++   // Add this before your kessoku.Inject declarations
++   //go:generate go tool kessoku $GOFILE
++   ```
++
++2. **Kessoku not installed**
++   ```bash
++   go get -tool github.com/mazrean/kessoku/cmd/kessoku
++   ```
++
++3. **Wrong file path in directive**
++   ```go
++   // Correct - uses current file
++   //go:generate go tool kessoku $GOFILE
++
++   // Also correct - explicit file
++   //go:generate go tool kessoku kessoku.go
++   ```
++
++### Generated file outdated
++
++**Symptom**: Changes to providers not reflected
++
++**Solution**: Re-run code generation
++```bash
++go generate ./...
++```
++
++### "undefined: kessoku" error
++
++**Symptom**: `undefined: kessoku` in source file
++
++**Solution**: Add import
++```go
++import "github.com/mazrean/kessoku"
++```
++
++## Dependency Resolution Errors
++
++### Circular dependency detected
++
++**Symptom**: `cycle detected in dependency graph`
++
++**Cause**: Provider A needs B, and B needs A
++
++**Solutions**:
++
++1. **Use interfaces to break the cycle**
++   ```go
++   // Bad: Direct dependency cycle
++   func NewA(b *B) *A { ... }
++   func NewB(a *A) *B { ... }
++
++   // Good: Interface breaks cycle
++   type BInterface interface { DoSomething() }
++   func NewA(b BInterface) *A { ... }
++   func NewB() *B { ... }
++   ```
++
++2. **Restructure dependencies**
++   ```go
++   // Extract shared dependency
++   func NewShared() *Shared { ... }
++   func NewA(s *Shared) *A { ... }
++   func NewB(s *Shared) *B { ... }
++   ```
++
++### No provider for type
++
++**Symptom**: `no provider found for type X`
++
++**Causes & Solutions**:
++
++1. **Missing provider**
++   ```go
++   var _ = kessoku.Inject[*App](
++       "InitializeApp",
++       // kessoku.Provide(NewConfig), // Missing!
++       kessoku.Provide(NewDB),  // Needs *Config
++       kessoku.Provide(NewApp),
++   )
++
++   // Fix: Add missing provider
++   var _ = kessoku.Inject[*App](
++       "InitializeApp",
++       kessoku.Provide(NewConfig),  // Added
++       kessoku.Provide(NewDB),
++       kessoku.Provide(NewApp),
++   )
++   ```
++
++2. **Type mismatch**
++   ```go
++   // Provider returns *Config, but dependency needs Config (no pointer)
++   func NewConfig() *Config { ... }
++   func NewDB(cfg Config) *DB { ... }  // Expects Config, not *Config
++
++   // Fix: Match types
++   func NewDB(cfg *Config) *DB { ... }
++   ```
++
++3. **Provider in wrong package**
++   ```go
++   // If NewConfig is in another package, import it
++   import "myapp/config"
++
+
+[PATCH TRUNCATED: 355 total lines]
+
+--- FILE 15/15 ---
+FILE: internal/llmsetup/testdata/mock-skill/SKILL.md
+STATUS: added
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,3 @@
++# Test Skill
++
++This is a mock skill file for testing.
+
+
+====================================================================================================
+COMMIT POSITION 3
+====================================================================================================
+SHA: dfa5dda9ef1d68069618f3a365aa7b3ee3fb206a
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+test: improve llmsetup test coverage and refactor to table-driven tests
+
+- Increase test coverage from 81.9% to 88.3%
+- Convert individual tests to table-driven tests for better maintainability
+- Add tests for UsageCmd.Run, stdout/stderr nil cases, Install error paths
+- Add tests for ValidatePath permission denied scenario
+- Fix variable shadowing issues in test files
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 3
+
+--- FILE 1/3 ---
+FILE: internal/llmsetup/install_test.go
+STATUS: modified
+ADDITIONS: 264
+DELETIONS: 142
+
+PATCH:
+@@ -1,179 +1,301 @@
+ package llmsetup
+ 
+ import (
++	"embed"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"testing"
+ )
+ 
+-// TestInstallFile_CreatesDirectory tests directory creation with 0755 permissions (T008).
+-func TestInstallFile_CreatesDirectory(t *testing.T) {
+-	tmpDir, err := os.MkdirTemp("", "test-install-*")
+-	if err != nil {
+-		t.Fatalf("failed to create temp dir: %v", err)
+-	}
+-	defer func() { _ = os.RemoveAll(tmpDir) }()
++//go:embed testdata/mock-skill/*
++var testMockSkillsFS embed.FS
+ 
+-	targetDir := filepath.Join(tmpDir, "new", "nested", "dir")
+-	content := []byte("test content")
++// testMockAgent implements the Agent interface for testing Install.
++type testMockAgent struct {
++	name           string
++	description    string
++	skillsFS       embed.FS
++	skillsSrcDir   string
++	skillsDirName  string
++	projectSubPath string
++	userSubPath    string
++}
+ 
+-	err = InstallFile(targetDir, "test.md", content)
+-	if err != nil {
+-		t.Fatalf("InstallFile failed: %v", err)
+-	}
++func (m *testMockAgent) Name() string           { return m.name }
++func (m *testMockAgent) Description() string    { return m.description }
++func (m *testMockAgent) SkillsFS() embed.FS     { return m.skillsFS }
++func (m *testMockAgent) SkillsSrcDir() string   { return m.skillsSrcDir }
++func (m *testMockAgent) SkillsDirName() string  { return m.skillsDirName }
++func (m *testMockAgent) ProjectSubPath() string { return m.projectSubPath }
++func (m *testMockAgent) UserSubPath() string    { return m.userSubPath }
+ 
+-	// Verify directory was created
+-	info, err := os.Stat(targetDir)
+-	if err != nil {
+-		t.Fatalf("directory was not created: %v", err)
+-	}
+-	if !info.IsDir() {
+-		t.Error("path is not a directory")
++func newTestMockAgent() *testMockAgent {
++	return &testMockAgent{
++		name:           "test-agent",
++		description:    "Test agent",
++		skillsFS:       testMockSkillsFS,
++		skillsSrcDir:   "testdata/mock-skill",
++		skillsDirName:  "test-skill",
++		projectSubPath: ".test/skills",
++		userSubPath:    ".test/skills",
+ 	}
++}
+ 
+-	// Verify directory permissions (0755)
+-	perm := info.Mode().Perm()
+-	if perm != 0755 {
+-		t.Errorf("directory permissions = %o, want 0755", perm)
+-	}
++// TestInstallFile tests the InstallFile function with various scenarios.
++func TestInstallFile(t *testing.T) {
++	t.Run("creates directory with 0755 permissions", func(t *testing.T) {
++		tmpDir, err := os.MkdirTemp("", "test-install-*")
++		if err != nil {
++			t.Fatalf("failed to create temp dir: %v", err)
++		}
++		defer func() { _ = os.RemoveAll(tmpDir) }()
+ 
+-	// Verify file was created
+-	filePath := filepath.Join(targetDir, "test.md")
+-	fileInfo, err := os.Stat(filePath)
+-	if err != nil {
+-		t.Fatalf("file was not created: %v", err)
+-	}
++		targetDir := filepath.Join(tmpDir, "new", "nested", "dir")
++		content := []byte("test content")
+ 
+-	// Verify file permissions (0644)
+-	filePerm := fileInfo.Mode().Perm()
+-	if filePerm != 0644 {
+-		t.Errorf("file permissions = %o, want 0644", filePerm)
+-	}
++		err = InstallFile(targetDir, "test.md", content)
++		if err != nil {
++			t.Fatalf("InstallFile failed: %v", err)
++		}
+ 
+-	// Verify file content
+-	readContent, err := os.ReadFile(filePath)
+-	if err != nil {
+-		t.Fatalf("failed to read file: %v", err)
+-	}
+-	if string(readContent) != string(content) {
+-		t.Errorf("file content = %q, want %q", string(readContent), string(content))
+-	}
+-}
++		// Verify directory was created with correct permissions
++		info, err := os.Stat(targetDir)
++		if err != nil {
++			t.Fatalf("directory was not created: %v", err)
++		}
++		if !info.IsDir() {
++			t.Error("path is not a directory")
++		}
++		if perm := info.Mode().Perm(); perm != 0755 {
++			t.Errorf("directory permissions = %o, want 0755", perm)
++		}
+ 
+-// TestInstallFile_AtomicOverwrite tests atomic overwrite of existing file (T009).
+
+[PATCH TRUNCATED: 444 total lines]
+
+--- FILE 2/3 ---
+FILE: internal/llmsetup/llmsetup_test.go
+STATUS: modified
+ADDITIONS: 189
+DELETIONS: 151
+
+PATCH:
+@@ -6,137 +6,197 @@ import (
+ 	"path/filepath"
+ 	"strings"
+ 	"testing"
+-)
+-
+-// TestClaudeCodeCmd_SuccessOutput tests success message output (T012).
+-func TestClaudeCodeCmd_SuccessOutput(t *testing.T) {
+-	tmpDir, err := os.MkdirTemp("", "test-claudecode-*")
+-	if err != nil {
+-		t.Fatalf("failed to create temp dir: %v", err)
+-	}
+-	defer func() { _ = os.RemoveAll(tmpDir) }()
+ 
+-	var stdout bytes.Buffer
+-	var stderr bytes.Buffer
++	"github.com/alecthomas/kong"
++)
+ 
+-	cmd := &ClaudeCodeCmd{
+-		Path:   tmpDir,
+-		User:   false,
+-		Stdout: &stdout,
+-		Stderr: &stderr,
+-	}
++// TestClaudeCodeCmd tests the ClaudeCodeCmd command with various scenarios.
++func TestClaudeCodeCmd(t *testing.T) {
++	t.Run("success output", func(t *testing.T) {
++		tmpDir, err := os.MkdirTemp("", "test-claudecode-*")
++		if err != nil {
++			t.Fatalf("failed to create temp dir: %v", err)
++		}
++		defer func() { _ = os.RemoveAll(tmpDir) }()
++
++		var stdout, stderr bytes.Buffer
++		cmd := &ClaudeCodeCmd{
++			Path:   tmpDir,
++			User:   false,
++			Stdout: &stdout,
++			Stderr: &stderr,
++		}
+ 
+-	err = cmd.Run()
+-	if err != nil {
+-		t.Fatalf("ClaudeCodeCmd.Run failed: %v", err)
+-	}
++		if err := cmd.Run(); err != nil {
++			t.Fatalf("ClaudeCodeCmd.Run failed: %v", err)
++		}
+ 
+-	output := stdout.String()
+-	if !strings.Contains(output, "Skills installed to:") {
+-		t.Errorf("stdout = %q, want to contain 'Skills installed to:'", output)
+-	}
++		output := stdout.String()
++		if !strings.Contains(output, "Skills installed to:") {
++			t.Errorf("stdout = %q, want to contain 'Skills installed to:'", output)
++		}
+ 
+-	// Now we show the skill directory path since multiple files are installed
+-	expectedPath := filepath.Join(tmpDir, "kessoku-di")
+-	if !strings.Contains(output, expectedPath) {
+-		t.Errorf("stdout = %q, want to contain path %q", output, expectedPath)
+-	}
++		expectedPath := filepath.Join(tmpDir, "kessoku-di")
++		if !strings.Contains(output, expectedPath) {
++			t.Errorf("stdout = %q, want to contain path %q", output, expectedPath)
++		}
+ 
+-	if stderr.Len() > 0 {
+-		t.Errorf("stderr should be empty, got %q", stderr.String())
+-	}
+-}
++		if stderr.Len() > 0 {
++			t.Errorf("stderr should be empty, got %q", stderr.String())
++		}
++	})
+ 
+-// TestClaudeCodeCmd_ErrorOutput tests error message output (T013).
+-func TestClaudeCodeCmd_ErrorOutput(t *testing.T) {
+-	// Create a file where we expect a directory
+-	tmpFile, err := os.CreateTemp("", "test-file-*")
+-	if err != nil {
+-		t.Fatalf("failed to create temp file: %v", err)
+-	}
+-	_ = tmpFile.Close()
+-	defer func() { _ = os.Remove(tmpFile.Name()) }()
++	t.Run("error output when path is a file", func(t *testing.T) {
++		tmpFile, err := os.CreateTemp("", "test-file-*")
++		if err != nil {
++			t.Fatalf("failed to create temp file: %v", err)
++		}
++		_ = tmpFile.Close()
++		defer func() { _ = os.Remove(tmpFile.Name()) }()
++
++		var stdout, stderr bytes.Buffer
++		cmd := &ClaudeCodeCmd{
++			Path:   tmpFile.Name(),
++			User:   false,
++			Stdout: &stdout,
++			Stderr: &stderr,
++		}
+ 
+-	var stdout bytes.Buffer
+-	var stderr bytes.Buffer
++		err = cmd.Run()
++		if err == nil {
++			t.Fatal("ClaudeCodeCmd.Run should fail when path is a file")
++		}
+ 
+-	cmd := &ClaudeCodeCmd{
+-		Path:   tmpFile.Name(), // This is a file, not a directory
+-		User:   false,
+-		Stdout: &stdout,
+-		Stderr: &stderr,
+-	}
++		if !strings.Contains(stderr.String(), "Error:") {
++			t.Errorf("stderr = %q, want to contain 'Error:'", stderr.String())
++		}
++	})
+
+[PATCH TRUNCATED: 408 total lines]
+
+--- FILE 3/3 ---
+FILE: internal/llmsetup/path_test.go
+STATUS: modified
+ADDITIONS: 123
+DELETIONS: 162
+
+PATCH:
+@@ -4,6 +4,7 @@ import (
+ 	"embed"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"testing"
+ )
+ 
+@@ -41,105 +42,72 @@ func newMockAgent() *mockAgent {
+ 	}
+ }
+ 
+-// TestResolvePath_ProjectLevel tests project-level path resolution (T007).
+-func TestResolvePath_ProjectLevel(t *testing.T) {
+-	agent := newMockAgent()
+-
+-	// Get current working directory
++// TestResolvePath tests path resolution with various configurations.
++func TestResolvePath(t *testing.T) {
+ 	cwd, err := os.Getwd()
+ 	if err != nil {
+ 		t.Fatalf("failed to get cwd: %v", err)
+ 	}
+-
+-	// Call ResolvePath with no custom path and no user flag (default: project-level)
+-	path, err := ResolvePath("", false, agent)
+-	if err != nil {
+-		t.Fatalf("ResolvePath failed: %v", err)
+-	}
+-
+-	expected := filepath.Join(cwd, agent.ProjectSubPath())
+-	if path != expected {
+-		t.Errorf("ResolvePath = %q, want %q", path, expected)
+-	}
+-}
+-
+-// TestResolvePath_UserLevel_Linux tests user-level path resolution on Linux (T021).
+-func TestResolvePath_UserLevel_Linux(t *testing.T) {
+-	if os.Getenv("HOME") == "" {
+-		t.Skip("HOME not set")
+-	}
+-
+-	agent := newMockAgent()
+ 	home := os.Getenv("HOME")
+ 
+-	path, err := ResolvePath("", true, agent)
+-	if err != nil {
+-		t.Fatalf("ResolvePath failed: %v", err)
+-	}
+-
+-	expected := filepath.Join(home, agent.UserSubPath())
+-	if path != expected {
+-		t.Errorf("ResolvePath = %q, want %q", path, expected)
+-	}
+-}
+-
+-// TestResolvePath_UserLevel_Darwin tests user-level path resolution on Darwin (T022).
+-// Note: On Darwin (macOS), the behavior is identical to Linux - uses $HOME.
+-// This test verifies the path structure when running on any Unix-like system.
+-func TestResolvePath_UserLevel_Darwin(t *testing.T) {
+-	if os.Getenv("HOME") == "" {
+-		t.Skip("HOME not set")
+-	}
+-
+-	agent := newMockAgent()
+-	home := os.Getenv("HOME")
+-
+-	path, err := ResolvePath("", true, agent)
+-	if err != nil {
+-		t.Fatalf("ResolvePath failed: %v", err)
+-	}
+-
+-	// Darwin uses the same path structure as Linux
+-	expected := filepath.Join(home, agent.UserSubPath())
+-	if path != expected {
+-		t.Errorf("ResolvePath = %q, want %q", path, expected)
+-	}
+-}
+-
+-// TestResolvePath_UserLevel_Windows tests user-level path resolution on Windows (T023).
+-// Note: On Windows, the behavior uses %USERPROFILE% instead of $HOME.
+-// This test runs on all platforms but uses HOME when available.
+-// A true Windows test would require running on Windows where USERPROFILE is set.
+-func TestResolvePath_UserLevel_Windows(t *testing.T) {
+-	// On non-Windows, this tests the same code path as Linux/Darwin
+-	// On Windows, it would use USERPROFILE
+-	if os.Getenv("HOME") == "" && os.Getenv("USERPROFILE") == "" {
+-		t.Skip("Neither HOME nor USERPROFILE is set")
+-	}
+-
+ 	agent := newMockAgent()
+ 
+-	path, err := ResolvePath("", true, agent)
+-	if err != nil {
+-		t.Fatalf("ResolvePath failed: %v", err)
+-	}
+-
+-	// Just verify we got a valid path back
+-	if path == "" {
+-		t.Error("ResolvePath should return a non-empty path")
+-	}
+-}
+-
+-// TestResolvePath_ProjectLevelWorksOnAnyOS tests that project-level path works regardless of OS (T025).
+-func TestResolvePath_ProjectLevelWorksOnAnyOS(t *testing.T) {
+-	agent := newMockAgent()
+-
+-	path, err := ResolvePath("", false, agent)
+-	if err != nil {
+-		t.Errorf("project-level ResolvePath failed: %v", err)
+-	}
+-	if path == "" {
+-		t.Error("project-level path should not be empty")
++	tests := []struct {
++		skip       func() bool
++		name       string
++		customPath string
++		want       string
++		userFlag   bool
++		wantErr    bool
+
+[PATCH TRUNCATED: 338 total lines]
+
+
+====================================================================================================
+COMMIT POSITION 4
+====================================================================================================
+SHA: dc6aca0adf1ef35eb48d29bd049497c67bc7161e
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+feat: add Cursor and GitHub Copilot support to llm-setup
+
+Add support for installing skills to Cursor (.cursor/rules/) and
+GitHub Copilot (.github/skills/) in addition to Claude Code.
+
+- Add CursorAgent and CopilotAgent implementations
+- Refactor AgentCmd using generics to reduce code duplication
+- Consolidate tests with generic test helper and table-driven tests
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 5
+
+--- FILE 1/5 ---
+FILE: internal/llmsetup/agent.go
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -17,6 +17,8 @@ type Agent interface {
+ // agents is the registry of all supported coding agents.
+ var agents = []Agent{
+ 	&ClaudeCodeAgent{},
++	&CursorAgent{},
++	&CopilotAgent{},
+ }
+ 
+ // GetAgent returns the agent with the given name, if it exists.
+
+--- FILE 2/5 ---
+FILE: internal/llmsetup/copilot.go
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++package llmsetup
++
++import "embed"
++
++// CopilotAgent implements the Agent interface for GitHub Copilot.
++type CopilotAgent struct{}
++
++// Name returns the subcommand name.
++func (a *CopilotAgent) Name() string {
++	return "github-copilot"
++}
++
++// Description returns the help text.
++func (a *CopilotAgent) Description() string {
++	return "Install GitHub Copilot skills"
++}
++
++// SkillsFS returns the embedded skill files (shared with Claude Code).
++func (a *CopilotAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *CopilotAgent) SkillsSrcDir() string {
++	return "skills"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *CopilotAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *CopilotAgent) ProjectSubPath() string {
++	return ".github/skills"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *CopilotAgent) UserSubPath() string {
++	return ".github/skills"
++}
+
+--- FILE 3/5 ---
+FILE: internal/llmsetup/cursor.go
+STATUS: added
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,41 @@
++package llmsetup
++
++import "embed"
++
++// CursorAgent implements the Agent interface for Cursor.
++type CursorAgent struct{}
++
++// Name returns the subcommand name.
++func (a *CursorAgent) Name() string {
++	return "cursor"
++}
++
++// Description returns the help text.
++func (a *CursorAgent) Description() string {
++	return "Install Cursor skills"
++}
++
++// SkillsFS returns the embedded skill files (shared with Claude Code).
++func (a *CursorAgent) SkillsFS() embed.FS {
++	return claudeCodeSkillsFS
++}
++
++// SkillsSrcDir returns the source directory path in the embedded filesystem.
++func (a *CursorAgent) SkillsSrcDir() string {
++	return "skills"
++}
++
++// SkillsDirName returns the skill directory name for installation.
++func (a *CursorAgent) SkillsDirName() string {
++	return "kessoku-di"
++}
++
++// ProjectSubPath returns the subpath for project-level installation.
++func (a *CursorAgent) ProjectSubPath() string {
++	return ".cursor/rules"
++}
++
++// UserSubPath returns the subpath for user-level installation.
++func (a *CursorAgent) UserSubPath() string {
++	return ".cursor/rules"
++}
+
+--- FILE 4/5 ---
+FILE: internal/llmsetup/llmsetup.go
+STATUS: modified
+ADDITIONS: 22
+DELETIONS: 11
+
+PATCH:
+@@ -10,8 +10,10 @@ import (
+ 
+ // LLMSetupCmd is the parent command for coding agent setup.
+ type LLMSetupCmd struct {
+-	Usage      UsageCmd      `kong:"cmd,default='1',hidden"`
+-	ClaudeCode ClaudeCodeCmd `kong:"cmd,name='claude-code',help='Install Claude Code skills'"`
++	Usage         UsageCmd      `kong:"cmd,default='1',hidden"`
++	ClaudeCode    ClaudeCodeCmd `kong:"cmd,name='claude-code',help='Install Claude Code skills'"`
++	Cursor        CursorCmd     `kong:"cmd,name='cursor',help='Install Cursor skills'"`
++	GithubCopilot CopilotCmd    `kong:"cmd,name='github-copilot',help='Install GitHub Copilot skills'"`
+ }
+ 
+ // UsageCmd is a hidden default command that prints usage (FR-003).
+@@ -22,18 +24,18 @@ func (c *UsageCmd) Run(ctx *kong.Context) error {
+ 	return ctx.PrintUsage(false)
+ }
+ 
+-// ClaudeCodeCmd is the subcommand for installing Claude Code Skills.
+-type ClaudeCodeCmd struct {
++// AgentCmd is a generic command for installing agent skills.
++type AgentCmd[T Agent] struct {
+ 	// Stdout and Stderr for output (defaults to os.Stdout/os.Stderr)
+ 	Stdout io.Writer `kong:"-"`
+ 	Stderr io.Writer `kong:"-"`
+ 	Path   string    `kong:"short='p',help='Custom installation directory'"`
+ 	User   bool      `kong:"help='Install to user-level directory'"`
+ }
+ 
+-// Run installs the Claude Code Skills file.
+-func (c *ClaudeCodeCmd) Run() error {
+-	agent := &ClaudeCodeAgent{}
++// Run installs the agent skills.
++func (c *AgentCmd[T]) Run() error {
++	var agent T
+ 
+ 	installedPath, err := Install(agent, c.Path, c.User)
+ 	if err != nil {
+@@ -45,24 +47,33 @@ func (c *ClaudeCodeCmd) Run() error {
+ 	return nil
+ }
+ 
+-func (c *ClaudeCodeCmd) stdout() io.Writer {
++func (c *AgentCmd[T]) stdout() io.Writer {
+ 	if c.Stdout != nil {
+ 		return c.Stdout
+ 	}
+ 	return os.Stdout
+ }
+ 
+-func (c *ClaudeCodeCmd) stderr() io.Writer {
++func (c *AgentCmd[T]) stderr() io.Writer {
+ 	if c.Stderr != nil {
+ 		return c.Stderr
+ 	}
+ 	return os.Stderr
+ }
+ 
+-func (c *ClaudeCodeCmd) writeSuccess(path string) {
++func (c *AgentCmd[T]) writeSuccess(path string) {
+ 	_, _ = fmt.Fprintf(c.stdout(), "Skills installed to: %s\n", path)
+ }
+ 
+-func (c *ClaudeCodeCmd) writeError(err error) {
++func (c *AgentCmd[T]) writeError(err error) {
+ 	_, _ = fmt.Fprintf(c.stderr(), "Error: %v\n", err)
+ }
++
++// ClaudeCodeCmd is the subcommand for installing Claude Code Skills.
++type ClaudeCodeCmd = AgentCmd[*ClaudeCodeAgent]
++
++// CursorCmd is the subcommand for installing Cursor Skills.
++type CursorCmd = AgentCmd[*CursorAgent]
++
++// CopilotCmd is the subcommand for installing GitHub Copilot Skills.
++type CopilotCmd = AgentCmd[*CopilotAgent]
+
+--- FILE 5/5 ---
+FILE: internal/llmsetup/llmsetup_test.go
+STATUS: modified
+ADDITIONS: 126
+DELETIONS: 98
+
+PATCH:
+@@ -10,25 +10,22 @@ import (
+ 	"github.com/alecthomas/kong"
+ )
+ 
+-// TestClaudeCodeCmd tests the ClaudeCodeCmd command with various scenarios.
+-func TestClaudeCodeCmd(t *testing.T) {
++// testAgentCmd is a generic test helper for AgentCmd tests.
++func testAgentCmd[T Agent](t *testing.T, cmdName string, newCmd func(path string, stdout, stderr *bytes.Buffer) *AgentCmd[T]) {
++	t.Helper()
++
+ 	t.Run("success output", func(t *testing.T) {
+-		tmpDir, err := os.MkdirTemp("", "test-claudecode-*")
++		tmpDir, err := os.MkdirTemp("", "test-"+cmdName+"-*")
+ 		if err != nil {
+ 			t.Fatalf("failed to create temp dir: %v", err)
+ 		}
+ 		defer func() { _ = os.RemoveAll(tmpDir) }()
+ 
+ 		var stdout, stderr bytes.Buffer
+-		cmd := &ClaudeCodeCmd{
+-			Path:   tmpDir,
+-			User:   false,
+-			Stdout: &stdout,
+-			Stderr: &stderr,
+-		}
++		cmd := newCmd(tmpDir, &stdout, &stderr)
+ 
+ 		if err := cmd.Run(); err != nil {
+-			t.Fatalf("ClaudeCodeCmd.Run failed: %v", err)
++			t.Fatalf("%sCmd.Run failed: %v", cmdName, err)
+ 		}
+ 
+ 		output := stdout.String()
+@@ -55,109 +52,127 @@ func TestClaudeCodeCmd(t *testing.T) {
+ 		defer func() { _ = os.Remove(tmpFile.Name()) }()
+ 
+ 		var stdout, stderr bytes.Buffer
+-		cmd := &ClaudeCodeCmd{
+-			Path:   tmpFile.Name(),
+-			User:   false,
+-			Stdout: &stdout,
+-			Stderr: &stderr,
+-		}
++		cmd := newCmd(tmpFile.Name(), &stdout, &stderr)
+ 
+ 		err = cmd.Run()
+ 		if err == nil {
+-			t.Fatal("ClaudeCodeCmd.Run should fail when path is a file")
++			t.Fatalf("%sCmd.Run should fail when path is a file", cmdName)
+ 		}
+ 
+ 		if !strings.Contains(stderr.String(), "Error:") {
+ 			t.Errorf("stderr = %q, want to contain 'Error:'", stderr.String())
+ 		}
+ 	})
++}
+ 
+-	t.Run("stdout/stderr returns defaults when nil", func(t *testing.T) {
+-		cmd := &ClaudeCodeCmd{
+-			Stdout: nil,
+-			Stderr: nil,
+-		}
+-
+-		if cmd.stdout() != os.Stdout {
+-			t.Error("stdout() should return os.Stdout when Stdout is nil")
+-		}
+-		if cmd.stderr() != os.Stderr {
+-			t.Error("stderr() should return os.Stderr when Stderr is nil")
+-		}
++func TestClaudeCodeCmd(t *testing.T) {
++	testAgentCmd(t, "ClaudeCode", func(path string, stdout, stderr *bytes.Buffer) *ClaudeCodeCmd {
++		return &ClaudeCodeCmd{Path: path, Stdout: stdout, Stderr: stderr}
+ 	})
+ }
+ 
+-// TestClaudeCodeAgent tests that ClaudeCodeAgent implements Agent correctly.
+-func TestClaudeCodeAgent(t *testing.T) {
+-	var _ Agent = &ClaudeCodeAgent{} // Compile-time check
++func TestCursorCmd(t *testing.T) {
++	testAgentCmd(t, "Cursor", func(path string, stdout, stderr *bytes.Buffer) *CursorCmd {
++		return &CursorCmd{Path: path, Stdout: stdout, Stderr: stderr}
++	})
++}
+ 
+-	agent := &ClaudeCodeAgent{}
++func TestCopilotCmd(t *testing.T) {
++	testAgentCmd(t, "Copilot", func(path string, stdout, stderr *bytes.Buffer) *CopilotCmd {
++		return &CopilotCmd{Path: path, Stdout: stdout, Stderr: stderr}
++	})
++}
+ 
++// TestAgents tests all Agent implementations with table-driven tests.
++func TestAgents(t *testing.T) {
+ 	tests := []struct {
+-		name   string
+-		got    string
+-		want   string
+-		notNil bool // If true, just check that got is not empty
++		name           string
++		agent          Agent
++		wantName       string
++		projectSubPath string
++		userSubPath    string
+ 	}{
+-		{"Name", agent.Name(), "claude-code", false},
+-		{"Description", agent.Description(), "", true},
+-		{"SkillsSrcDir", agent.SkillsSrcDir(), "skills", false},
+-		{"SkillsDirName", agent.SkillsDirName(), "kessoku-di", false},
+-		{"ProjectSubPath", agent.ProjectSubPath(), ".claude/skills", false},
+-		{"UserSubPath", agent.UserSubPath(), ".claude/skills", false},
++		{
++			name:           "ClaudeCodeAgent",
++			agent:          &ClaudeCodeAgent{},
++			wantName:       "claude-code",
++			projectSubPath: ".claude/skills",
++			userSubPath:    ".claude/skills",
++		},
++		{
++			name:           "CursorAgent",
++			agent:          &CursorAgent{},
+
+[PATCH TRUNCATED: 325 total lines]
+
+
+====================================================================================================
+COMMIT POSITION 5
+====================================================================================================
+SHA: c6a383f87fa896d25ad98f898c6ec8ccb0b2b88e
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+refactor: restructure skills to follow Agent Skills specification
+
+Restructure the embedded skills directory to comply with the Agent Skills
+spec (agentskills.io). Changes include:
+
+- Move skill files to skills/kessoku-di/ directory structure
+- Add references/ subdirectory for PATTERNS.md, MIGRATION.md, TROUBLESHOOTING.md
+- Update SKILL.md file references to use references/ path
+- Update Install function to recursively copy subdirectories
+- Update embed directive to use all:skills/kessoku-di
+
+The new structure follows the spec:
+  kessoku-di/
+  ├── SKILL.md (with YAML frontmatter: name, description)
+  └── references/
+      ├── PATTERNS.md
+      ├── MIGRATION.md
+      └── TROUBLESHOOTING.md
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 9
+
+--- FILE 1/9 ---
+FILE: internal/llmsetup/claudecode.go
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 2
+
+PATCH:
+@@ -2,7 +2,7 @@ package llmsetup
+ 
+ import "embed"
+ 
+-//go:embed skills/*
++//go:embed all:skills/kessoku-di
+ var claudeCodeSkillsFS embed.FS
+ 
+ // ClaudeCodeAgent implements the Agent interface for Claude Code.
+@@ -25,7 +25,7 @@ func (a *ClaudeCodeAgent) SkillsFS() embed.FS {
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+ func (a *ClaudeCodeAgent) SkillsSrcDir() string {
+-	return "skills"
++	return "skills/kessoku-di"
+ }
+ 
+ // SkillsDirName returns the skill directory name for installation.
+
+--- FILE 2/9 ---
+FILE: internal/llmsetup/copilot.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -22,7 +22,7 @@ func (a *CopilotAgent) SkillsFS() embed.FS {
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+ func (a *CopilotAgent) SkillsSrcDir() string {
+-	return "skills"
++	return "skills/kessoku-di"
+ }
+ 
+ // SkillsDirName returns the skill directory name for installation.
+
+--- FILE 3/9 ---
+FILE: internal/llmsetup/cursor.go
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -22,7 +22,7 @@ func (a *CursorAgent) SkillsFS() embed.FS {
+ 
+ // SkillsSrcDir returns the source directory path in the embedded filesystem.
+ func (a *CursorAgent) SkillsSrcDir() string {
+-	return "skills"
++	return "skills/kessoku-di"
+ }
+ 
+ // SkillsDirName returns the skill directory name for installation.
+
+--- FILE 4/9 ---
+FILE: internal/llmsetup/install.go
+STATUS: modified
+ADDITIONS: 31
+DELETIONS: 11
+
+PATCH:
+@@ -4,7 +4,6 @@ import (
+ 	"fmt"
+ 	"io/fs"
+ 	"os"
+-	"path"
+ 	"path/filepath"
+ )
+ 
+@@ -67,7 +66,7 @@ func InstallFile(targetDir string, fileName string, content []byte) (retErr erro
+ }
+ 
+ // Install performs a complete Skills installation for the given agent.
+-// Skills files (SKILL.md and support files) are installed into a single directory.
++// Skills directory (SKILL.md and support files/subdirectories) is installed recursively.
+ func Install(agent Agent, customPath string, userFlag bool) (string, error) {
+ 	basePath, err := ResolvePath(customPath, userFlag, agent)
+ 	if err != nil {
+@@ -82,24 +81,45 @@ func Install(agent Agent, customPath string, userFlag bool) (string, error) {
+ 	skillsFS := agent.SkillsFS()
+ 	srcDir := agent.SkillsSrcDir()
+ 
+-	entries, err := fs.ReadDir(skillsFS, srcDir)
+-	if err != nil {
++	// Verify srcDir exists before walking
++	if _, err = fs.Stat(skillsFS, srcDir); err != nil {
+ 		return "", fmt.Errorf("cannot read skills directory: %w", err)
+ 	}
+ 
+-	for _, entry := range entries {
+-		if entry.IsDir() {
+-			continue
++	// Walk the embedded directory tree and install all files
++	err = fs.WalkDir(skillsFS, srcDir, func(fsPath string, d fs.DirEntry, walkErr error) error {
++		if walkErr != nil {
++			return walkErr
++		}
++
++		// Skip directories (they're created automatically by InstallFile)
++		if d.IsDir() {
++			return nil
++		}
++
++		// Calculate relative path from srcDir
++		relPath, relErr := filepath.Rel(srcDir, fsPath)
++		if relErr != nil {
++			return fmt.Errorf("cannot compute relative path for %s: %w", fsPath, relErr)
+ 		}
+ 
+-		content, readErr := fs.ReadFile(skillsFS, path.Join(srcDir, entry.Name()))
++		content, readErr := fs.ReadFile(skillsFS, fsPath)
+ 		if readErr != nil {
+-			return "", fmt.Errorf("cannot read embedded file %s: %w", entry.Name(), readErr)
++			return fmt.Errorf("cannot read embedded file %s: %w", fsPath, readErr)
+ 		}
+ 
+-		if installErr := InstallFile(skillPath, entry.Name(), content); installErr != nil {
+-			return "", installErr
++		// Determine target directory (skillPath + parent directories of relPath)
++		targetDir := filepath.Join(skillPath, filepath.Dir(relPath))
++		fileName := filepath.Base(relPath)
++
++		if installErr := InstallFile(targetDir, fileName, content); installErr != nil {
++			return installErr
+ 		}
++
++		return nil
++	})
++	if err != nil {
++		return "", err
+ 	}
+ 
+ 	return skillPath, nil
+
+--- FILE 5/9 ---
+FILE: internal/llmsetup/llmsetup_test.go
+STATUS: modified
+ADDITIONS: 36
+DELETIONS: 21
+
+PATCH:
+@@ -123,8 +123,8 @@ func TestAgents(t *testing.T) {
+ 			if got := tt.agent.Description(); got == "" {
+ 				t.Error("Description() should not be empty")
+ 			}
+-			if got := tt.agent.SkillsSrcDir(); got != "skills" {
+-				t.Errorf("SkillsSrcDir() = %q, want %q", got, "skills")
++			if got := tt.agent.SkillsSrcDir(); got != "skills/kessoku-di" {
++				t.Errorf("SkillsSrcDir() = %q, want %q", got, "skills/kessoku-di")
+ 			}
+ 			if got := tt.agent.SkillsDirName(); got != "kessoku-di" {
+ 				t.Errorf("SkillsDirName() = %q, want %q", got, "kessoku-di")
+@@ -153,7 +153,7 @@ func TestAgents(t *testing.T) {
+ 
+ 	// Test that all agents share the same SkillsFS
+ 	t.Run("SkillsFS shared across agents", func(t *testing.T) {
+-		claudeEntries, _ := (&ClaudeCodeAgent{}).SkillsFS().ReadDir("skills")
++		claudeEntries, _ := (&ClaudeCodeAgent{}).SkillsFS().ReadDir("skills/kessoku-di")
+ 		for _, tt := range tests {
+ 			entries, _ := tt.agent.SkillsFS().ReadDir(tt.agent.SkillsSrcDir())
+ 			if len(entries) != len(claudeEntries) {
+@@ -290,30 +290,45 @@ func TestInstall_Integration(t *testing.T) {
+ 		t.Error("skill path is not a directory")
+ 	}
+ 
+-	// Verify all files from embedded FS were installed
+-	skillsFS := agent.SkillsFS()
+-	entries, err := skillsFS.ReadDir(agent.SkillsSrcDir())
++	// Verify SKILL.md exists at root of skill directory
++	skillMDPath := filepath.Join(skillDir, "SKILL.md")
++	if _, statErr := os.Stat(skillMDPath); statErr != nil {
++		t.Errorf("SKILL.md not found at %s: %v", skillMDPath, statErr)
++	}
++
++	// Verify references subdirectory exists
++	referencesDir := filepath.Join(skillDir, "references")
++	refInfo, err := os.Stat(referencesDir)
+ 	if err != nil {
+-		t.Fatalf("failed to read embedded dir: %v", err)
++		t.Errorf("references directory not found: %v", err)
++	} else if !refInfo.IsDir() {
++		t.Error("references should be a directory")
+ 	}
+ 
+-	for _, entry := range entries {
+-		if entry.IsDir() {
+-			continue
++	// Verify reference files exist
++	expectedRefFiles := []string{"PATTERNS.md", "MIGRATION.md", "TROUBLESHOOTING.md"}
++	for _, refFile := range expectedRefFiles {
++		refPath := filepath.Join(referencesDir, refFile)
++		if _, err := os.Stat(refPath); err != nil {
++			t.Errorf("reference file %s not found: %v", refFile, err)
+ 		}
++	}
+ 
+-		expectedContent, readErr := skillsFS.ReadFile(agent.SkillsSrcDir() + "/" + entry.Name())
+-		if readErr != nil {
+-			t.Fatalf("failed to read embedded file %s: %v", entry.Name(), readErr)
+-		}
++	// Verify file contents match embedded FS
++	skillsFS := agent.SkillsFS()
++	srcDir := agent.SkillsSrcDir()
+ 
+-		installedContent, readErr := os.ReadFile(filepath.Join(skillDir, entry.Name()))
+-		if readErr != nil {
+-			t.Fatalf("installed file %s not found: %v", entry.Name(), readErr)
+-		}
++	// Check SKILL.md content
++	expectedContent, _ := skillsFS.ReadFile(srcDir + "/SKILL.md")
++	installedContent, _ := os.ReadFile(skillMDPath)
++	if string(installedContent) != string(expectedContent) {
++		t.Error("installed SKILL.md content does not match embedded content")
++	}
+ 
+-		if string(installedContent) != string(expectedContent) {
+-			t.Errorf("installed content of %s does not match embedded content", entry.Name())
+-		}
++	// Check a reference file content
++	expectedPatterns, _ := skillsFS.ReadFile(srcDir + "/references/PATTERNS.md")
++	installedPatterns, _ := os.ReadFile(filepath.Join(referencesDir, "PATTERNS.md"))
++	if string(installedPatterns) != string(expectedPatterns) {
++		t.Error("installed PATTERNS.md content does not match embedded content")
+ 	}
+ }
+
+--- FILE 6/9 ---
+FILE: internal/llmsetup/skills/kessoku-di/SKILL.md
+PREVIOUS FILE: internal/llmsetup/skills/SKILL.md
+STATUS: renamed
+ADDITIONS: 4
+DELETIONS: 4
+
+PATCH:
+@@ -9,7 +9,7 @@ Kessoku is a compile-time dependency injection library that speeds up Go applica
+ 
+ **Use this skill when** you are building or debugging kessoku injectors/providers, wiring async dependencies, migrating from google/wire, or troubleshooting `go tool kessoku` generation problems.
+ 
+-**Supporting files:** [PATTERNS.md](PATTERNS.md) for examples, [MIGRATION.md](MIGRATION.md) for wire migration, [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common errors.
++**Supporting files:** [PATTERNS.md](references/PATTERNS.md) for examples, [MIGRATION.md](references/MIGRATION.md) for wire migration, [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for common errors.
+ 
+ ## When to Use Kessoku
+ 
+@@ -120,9 +120,9 @@ var _ = kessoku.Inject[*DB](
+ ## Support Files
+ 
+ For detailed information, see:
+-- [PATTERNS.md](PATTERNS.md) - Detailed patterns, examples, best practices
+-- [MIGRATION.md](MIGRATION.md) - Wire migration guide
+-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common errors and solutions
++- [PATTERNS.md](references/PATTERNS.md) - Detailed patterns, examples, best practices
++- [MIGRATION.md](references/MIGRATION.md) - Wire migration guide
++- [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) - Common errors and solutions
+ 
+ ## Resources
+ 
+
+--- FILE 7/9 ---
+FILE: internal/llmsetup/skills/kessoku-di/references/MIGRATION.md
+PREVIOUS FILE: internal/llmsetup/skills/MIGRATION.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 8/9 ---
+FILE: internal/llmsetup/skills/kessoku-di/references/PATTERNS.md
+PREVIOUS FILE: internal/llmsetup/skills/PATTERNS.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+--- FILE 9/9 ---
+FILE: internal/llmsetup/skills/kessoku-di/references/TROUBLESHOOTING.md
+PREVIOUS FILE: internal/llmsetup/skills/TROUBLESHOOTING.md
+STATUS: renamed
+ADDITIONS: 0
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+
+====================================================================================================
+COMMIT POSITION 6
+====================================================================================================
+SHA: 6c5adebf4bc73079706cc3a4245b0dcd2e74f72b
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+ci: add skill validation with agentskills/skills-ref
+
+Add validate-skills job to CI workflow that validates the kessoku-di
+skill directory using the skills-ref tool from agentskills/agentskills.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: .github/workflows/ci.yml
+STATUS: modified
+ADDITIONS: 12
+DELETIONS: 0
+
+PATCH:
+@@ -90,6 +90,18 @@ jobs:
+           path: dist/
+           retention-days: 30
+ 
++  validate-skills:
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout code
++        uses: actions/checkout@v6
++
++      - name: Set up uv
++        uses: astral-sh/setup-uv@v5
++
++      - name: Validate kessoku-di skill
++        run: uvx --from git+https://github.com/agentskills/agentskills.git#subdirectory=skills-ref skills-ref validate internal/llmsetup/skills/kessoku-di
++
+   api-compatibility:
+     runs-on: ubuntu-latest
+     steps:
+
+
+====================================================================================================
+COMMIT POSITION 7
+====================================================================================================
+SHA: ed639161eaf10b75856433f05ef04f13bf60f988
+FETCH STATUS: ok
+
+COMMIT MESSAGE:
+docs: add coding agent integration section to README
+
+Add documentation for the llm-setup command that installs skills
+for Claude Code, Cursor, and GitHub Copilot coding assistants.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+CHANGED FILES: 1
+
+--- FILE 1/1 ---
+FILE: README.md
+STATUS: modified
+ADDITIONS: 41
+DELETIONS: 0
+
+PATCH:
+@@ -177,6 +177,47 @@ sudo apk add --allow-untrusted kessoku_amd64.apk
+ 
+ </details>
+ 
++## Coding Agent Integration
++
++Kessoku provides built-in skills for AI coding assistants to help you write better DI code.
++
++**Install skills for your coding agent:**
++
++```bash
++# Claude Code
++go tool kessoku llm-setup claude-code
++
++# Cursor
++go tool kessoku llm-setup cursor
++
++# GitHub Copilot
++go tool kessoku llm-setup github-copilot
++```
++
++<details>
++<summary>Installation Options</summary>
++
++```bash
++# Install to user-level directory (available across all projects)
++go tool kessoku llm-setup claude-code --user
++
++# Install to custom directory
++go tool kessoku llm-setup claude-code --path ./custom/path
++```
++
++**Default installation paths:**
++- **Claude Code:** `.claude/skills/` (project) or `~/.claude/skills/` (user)
++- **Cursor:** `.cursor/rules/` (project) or `~/.cursor/rules/` (user)
++- **GitHub Copilot:** `.github/copilot-instructions.d/` (project) or `~/.github/copilot-instructions.d/` (user)
++
++</details>
++
++Once installed, your coding agent will understand kessoku patterns and can help you:
++- Write providers and injectors correctly
++- Set up parallel initialization with `Async`
++- Migrate from google/wire
++- Troubleshoot code generation issues
++
+ ## API Reference
+ 
+ **Full docs:** [pkg.go.dev/github.com/mazrean/kessoku](https://pkg.go.dev/github.com/mazrean/kessoku)
+
+
+####################################################################################################
+SECTION C — HUMAN VALIDATION
+####################################################################################################
+
+Q1. Does the earlier specification commit
+INTRODUCE or substantively MODIFY a
+behavioral requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q2. Is there a LATER commit in this PR that
+implements some or all of THAT requirement?
+
+YES / NO / UNCERTAIN
+
+
+Q3. What is the FIRST relevant implementation
+commit?
+
+Position:
+
+SHA:
+
+Commit message:
+
+Relevant file(s):
+
+
+Q4. Was the requirement present BEFORE that
+first relevant implementation change?
+
+YES / NO / UNCERTAIN
+
+
+Q5. Requirement → implementation link confidence:
+
+HIGH / MEDIUM / LOW / NONE
+
+
+Q6. Preliminary classification:
+
+TIER_A_CANDIDATE
+TIER_B
+TIER_C
+EXCLUDE
+UNCERTAIN
+
+
+Reason:
+
+
+Relevant requirement text:
+
+
+Relevant implementation evidence:
+
+
+Notes:

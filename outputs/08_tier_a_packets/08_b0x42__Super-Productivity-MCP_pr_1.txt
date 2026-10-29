@@ -1,0 +1,321 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 8/15
+Repository: b0x42/Super-Productivity-MCP
+PR: #1
+Tool: speckit
+Language: TypeScript
+
+First specification commit position: 2
+First implementation commit position: 6
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: 248cbe3cfa1220494e9b20fd91be30c0600a833c
+
+COMMIT MESSAGE:
+docs: add includeArchived filter to get_tasks (from reference project review)
+
+FILE: specs/001-sp-mcp-server/contracts/command-protocol.md
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 1
+
+PATCH:
+@@ -46,7 +46,7 @@ Version: 1 (protocolVersion field value)
+ | MCP Tool | Command Action | Notes |
+ |----------|---------------|-------|
+ | `create_task` | `addTask` | Plugin uses two-step workaround for subtasks with SP syntax |
+-| `get_tasks` | `getTasks` | Plugin returns all tasks; server filters by `filters` |
++| `get_tasks` | `getTasks` | Plugin returns tasks (+ archived if requested); server filters by `filters` |
+ | `update_task` | `updateTask` | |
+ | `complete_task` | `setTaskDone` | |
+ | `get_projects` | `getAllProjects` | |
+@@ -87,3 +87,4 @@ Standard error messages:
+ - Adding new optional fields to existing actions: no version bump
+ - Adding new actions: no version bump (plugin returns "Unknown command action" for unrecognized actions)
+ - Changing semantics of existing actions or adding required fields: version bump required
++ired
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/001-sp-mcp-server/data-model.md
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 2
+
+PATCH:
+@@ -22,8 +22,9 @@ interface Command {
+ interface TaskFilters {
+   projectId?: string;
+   tagId?: string;
+-  includeDone?: boolean;  // Default: false
+-  searchQuery?: string;   // Case-insensitive title match
++  includeDone?: boolean;     // Default: false
++  includeArchived?: boolean; // Default: false — when true, also fetches archived tasks
++  searchQuery?: string;      // Case-insensitive title match
+ }
+ ```
+ 
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/001-sp-mcp-server/spec.md
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 1
+
+PATCH:
+@@ -97,7 +97,7 @@ A user asks the AI to show a notification inside Super Productivity's UI.
+ ### Functional Requirements
+ 
+ - **FR-001**: System MUST allow creating tasks with a title, optional notes, optional project assignment, optional parent task, and optional tag IDs.
+-- **FR-002**: System MUST allow listing tasks with optional filters: by project ID, by tag ID, by done status (include/exclude completed), and by title search query. When no filters are provided, all non-done tasks are returned.
++- **FR-002**: System MUST allow listing tasks with optional filters: by project ID, by tag ID, by done status (include/exclude completed), by archived status (include/exclude archived), and by title search query. When no filters are provided, all non-done, non-archived tasks are returned.
+ - **FR-003**: System MUST allow updating any mutable task field: title, notes, done status, time estimate, time spent.
+ - **FR-004**: System MUST allow marking a task as complete (setting `isDone` and `doneOn`).
+ - **FR-005**: System MUST allow creating projects with a title, optional description, and optional color.
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+POSITION 3
+SHA: b06fc447f01bed4f0d8801ce2e8cfca6831b28d2
+docs: add get_worklog tool for productivity metrics (US5, FR-023)
+----------------------------------------------------------------------------------------------------
+POSITION 4
+SHA: 56bcf15d94e851b09f0a3fbcbb6ff071946ec846
+docs: add MCP best practices — isError flag, input validation, rich descriptions (FR-024, FR-025)
+----------------------------------------------------------------------------------------------------
+POSITION 5
+SHA: 2efed56a45bb61cf1555fb8c108137dc9bdc8076
+docs: add implementation tasks — 43 tasks across 10 phases, 5 user stories
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: 2d014a18e9a5f83bedf33e2dfc2af5553276ec7c
+
+COMMIT MESSAGE:
+feat: Phase 1 setup — package.json, tsconfig, tsup, deps, gitignore, license (T001-T007)
+
+IMPLEMENTATION FILES:
+FILE: .gitignore
+STATUS: added
+ADDITIONS: 9
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,9 @@
++node_modules/
++dist/
++*.log
++.env*
++.DS_Store
++Thumbs.db
++*.tmp
++*.swp
++coverage/
+
+----------------------------------------------------------------------------------------------------
+FILE: LICENSE
+STATUS: added
+ADDITIONS: 21
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) 2026
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+
+----------------------------------------------------------------------------------------------------
+FILE: package-lock.json
+STATUS: added
+ADDITIONS: 3804
+DELETIONS: 0
+
+[GitHub patch unavailable]
+
+----------------------------------------------------------------------------------------------------
+FILE: package.json
+STATUS: added
+ADDITIONS: 50
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,50 @@
++{
++  "name": "super-productivity-mcp",
++  "version": "1.0.0",
++  "description": "MCP server for Super Productivity — manage tasks, projects, and tags via AI assistants",
++  "main": "dist/index.js",
++  "bin": {
++    "super-productivity-mcp": "dist/index.js"
++  },
++  "type": "module",
++  "scripts": {
++    "build": "tsup",
++    "dev": "tsup --watch",
++    "test": "vitest run",
++    "test:watch": "vitest",
++    "lint": "eslint src/",
++    "prepublishOnly": "npm run build",
++    "build:plugin": "cd plugin && zip -r ../dist/plugin.zip manifest.json plugin.js index.html"
++  },
++  "files": [
++    "dist",
++    "README.md",
++    "LICENSE"
++  ],
++  "keywords": [
++    "mcp",
++    "super-productivity",
++    "task-management",
++    "ai",
++    "claude",
++    "model-context-protocol"
++  ],
++  "license": "MIT",
++  "engines": {
++    "node": ">=18"
++  },
++  "repository": {
++    "type": "git",
++    "url": "https://github.com/user/super-productivity-mcp"
++  },
++  "dependencies": {
++    "@modelcontextprotocol/sdk": "^1.29.0",
++    "zod": "^4.3.6"
++  },
++  "devDependencies": {
++    "@types/node": "^25.6.0",
++    "tsup": "^8.5.1",
++    "typescript": "^6.0.3",
++    "vitest": "^4.1.4"
++  }
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: src/index.ts
+STATUS: added
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1 @@
++console.log("super-productivity-mcp");
+
+----------------------------------------------------------------------------------------------------
+FILE: tsconfig.json
+STATUS: added
+ADDITIONS: 16
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,16 @@
++{
++  "compilerOptions": {
++    "target": "ES2020",
++    "module": "NodeNext",
++    "moduleResolution": "NodeNext",
++    "strict": true,
++    "esModuleInterop": true,
++    "skipLibCheck": true,
++    "outDir": "dist",
++    "rootDir": "src",
++    "declaration": true,
++    "sourceMap": true
++  },
++  "include": ["src"],
++  "exclude": ["node_modules", "dist", "tests"]
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: tsup.config.ts
+STATUS: added
+ADDITIONS: 10
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,10 @@
++import { defineConfig } from 'tsup';
++
++export default defineConfig({
++  entry: ['src/index.ts'],
++  format: ['esm'],
++  target: 'node18',
++  clean: true,
++  sourcemap: true,
++  banner: { js: '#!/usr/bin/env node' },
++});
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

@@ -1,0 +1,1037 @@
+====================================================================================================
+TIER-A VALIDATION PACKET
+====================================================================================================
+
+Candidate: 7/15
+Repository: alfredoperez/speckit-companion
+PR: #165
+Tool: speckit
+Language: TypeScript
+
+First specification commit position: 1
+First implementation commit position: 2
+
+====================================================================================================
+A. EARLIER SPECIFICATION COMMIT
+====================================================================================================
+SHA: c058bf71a14ae4225c569c5cb95b839fab522e93
+
+COMMIT MESSAGE:
+chore(demos): add committed specified/planned/tasked testing specs
+
+Three fixed-baseline manual-testing specs, one per viewer state (specified, planned, tasked-out), so the spec viewer can be opened against a known state. Tracked but local edits must not be committed; restore with `git restore specs/_demo-*`. Documented in CLAUDE.md.
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+
+FILE: specs/_demo-planned/.spec-context.json
+STATUS: added
+ADDITIONS: 19
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,19 @@
++{
++  "workflow": "sdd",
++  "specName": "Demo — Planned",
++  "branch": "demo/planned",
++  "selectedAt": "2026-05-20T20:00:00.000Z",
++  "currentStep": "plan",
++  "status": "planned",
++  "stepHistory": {
++    "specify": {
++      "startedAt": "2026-05-20T20:00:00.000Z",
++      "completedAt": "2026-05-20T20:05:00.000Z"
++    },
++    "plan": {
++      "startedAt": "2026-05-20T20:05:00.000Z",
++      "completedAt": "2026-05-20T20:10:00.000Z"
++    }
++  },
++  "transitions": []
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/_demo-planned/plan.md
+STATUS: added
+ADDITIONS: 13
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,13 @@
++# Plan: Demo — CSV Export
++
++**Spec**: [spec.md](./spec.md)
++
++## Approach
++
++Serialize the already-materialized table view-model (post filter/sort) to CSV in
++the browser and trigger a download via a Blob URL — no backend round-trip.
++
++## Files
++
++- `table/exportCsv.ts` — view-model → CSV string (escaping, header row).
++- `table/TableToolbar.tsx` — add the "Export CSV" button wired to the download.
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/_demo-planned/spec.md
+STATUS: added
+ADDITIONS: 21
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,21 @@
++# Spec: Demo — CSV Export
++
++> Canonical testing fixture in the **planned** state (spec + plan, no tasks).
++> Committed at a fixed baseline — do NOT commit local edits (see CLAUDE.md).
++
++## Summary
++
++Let users export the current table view to a CSV file.
++
++## Requirements
++
++- **R001** (MUST): An "Export CSV" action downloads the current rows as `.csv`.
++- **R002** (MUST): The export respects the active filter and sort.
++- **R003** (SHOULD): Column headers match the visible table headers.
++
++## Scenarios
++
++### Export the current view
++
++**When** the user clicks "Export CSV" with a filter applied
++**Then** a CSV of the filtered, sorted rows downloads with matching headers
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/_demo-specified/.spec-context.json
+STATUS: added
+ADDITIONS: 15
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,15 @@
++{
++  "workflow": "sdd",
++  "specName": "Demo — Specified",
++  "branch": "demo/specified",
++  "selectedAt": "2026-05-20T20:00:00.000Z",
++  "currentStep": "specify",
++  "status": "specified",
++  "stepHistory": {
++    "specify": {
++      "startedAt": "2026-05-20T20:00:00.000Z",
++      "completedAt": "2026-05-20T20:05:00.000Z"
++    }
++  },
++  "transitions": []
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/_demo-specified/spec.md
+STATUS: added
+ADDITIONS: 22
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,22 @@
++# Spec: Demo — Dark Mode Toggle
++
++> Canonical testing fixture in the **specified** state (spec only, no plan/tasks).
++> Committed at a fixed baseline — do NOT commit local edits (see CLAUDE.md).
++
++## Summary
++
++Add a dark-mode toggle to the app header so users can switch themes without
++opening settings.
++
++## Requirements
++
++- **R001** (MUST): A toggle in the header switches between light and dark themes.
++- **R002** (MUST): The chosen theme persists across reloads.
++- **R003** (SHOULD): The toggle reflects the OS theme on first load.
++
++## Scenarios
++
++### Toggle the theme
++
++**When** the user clicks the header toggle
++**Then** the app switches theme immediately and remembers the choice on reload
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/_demo-tasked/.spec-context.json
+STATUS: added
+ADDITIONS: 23
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,23 @@
++{
++  "workflow": "sdd",
++  "specName": "Demo — Tasked",
++  "branch": "demo/tasked",
++  "selectedAt": "2026-05-20T20:00:00.000Z",
++  "currentStep": "tasks",
++  "status": "ready-to-implement",
++  "stepHistory": {
++    "specify": {
++      "startedAt": "2026-05-20T20:00:00.000Z",
++      "completedAt": "2026-05-20T20:05:00.000Z"
++    },
++    "plan": {
++      "startedAt": "2026-05-20T20:05:00.000Z",
++      "completedAt": "2026-05-20T20:10:00.000Z"
++    },
++    "tasks": {
++      "startedAt": "2026-05-20T20:10:00.000Z",
++      "completedAt": "2026-05-20T20:15:00.000Z"
++    }
++  },
++  "transitions": []
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/_demo-tasked/plan.md
+STATUS: added
+ADDITIONS: 14
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,14 @@
++# Plan: Demo — Command Palette Quick-Open
++
++**Spec**: [spec.md](./spec.md)
++
++## Approach
++
++A modal overlay backed by a small fuzzy matcher over an in-memory item index.
++Recent items come from a capped MRU list in local storage.
++
++## Files
++
++- `palette/fuzzy.ts` — ranking/scoring for the query.
++- `palette/CommandPalette.tsx` — modal, input, result list, keyboard nav.
++- `palette/useRecentItems.ts` — MRU list persisted to local storage.
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/_demo-tasked/spec.md
+STATUS: added
+ADDITIONS: 22
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,22 @@
++# Spec: Demo — Command Palette Quick-Open
++
++> Canonical testing fixture in the **tasked-out** state (spec + plan + tasks,
++> ready to implement). Committed at a fixed baseline — do NOT commit local edits
++> (see CLAUDE.md).
++
++## Summary
++
++Add a keyboard-driven quick-open palette so users can jump to any item by name.
++
++## Requirements
++
++- **R001** (MUST): A shortcut opens a fuzzy-search palette over all items.
++- **R002** (MUST): Selecting a result navigates to that item.
++- **R003** (SHOULD): The palette shows recent items when the query is empty.
++
++## Scenarios
++
++### Jump to an item
++
++**When** the user presses the shortcut and types part of an item's name
++**Then** matching items rank by relevance and Enter navigates to the top match
+
+----------------------------------------------------------------------------------------------------
+FILE: specs/_demo-tasked/tasks.md
+STATUS: added
+ADDITIONS: 10
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,10 @@
++# Tasks: Demo — Command Palette Quick-Open
++
++**Plan**: [plan.md](./plan.md)
++
++## Phase 1: Core Implementation
++
++- [ ] **T001** Fuzzy matcher — `palette/fuzzy.ts` | R001
++- [ ] **T002** [P] Recent-items MRU hook — `palette/useRecentItems.ts` | R003
++- [ ] **T003** Palette modal + keyboard nav — `palette/CommandPalette.tsx` *(depends on T001)* | R001, R002
++- [ ] **T004** Wire the open shortcut and navigation — `palette/CommandPalette.tsx` *(depends on T003)* | R002
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+B. COMMITS BETWEEN SPEC AND FIRST CODE CHANGE
+====================================================================================================
+[No commits in between]
+
+====================================================================================================
+C. FIRST IMPLEMENTATION COMMIT
+====================================================================================================
+SHA: 4fd30061496ee3a21fca7017b1158dad8f57de68
+
+COMMIT MESSAGE:
+feat(ai-providers): add IDE Chat provider for host-editor chat dispatch
+
+Adds an 'ide-chat' provider that routes the assembled prompt to the host editor's built-in AI chat (VS Code/Copilot, Cursor, Windsurf) instead of a terminal. Detects the host via vscode.env, resolves a chat-open command from a verified candidate list, and dispatches the clean /speckit.* command (stripping the context-update preamble, shortening spec-dir paths to the spec name, and inlining a specify temp-file description). Auto-submits when spec-kit is initialized, otherwise prefills and warns. Unsupported editors get a graceful message; nothing throws.
+
+IMPLEMENTATION FILES:
+FILE: package.json
+STATUS: modified
+ADDITIONS: 4
+DELETIONS: 2
+
+PATCH:
+@@ -687,15 +687,17 @@
+               "copilot",
+               "codex",
+               "qwen",
+-              "opencode"
++              "opencode",
++              "ide-chat"
+             ],
+             "enumDescriptions": [
+               "Claude Code - Full feature support (steering, agents, skills, hooks)",
+               "Gemini CLI - Steering support",
+               "GitHub Copilot CLI - Steering and agents support",
+               "Codex CLI - Steering and skills support",
+               "Qwen Code - Steering support",
+-              "OpenCode - Steering and agents support (AGENTS.md)"
++              "OpenCode - Steering and agents support (AGENTS.md)",
++              "IDE Chat - Routes prompts to the host editor's built-in AI chat (Copilot / Cursor / Windsurf)"
+             ],
+             "scope": "machine",
+             "order": 2,
+
+----------------------------------------------------------------------------------------------------
+FILE: src/ai-providers/__tests__/ideChatProvider.test.ts
+STATUS: added
+ADDITIONS: 190
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,190 @@
++import * as vscode from 'vscode';
++import { IdeChatProvider } from '../ideChatProvider';
++
++describe('IdeChatProvider', () => {
++    let provider: IdeChatProvider;
++
++    function mockAvailableCommands(commands: string[]) {
++        (vscode.commands.getCommands as jest.Mock).mockResolvedValue(commands);
++    }
++
++    beforeEach(() => {
++        jest.clearAllMocks();
++        (vscode.env as any).appName = '';
++        (vscode.env as any).uriScheme = '';
++        (vscode.commands.getCommands as jest.Mock).mockResolvedValue([]);
++
++        const context = {} as any;
++        const outputChannel = { appendLine: jest.fn() } as any;
++        provider = new IdeChatProvider(context, outputChannel);
++    });
++
++    describe('detectHostIde', () => {
++        it('detects Cursor from uriScheme', () => {
++            (vscode.env as any).uriScheme = 'cursor';
++            expect(provider.detectHostIde()).toBe('cursor');
++        });
++
++        it('detects Cursor from appName', () => {
++            (vscode.env as any).appName = 'Cursor';
++            expect(provider.detectHostIde()).toBe('cursor');
++        });
++
++        it('detects Windsurf from uriScheme', () => {
++            (vscode.env as any).uriScheme = 'windsurf';
++            expect(provider.detectHostIde()).toBe('windsurf');
++        });
++
++        it('detects Windsurf from appName', () => {
++            (vscode.env as any).appName = 'Windsurf';
++            expect(provider.detectHostIde()).toBe('windsurf');
++        });
++
++        it('detects VS Code from uriScheme', () => {
++            (vscode.env as any).uriScheme = 'vscode';
++            expect(provider.detectHostIde()).toBe('vscode');
++        });
++
++        it('detects VS Code from appName', () => {
++            (vscode.env as any).appName = 'Visual Studio Code';
++            expect(provider.detectHostIde()).toBe('vscode');
++        });
++
++        it('returns unknown for an unrecognized editor', () => {
++            (vscode.env as any).uriScheme = 'someotherfork';
++            (vscode.env as any).appName = 'Some Other Editor';
++            expect(provider.detectHostIde()).toBe('unknown');
++        });
++    });
++
++    describe('resolveChatCommand', () => {
++        it('chooses the fork-specific command when the base command is absent', async () => {
++            mockAvailableCommands(['aichat.newchataction']);
++            const command = await provider.resolveChatCommand('cursor');
++            expect(command).toBe('aichat.newchataction');
++        });
++
++        it('prefers the base command when it is present (first in the candidate list wins)', async () => {
++            mockAvailableCommands(['aichat.newchataction', 'workbench.action.chat.open']);
++            const command = await provider.resolveChatCommand('cursor');
++            expect(command).toBe('workbench.action.chat.open');
++        });
++
++        it('returns undefined when no candidate command is registered', async () => {
++            mockAvailableCommands([]);
++            const command = await provider.resolveChatCommand('vscode');
++            expect(command).toBeUndefined();
++        });
++    });
++
++    describe('dispatch when no chat target is resolvable', () => {
++        it('does not throw, warns the user, and never calls executeCommand', async () => {
++            mockAvailableCommands([]);
++            (vscode.env as any).uriScheme = 'someotherfork';
++
++            await expect(provider.executeInTerminal('hello')).resolves.toBeUndefined();
++            expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
++            expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
++        });
++    });
++
++    describe('dispatch happy path (spec-kit ready)', () => {
++        it('auto-submits the resolved command (isPartialQuery false) and returns undefined', async () => {
++            mockAvailableCommands(['workbench.action.chat.open']);
++            (vscode.env as any).uriScheme = 'vscode';
++            jest.spyOn(provider as any, 'isWorkspaceSpecKitReady').mockResolvedValue(true);
++
++            const result = await provider.executeInTerminal('do the thing');
++
++            expect(result).toBeUndefined();
++            expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
++                'workbench.action.chat.open',
++                { query: 'do the thing', isPartialQuery: false }
++            );
++            expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
++        });
++    });
++
++    describe('strips the context-update preamble and shortens the spec path', () => {
++        it('sends only the clean command with the spec name, not the bookkeeping preamble or absolute path', async () => {
++            mockAvailableCommands(['workbench.action.chat.open']);
++            (vscode.env as any).uriScheme = 'vscode';
++            jest.spyOn(provider as any, 'isWorkspaceSpecKitReady').mockResolvedValue(true);
++
++            const wrapped =
++                '<!-- speckit-companion:context-update -->\n' +
++                'UPDATE SPEC CONTEXT JSON ... lots of bookkeeping instructions ...\n' +
++                '<!-- /speckit-companion:context-update -->\n\n' +
++                '/speckit.tasks /Users/me/dev/project/specs/100-ide-chat-provider';
++
++            await provider.executeInTerminal(wrapped);
++
++            expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
++                'workbench.action.chat.open',
++                { query: '/speckit.tasks 100-ide-chat-provider', isPartialQuery: false }
++            );
++        });
++
++        it('leaves the specify free-text description untouched', async () => {
++            mockAvailableCommands(['workbench.action.chat.open']);
++            (vscode.env as any).uriScheme = 'vscode';
++            jest.spyOn(provider as any, 'isWorkspaceSpecKitReady').mockResolvedValue(true);
++
++            await provider.executeInTerminal('/speckit.specify add OAuth login with refresh tokens');
++
++            expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
++                'workbench.action.chat.open',
++                { query: '/speckit.specify add OAuth login with refresh tokens', isPartialQuery: false }
++            );
++        });
++
++        it('inlines the feature description for a specify temp markdown file (chat cannot read paths)', async () => {
++            mockAvailableCommands(['workbench.action.chat.open']);
++            (vscode.env as any).uriScheme = 'vscode';
++            jest.spyOn(provider as any, 'isWorkspaceSpecKitReady').mockResolvedValue(true);
++            const md = 'Add OAuth login with refresh tokens\n\n## Post-Specification: Update .spec-context.json\nblah blah';
++            (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from(md, 'utf-8'));
++
++            await provider.executeInTerminal('/speckit.specify /tmp/speckit/abc/spec.md');
++
++            expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
++                'workbench.action.chat.open',
++                { query: '/speckit.specify Add OAuth login with refresh tokens', isPartialQuery: false }
++            );
++        });
++    });
++
++    describe('dispatch when spec-kit is not initialized', () => {
++        it('warns the user and prefills (isPartialQuery true) instead of auto-submitting', async () => {
++            mockAvailableCommands(['workbench.action.chat.open']);
++            (vscode.env as any).uriScheme = 'vscode';
++            jest.spyOn(provider as any, 'isWorkspaceSpecKitReady').mockResolvedValue(false);
++
++            const result = await provider.executeInTerminal('do the thing');
++
++            expect(result).toBeUndefined();
++            expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
++            expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
++                'workbench.action.chat.open',
++                { query: 'do the thing', isPartialQuery: true }
++            );
++        });
++    });
++
++    describe('executeHeadless', () => {
++        it('returns an undefined exit code (treated as success by callers)', async () => {
++            mockAvailableCommands(['workbench.action.chat.open']);
++            (vscode.env as any).uriScheme = 'vscode';
++            jest.spyOn(provider as any, 'isWorkspaceSpecKitReady').mockResolvedValue(true);
++
++            const result = await provider.executeHeadless('prompt');
++            expect(result).toEqual({ exitCode: undefined });
++        });
++    });
++
++    describe('getPermissionFlag', () => {
++        it('returns an empty string', () => {
++            expect(provider.getPermissionFlag()).toBe('');
++        });
++    });
++});
+
+----------------------------------------------------------------------------------------------------
+FILE: src/ai-providers/aiProvider.ts
+STATUS: modified
+ADDITIONS: 28
+DELETIONS: 3
+
+PATCH:
+@@ -127,9 +127,10 @@ export interface IAIProvider {
+      * Execute a prompt in a visible terminal (split view)
+      * @param prompt The prompt to send to the AI
+      * @param title The terminal title
+-     * @returns The terminal instance
++     * @returns The terminal instance, or undefined for providers that dispatch
++     *          somewhere other than a terminal (e.g. the IDE Chat provider)
+      */
+-    executeInTerminal(prompt: string, title?: string): Promise<vscode.Terminal>;
++    executeInTerminal(prompt: string, title?: string): Promise<vscode.Terminal | undefined>;
+ 
+     /**
+      * Execute a prompt in headless/background mode
+@@ -144,7 +145,7 @@ export interface IAIProvider {
+      * @param title Optional terminal title
+      * @param autoExecute If false, shows command but waits for user to press Enter (default: true)
+      */
+-    executeSlashCommand(command: string, title?: string, autoExecute?: boolean): Promise<vscode.Terminal>;
++    executeSlashCommand(command: string, title?: string, autoExecute?: boolean): Promise<vscode.Terminal | undefined>;
+ 
+     /**
+      * Get the CLI permission flag for this provider based on the unified speckit.permissionMode setting.
+@@ -324,6 +325,30 @@ export const PROVIDER_PATHS: Record<AIProviderType, ProviderPaths> = {
+         supportsInteractivePermissions: true,
+         autoApproveFlag: '',
+     },
++    // IDE Chat dispatches the assembled prompt to the host editor's built-in
++    // chat (Copilot / Cursor / Windsurf) instead of spawning a CLI in a
++    // terminal. It owns no config directory and no steering/agents/skills
++    // surface — steering sync is governed by the host editor and is out of
++    // scope — so those fields are intentionally neutral/empty.
++    [AIProviders.IDE_CHAT]: {
++        steeringFile: '',
++        globalSteeringFile: null,
++        steeringDir: '',
++        steeringPattern: '',
++        agentsDir: '',
++        agentsPattern: '',
++        skillsDir: '',
++        skillsPattern: '',
++        mcpConfigPath: '',
++        configDir: '',
++        supportsHooks: false,
++        displayName: 'IDE Chat',
++        commandFormat: 'dot',
++        quickPickIcon: '$(comment-discussion)',
++        quickPickDescription: "Route prompts to the host editor's built-in AI chat (Copilot / Cursor / Windsurf)",
++        supportsInteractivePermissions: true,
++        autoApproveFlag: '',
++    },
+ };
+ 
+ /**
+
+----------------------------------------------------------------------------------------------------
+FILE: src/ai-providers/aiProviderFactory.ts
+STATUS: modified
+ADDITIONS: 2
+DELETIONS: 0
+
+PATCH:
+@@ -6,6 +6,7 @@ import { CopilotCliProvider } from './copilotCliProvider';
+ import { CodexCliProvider } from './codexCliProvider';
+ import { QwenCliProvider } from './qwenCliProvider';
+ import { OpenCodeProvider } from './openCodeProvider';
++import { IdeChatProvider } from './ideChatProvider';
+ import { AIProviders } from '../core/constants';
+ 
+ type ProviderConstructor = (
+@@ -20,6 +21,7 @@ const PROVIDER_CONSTRUCTORS: Record<AIProviderType, ProviderConstructor> = {
+     [AIProviders.CODEX]: (ctx, out) => new CodexCliProvider(ctx, out),
+     [AIProviders.QWEN]: (ctx, out) => new QwenCliProvider(ctx, out),
+     [AIProviders.OPENCODE]: (ctx, out) => new OpenCodeProvider(ctx, out),
++    [AIProviders.IDE_CHAT]: (ctx, out) => new IdeChatProvider(ctx, out),
+ };
+ 
+ /**
+
+----------------------------------------------------------------------------------------------------
+FILE: src/ai-providers/claudeCodeProvider.ts
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 10
+
+PATCH:
+@@ -7,6 +7,7 @@ import { AIProviders, Timing } from '../core/constants';
+ import { waitForShellReady, executeCommandInHiddenTerminal } from '../core/utils/terminalUtils';
+ import { createTempFile } from '../core/utils/tempFileUtils';
+ import { IAIProvider, AIExecutionResult, dispatchSlashCommandViaTempFile, buildPromptDispatchCommand } from './aiProvider';
++import { splitContextPreamble } from './promptBuilder';
+ import { detectShell, formatPromptFileSubstitution, Shell } from '../core/utils/shellDetection';
+ import { getPermissionFlagForProvider } from './permissionValidation';
+ 
+@@ -68,16 +69,8 @@ export class ClaudeCodeProvider implements IAIProvider {
+      * and keeps the terminal view focused on what the user actually invoked.
+      */
+     private splitPreambleFromPrompt(prompt: string): { systemPrompt: string | null; userPrompt: string } {
+-        const MARKER_CLOSE = '<!-- /speckit-companion:context-update -->';
+-        const idx = prompt.indexOf(MARKER_CLOSE);
+-        if (idx === -1) {
+-            return { systemPrompt: null, userPrompt: prompt };
+-        }
+-        const end = idx + MARKER_CLOSE.length;
+-        return {
+-            systemPrompt: prompt.slice(0, end).trim(),
+-            userPrompt: prompt.slice(end).trim(),
+-        };
++        const { preamble, command } = splitContextPreamble(prompt);
++        return { systemPrompt: preamble, userPrompt: command };
+     }
+ 
+     /**
+
+----------------------------------------------------------------------------------------------------
+FILE: src/ai-providers/ideChatProvider.ts
+STATUS: added
+ADDITIONS: 266
+DELETIONS: 0
+
+PATCH:
+@@ -0,0 +1,266 @@
++import * as vscode from 'vscode';
++import { AIProviders, Commands } from '../core/constants';
++import { SpecKitDetector } from '../speckit/detector';
++import { IAIProvider, AIExecutionResult } from './aiProvider';
++import { splitContextPreamble } from './promptBuilder';
++
++/**
++ * Host editors that expose a built-in AI chat we can dispatch to.
++ * `unknown` means the editor was not recognized — we still try the inherited
++ * base chat command before giving up.
++ */
++type HostIde = 'vscode' | 'cursor' | 'windsurf' | 'unknown';
++
++/**
++ * Per-IDE ordered list of candidate chat-open command IDs. The first candidate
++ * that actually exists (verified against `vscode.commands.getCommands`) wins.
++ *
++ * VS Code / Copilot's `workbench.action.chat.open` is documented; Cursor and
++ * Windsurf are VS Code forks whose own command IDs are proprietary, so we try
++ * the inherited base command first (forks usually keep it) and fall back to
++ * known fork-specific candidates.
++ */
++const CHAT_COMMAND_CANDIDATES: Record<HostIde, readonly string[]> = {
++    vscode: ['workbench.action.chat.open'],
++    cursor: ['workbench.action.chat.open', 'aichat.newchataction', 'composer.startComposerPrompt'],
++    windsurf: ['workbench.action.chat.open', 'windsurf.prioritized.chat.open'],
++    unknown: ['workbench.action.chat.open'],
++};
++
++const HOST_LABELS: Record<HostIde, string> = {
++    vscode: 'VS Code (Copilot Chat)',
++    cursor: 'Cursor (Composer)',
++    windsurf: 'Windsurf (Cascade)',
++    unknown: 'Unknown editor',
++};
++
++/** Common tail for the no-chat-target warnings — keeps the guidance identical. */
++const SWITCH_TO_CLI_HINT =
++    'Switch `speckit.aiProvider` to a CLI provider (e.g. Claude, Gemini) to run this command.';
++
++/**
++ * IDE Chat provider — instead of spawning a CLI in a terminal, it routes the
++ * already-assembled prompt to the host editor's built-in AI chat via a verified
++ * VS Code command. Detects the host (VS Code → Copilot, Cursor → Composer,
++ * Windsurf → Cascade) from `vscode.env`, resolves a chat-open command from a
++ * per-IDE candidate list, and only dispatches after confirming the command
++ * exists — otherwise it surfaces a graceful, actionable message. Every path is
++ * wrapped so nothing throws.
++ */
++export class IdeChatProvider implements IAIProvider {
++    public readonly name = 'IDE Chat';
++    public readonly type = AIProviders.IDE_CHAT;
++
++    private outputChannel: vscode.OutputChannel;
++
++    constructor(_context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel) {
++        this.outputChannel = outputChannel;
++    }
++
++    /**
++     * Detect the host editor from stable `vscode.env` signals. `uriScheme` is
++     * the most reliable (forks set their own), with `appName` as a fallback.
++     */
++    detectHostIde(): HostIde {
++        const scheme = (vscode.env.uriScheme || '').toLowerCase();
++        const appName = (vscode.env.appName || '').toLowerCase();
++
++        if (scheme === 'cursor' || appName.includes('cursor')) {
++            return 'cursor';
++        }
++        if (scheme === 'windsurf' || appName.includes('windsurf')) {
++            return 'windsurf';
++        }
++        if (scheme === 'vscode' || scheme === 'vscode-insiders' || appName.includes('visual studio code')) {
++            return 'vscode';
++        }
++        // An unrecognized fork falls through to 'unknown', which still tries the
++        // inherited base chat command before giving up.
++        return 'unknown';
++    }
++
++    /**
++     * Resolve the first candidate chat command that is actually registered in
++     * the running editor. Returns `undefined` when none are available so the
++     * caller can take the graceful fallback path.
++     */
++    async resolveChatCommand(host: HostIde): Promise<string | undefined> {
++        try {
++            const available = new Set(await vscode.commands.getCommands(true));
++            for (const candidate of CHAT_COMMAND_CANDIDATES[host]) {
++                if (available.has(candidate)) {
++                    return candidate;
++                }
++            }
++        } catch (error) {
++            this.outputChannel.appendLine(`[IdeChatProvider] Failed to enumerate commands: ${error}`);
++        }
++        return undefined;
++    }
++
++    /**
++     * Whether spec-kit is initialized in this workspace. The dispatched
++     * `/speckit.*` commands only resolve in the host chat when spec-kit has
++     * scaffolded them for the editor, so this gates auto-submit. Extracted so
++     * tests can stub it without wiring the filesystem.
++     */
++    private async isWorkspaceSpecKitReady(): Promise<boolean> {
++        return SpecKitDetector.getInstance().checkWorkspaceInitialized();
++    }
++
++    /**
++     * Turn a built `/speckit.* <arg>` command into the form to send to the host
++     * chat:
++     * - free-text / multi-token / non-path arguments are left as-is (e.g.
++     *   `specify` with a typed feature description);
++     * - `specify <temp.md>` (create-new-spec dispatches the description inside a
++     *   temp markdown file the chat can't read) is inlined to
++     *   `specify <description>`, dropping the appended spec-context bookkeeping;
++     * - any other spec-dir path argument is shortened to just the spec name
++     *   (the chat resolves the feature by name and it reads far better than an
++     *   absolute path).
++     */
++    private async buildChatQuery(prompt: string): Promise<string> {
++        const trimmed = splitContextPreamble(prompt).command.trim();
++        const sp = trimmed.indexOf(' ');
++        if (sp === -1) return trimmed;
++        const cmd = trimmed.slice(0, sp);
++        const arg = trimmed.slice(sp + 1).trim();
++
++        if (/\s/.test(arg)) return trimmed;     // free-text / multi-token argument
++        if (!/[/\\]/.test(arg)) return trimmed; // not a path
++
++        if (/[.-]specify$/.test(cmd) && /\.md$/i.test(arg)) {
++            const description = await this.readSpecDescription(arg);
++            if (description) return `${cmd} ${description}`;
++        }
++        return `${cmd} ${this.specNameFromPath(arg)}`;
++    }
++
++    /** The spec name from a path: the last segment, or its parent when it's a doc file. */
++    private specNameFromPath(p: string): string {
++        const segments = p.split(/[/\\]/).filter(Boolean);
++        let name = segments.pop() ?? p;
++        if (/\.md$/i.test(name) && segments.length > 0) {
++            name = segments.pop()!;
++        }
++        return name;
++    }
++
++    /** Read a specify temp markdown file and return the feature description (sans bookkeeping). */
++    private async readSpecDescription(filePath: string): Promise<string | null> {
++        try {
++            const data = await vscode.workspace.fs.readFile(vscode.Uri.file(filePath));
++            const text = Buffer.from(data).toString('utf-8');
++            const marker = text.indexOf('## Post-Specification');
++            const body = (marker === -1 ? text : text.slice(0, marker)).trim();
++            return body || null;
++        } catch {
++            return null;
++        }
++    }
++
++    /** Warn that the host chat won't recognize `/speckit.*` until spec-kit is set up. */
++    private async warnSpecKitNotReady(host: HostIde): Promise<void> {
++        const init = 'Initialize SpecKit';
++        const choice = await vscode.window.showWarningMessage(
++            `IDE Chat sends \`/speckit.*\` commands to ${HOST_LABELS[host]}, but spec-kit isn't ` +
++            `initialized in this workspace — the chat won't recognize them. Run SpecKit: Initialize Workspace first.`,
++            init
++        );
++        if (choice === init) {
++            await vscode.commands.executeCommand(Commands.initWorkspace);
++        }
++    }
++
++    /**
++     * Core dispatch: detect host, resolve a chat command, and open the host's
++     * chat with the prompt. Never throws — on no resolvable target it shows a
++     * graceful warning and returns false. Auto-submits only when spec-kit is
++     * initialized; otherwise it prefills (so an unrecognized command never fires)
++     * and warns the user to initialize spec-kit.
++     */
++    private async dispatchToChat(prompt: string): Promise<boolean> {
++        try {
++            const host = this.detectHostIde();
++            const command = await this.resolveChatCommand(host);
++
++            if (!command) {
++                this.outputChannel.appendLine(
++                    `[IdeChatProvider] No chat command available for ${HOST_LABELS[host]} — cannot dispatch`
++                );
++                vscode.window.showWarningMessage(
++                    `SpecKit Companion couldn't find a built-in AI chat to open in this editor. ${SWITCH_TO_CLI_HINT}`
++                );
++                return false;
++            }
++
++            // Reduce the built prompt to what the host chat can actually use:
++            // strip the context-update preamble, shorten spec-dir paths to the
++            // spec name, and inline a specify temp-file description.
++            const chatQuery = await this.buildChatQuery(prompt);
++
++            const ready = await this.isWorkspaceSpecKitReady();
++            this.outputChannel.appendLine(
++                `[IdeChatProvider] Host: ${HOST_LABELS[host]} — dispatching via "${command}" (spec-kit ready: ${ready})`
++            );
++
++            if (!ready) {
++                void this.warnSpecKitNotReady(host);
++            }
++
++            // Auto-submit when spec-kit is ready; otherwise prefill so the user
++            // can review/init before an unrecognized command would be sent.
++            await vscode.commands.executeCommand(command, { query: chatQuery, isPartialQuery: !ready });
++            return true;
++        } catch (error) {
++            this.outputChannel.appendLine(`[IdeChatProvider] ERROR dispatching to chat: ${error}`);
++            vscode.window.showWarningMessage(
++                `SpecKit Companion couldn't open the editor's AI chat: ${error}. ${SWITCH_TO_CLI_HINT}`
++            );
++            return false;
++        }
++    }
++
++    /**
++     * A chat target is "installed" when one of the host's candidate commands is
++     * registered. Never throws.
++     */
++    async isInstalled(): Promise<boolean> {
++        const host = this.detectHostIde();
++        return (await this.resolveChatCommand(host)) !== undefined;
++    }
++
++    getPermissionFlag(): string {
++        return '';
++    }
++
++    /**
++     * Dispatch the assembled prompt to the host editor's chat. Returns
++     * `undefined` (no terminal) — call sites tolerate this via the widened
++     * IAIProvider return type.
++     */
++    async executeInTerminal(prompt: string, _title?: string): Promise<vscode.Terminal | undefined> {
++        await this.dispatchToChat(prompt);
++        return undefined;
++    }
++
++    /**
++     * Headless has no chat analog — degrade to the interactive chat path and
++     * report a non-failure exit code (`undefined`), which callers already treat
++     * as success.
++     */
++    async executeHeadless(prompt: string): Promise<AIExecutionResult> {
++        await this.dispatchToChat(prompt);
++        return { exitCode: undefined };
++    }
++
++    /**
++     * Slash commands have no terminal analog for chat — route the command text
++     * to the host chat like any other prompt. Returns `undefined`.
++     */
++    async executeSlashCommand(command: string, _title?: string, _autoExecute?: boolean): Promise<vscode.Terminal | undefined> {
++        await this.dispatchToChat(command);
++        return undefined;
++    }
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: src/ai-providers/index.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -6,4 +6,5 @@ export * from './copilotCliProvider';
+ export * from './codexCliProvider';
+ export * from './qwenCliProvider';
+ export * from './openCodeProvider';
++export * from './ideChatProvider';
+ export * from './permissionValidation';
+
+----------------------------------------------------------------------------------------------------
+FILE: src/ai-providers/promptBuilder.ts
+STATUS: modified
+ADDITIONS: 20
+DELETIONS: 0
+
+PATCH:
+@@ -126,3 +126,23 @@ export function buildLifecyclePrompt(command: string, specDir?: string | null):
+     const preamble = renderLifecyclePreamble(specDir ?? '');
+     return `${preamble}\n\n${command}`;
+ }
++
++/**
++ * Split a built prompt into its context-update preamble and the clean command
++ * (typically just a slash command). When no preamble marker is present, the
++ * whole prompt is returned as `command`. Used by providers that must route the
++ * bookkeeping preamble separately from the user-facing command (Claude via
++ * `--append-system-prompt`) or drop it entirely (IDE Chat, whose host editor
++ * can't act on it).
++ */
++export function splitContextPreamble(prompt: string): { preamble: string | null; command: string } {
++    const idx = prompt.indexOf(MARKER_CLOSE);
++    if (idx === -1) {
++        return { preamble: null, command: prompt };
++    }
++    const end = idx + MARKER_CLOSE.length;
++    return {
++        preamble: prompt.slice(0, end).trim(),
++        command: prompt.slice(end).trim(),
++    };
++}
+
+----------------------------------------------------------------------------------------------------
+FILE: src/core/constants.ts
+STATUS: modified
+ADDITIONS: 1
+DELETIONS: 0
+
+PATCH:
+@@ -269,6 +269,7 @@ export const AIProviders = {
+     CODEX: 'codex',
+     QWEN: 'qwen',
+     OPENCODE: 'opencode',
++    IDE_CHAT: 'ide-chat',
+ } as const;
+ 
+ /**
+
+----------------------------------------------------------------------------------------------------
+FILE: tests/__mocks__/vscode.ts
+STATUS: modified
+ADDITIONS: 3
+DELETIONS: 0
+
+PATCH:
+@@ -124,6 +124,7 @@ export const window = {
+ export const commands = {
+     registerCommand: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+     executeCommand: jest.fn(),
++    getCommands: jest.fn().mockResolvedValue([]),
+ };
+ 
+ export const extensions = {
+@@ -133,6 +134,8 @@ export const extensions = {
+ export const env = {
+     openExternal: jest.fn(),
+     shell: '' as string,
++    appName: '' as string,
++    uriScheme: '' as string,
+     clipboard: {
+         writeText: jest.fn().mockResolvedValue(undefined),
+     },
+
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+D. HUMAN VALIDATION
+====================================================================================================
+Answer these after reading sections A and C.
+
+Q1. Does the earlier specification commit contain
+a substantive behavioral requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q2. Does the later implementation commit implement
+that earlier requirement?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q3. Is the requirement already present BEFORE the
+first relevant implementation change?
+
+Answer:
+    YES / NO / UNCERTAIN
+
+Q4. Link confidence:
+
+    HIGH
+    MEDIUM
+    LOW
+    NONE
+
+Q5. Preliminary temporal classification:
+
+    TIER_A_CANDIDATE
+    TIER_B
+    TIER_C
+    EXCLUDE
+    UNCERTAIN
+
+Reason:
+
+Relevant requirement text:
+
+Relevant implementation file/function:
+
+Notes:

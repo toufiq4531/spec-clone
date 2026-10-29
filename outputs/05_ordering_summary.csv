@@ -1,0 +1,6 @@
+tool,repo_name,pr_number,case_type,github_pr_commits,pr_files_status,local_spec_paths,local_code_paths,spec_paths_existing_at_base,first_spec_commit_position,first_code_commit_position,base_signal,ordering_signal
+speckit,timcsy/ai-api,53,complete_history,1,ok,1,23,0,1.0,1.0,no_changed_spec_path_exists_at_base,spec_and_code_first_touched_same_commit
+claude_code,gaia-react/gaia,606,complete_history_other_tool,3,ok,1,5,1,2.0,1.0,all_changed_spec_paths_exist_at_base,code_commit_before_spec_commit
+openspec,Soju06/codex-lb,137,partial_history,4,ok,5,29,1,1.0,1.0,some_changed_spec_paths_exist_at_base,spec_and_code_first_touched_same_commit
+openspec,epam/ai-dial-admin-frontend,3846,no_history,2,ok,3,54,1,1.0,1.0,some_changed_spec_paths_exist_at_base,spec_and_code_first_touched_same_commit
+openspec,carverauto/serviceradar,2855,truncated_tree_partial_history,0,github_diff_unavailable,4,36,0,,,no_changed_spec_path_exists_at_base,pr_commit_history_unavailable

@@ -1,0 +1,45 @@
+STEP 10b - EPISODE ACQUISITION FUNNEL
+============================================================
+Episodes in scope (from 10a, selected languages) : 3,369
+Repositories in scope                            : 361
+Episodes processed so far                        : 3,369
+
+STATUS
+status
+ok                3336
+no_head_commit      29
+clone_failed         4
+
+BASE METHOD (ok episodes)
+base_method
+merge_base(api_base, head)               3332
+merge_base(current_base_branch, head)       4
+
+QUALITY FLAGS (ok episodes)
+  median path Jaccard, git range vs SpecMine pr_files : 1.000
+  episodes with Jaccard < 0.8 (inspect)               : 3
+  head ref != API head sha                            : 0
+  episodes with missing/too-large blobs               : 1
+
+FILES IN OK EPISODES (by role and language)
+role  lang      
+code  Go            14482
+      Python        11804
+      TypeScript    39963
+spec  NaN           19212
+test  Go             6805
+      Python         5255
+      TypeScript    13467
+
+CHANGE STATUS OF SPEC FILES (A=added at this PR, M=modified, R=renamed, D=deleted)
+status
+A    12706
+M     4550
+R     1674
+D      282
+
+OK EPISODES BY LANGUAGE (an episode can have several)
+languages
+TypeScript    1919
+Go             927
+Python         803

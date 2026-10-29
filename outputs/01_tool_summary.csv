@@ -1,0 +1,11 @@
+tool,total_prs,total_repositories,spec_prs,code_prs,candidate_prs,merged_candidate_prs,candidate_repositories
+openspec,3849,315,3846.0,3207.0,3204.0,3204.0,295
+speckit,1740,213,1739.0,1410.0,1409.0,1409.0,198
+moai,187,1,187.0,82.0,82.0,82.0,1
+claude_code,95,27,94.0,70.0,69.0,69.0,19
+conductor,83,20,83.0,61.0,61.0,61.0,18
+codex,15,2,15.0,15.0,15.0,15.0,2
+trae,11,7,11.0,10.0,10.0,10.0,7
+agent_os,7,4,7.0,6.0,6.0,6.0,3
+opencode,3,1,3.0,3.0,3.0,3.0,1
+cursor,2,1,2.0,2.0,2.0,2.0,1

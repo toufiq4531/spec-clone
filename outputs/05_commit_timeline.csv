@@ -1,0 +1,87 @@
+repo_name,pr_number,position,commit_sha,commit_date,commit_message,n_changed_files,touches_spec,touches_code,n_spec_paths_touched,n_code_paths_touched,spec_paths_touched,code_paths_touched
+timcsy/ai-api,53,1,ce3f9edc26daf9b2bb8ff5e4a3ab4a0d273535e9,2026-06-04T10:03:40Z,"feat(credentials): Phase 18 — per-device credentials (Credential 1:N)
+
+Move uniqueness from token to allocation: one allocation can now carry many
+independent, individually-revocable per-device credentials. Quota / billing /
+attribution stay at the allocation layer (many tokens share one quota, so extra
+devices bypass no limit — no soft cap needed).
+
+Schema (migration 0015, build-new-table+swap, SQLite+Postgres):
+- Credential PK allocation_id -> independent ULID id; allocation_id becomes an
+  ordinary indexed FK; add name / last_used_at / revoked_at; fingerprint stays
+  unique. Existing rows preserved verbatim + get a ""預設"" credential -> every
+  existing token keeps working (Postgres migration test fixes this as a gate).
+
+Service / API:
+- add_credential / list_credentials / revoke_credential (soft revoke via
+  revoked_at); lookup_by_token filters revoked_at IS NULL + throttled last_used_at.
+- member /me/allocations/{id}/credentials GET/POST/DELETE (CSRF + owner isolation).
+- admin /admin/allocations/{id}/credentials GET/DELETE (audited credential_revoked).
+
+Frontend:
+- reusable DeviceCredentialsCard (member add/revoke + one-time masked-copy reveal;
+  admin read-only list + revoke), wired into allocation-detail + admin allocations;
+  reuses Phase 16 .responsive-table RWD.
+
+Tests (TDD): 8 new contract + 2 Postgres integration (zero-regression migration,
+multi-credential lookup/revoke); 501 backend + 117 frontend green, ruff/mypy clean.
+
+Knowledge: vision Phase 18 -> done; history detail + one distilled experience lesson.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",35,1,1,1,23,specs/028-per-device-credentials/spec.md,alembic/versions/0015_per_device_credentials.py;frontend/src/__tests__/credential-list.test.tsx;frontend/src/components/device-credentials-card.tsx;frontend/src/routes/admin/allocations.tsx;frontend/src/routes/allocation-detail.tsx;src/ai_api/api/allocations.py;src/ai_api/api/me.py;src/ai_api/api/schemas.py;src/ai_api/models/allocation.py;src/ai_api/models/auth_audit.py;src/ai_api/models/credential.py;src/ai_api/services/allocations.py;src/ai_api/services/self_service.py;tests/contract/test_admin_credentials.py;tests/contract/test_me_credentials.py;tests/contract/test_usage_tag.py;tests/contract/test_usage_viz.py;tests/integration/test_aggregation.py;tests/integration/test_credential_migration.py;tests/integration/test_quota_pool_rebalance.py;tests/integration/test_us4_anomaly_detector.py;tests/integration/test_usage_tag_agg.py;tests/integration/test_usage_viz_agg.py
+gaia-react/gaia,606,1,27f71b050c3a36fe57626942c6c6d06e35074646,2026-07-07T09:52:09Z,"feat(cost): cost.json sidecar + rerouted delete gate, plan-reconcile, age-bounded retention (SPEC-029)
+
+Retire the unread per-folder cost.md for a compact cost.json sidecar keyed by
+phase kind, reroute the fail-closed cost-represented.sh delete gate to read it
+(SPEC-026 invariant preserved, cost.md legacy fallback kept), add plan-reconcile.sh
+for orchestrator-driven plan-arm ledger reconciliation, and change merged-SPEC
+retention to keep-then-age-reap via a GAIA_SPEC_RETENTION_DAYS age gate plus a
+sixth SessionStart janitor sweep.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",13,0,1,0,5,,.claude/hooks/local-janitor.sh;.gaia/scripts/cost-represented.sh;.gaia/scripts/token-tally.sh;.specify/extensions/gaia/lib/plan-reconcile.sh;.specify/extensions/gaia/lib/spec-archive-merged.sh
+gaia-react/gaia,606,2,d08a3ef196835f8653b1bf7670ecc3c3f9bdffc2,2026-07-07T10:05:11Z,"docs(cost): sidecar/retention/auto-reconcile docs + round-trip oracle (SPEC-029)
+
+Add the real-tally to real-gate round-trip oracle (cost-sidecar-e2e.bats), update
+the four cost/plan wiki concept pages to describe the cost.json sidecar, the
+kept-then-age-reaped merged SPEC folder, and the orchestrator-driven post-merge
+reconcile (both arms), and add the post-merge auto-reconcile step to the
+orchestrator playbook (plan.md) plus the retention/cost-artifact prose fixes in
+the /gaia-spec reference (spec.md).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",7,1,0,1,0,.claude/skills/gaia/references/spec.md,
+gaia-react/gaia,606,3,4b47678ff8387e5403cc580eba0a2ac67f3e5de0,2026-07-07T10:22:08Z,"docs(changelog): SPEC-029 unreleased entry + reconcile stale cost.md/retention doc blurbs (SPEC-029)
+
+Add the [Unreleased] entry for the cost.json sidecar, retention reversal, and
+post-merge auto-reconcile, and correct the two wiki/index.md catalog blurbs that
+still named the retired per-folder cost.md and the pre-reversal ""no folder
+survives merge"" heading.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",2,0,0,0,0,,
+Soju06/codex-lb,137,1,0e4661bfb8afa5a7deab3d015513da93a136f6a8,2026-03-06T21:29:36Z,feat(proxy): support service_tier forwarding,10,1,1,2,6,openspec/changes/add-service-tier-forwarding/specs/chat-completions-compat/spec.md;openspec/changes/add-service-tier-forwarding/specs/responses-api-compat/spec.md,app/core/openai/chat_requests.py;app/core/openai/requests.py;app/core/openai/v1_requests.py;tests/integration/test_openai_compat_features.py;tests/unit/test_chat_request_mapping.py;tests/unit/test_openai_requests.py
+Soju06/codex-lb,137,2,46fc4999fb37469a5936abb7a48b2b8d2e703afd,2026-03-06T21:56:46Z,feat(usage): support service tier pricing,16,1,1,1,13,openspec/changes/add-service-tier-pricing/specs/api-keys/spec.md,app/core/usage/logs.py;app/core/usage/pricing.py;app/core/usage/types.py;app/db/alembic/versions/20260306_000000_add_request_logs_service_tier.py;app/db/models.py;app/modules/api_keys/service.py;app/modules/proxy/service.py;app/modules/request_logs/repository.py;app/modules/usage/builders.py;tests/integration/test_request_logs_filters.py;tests/unit/test_api_keys_service.py;tests/unit/test_dashboard_trends.py;tests/unit/test_pricing.py
+Soju06/codex-lb,137,3,effbc031d6ca6fe075ac8dce0031f7f72cafaf9e,2026-03-07T09:39:22Z,feat(dashboard): show service tier in request logs,12,1,1,1,9,openspec/changes/add-service-tier-pricing/specs/frontend-architecture/spec.md,app/modules/request_logs/mappers.py;app/modules/request_logs/schemas.py;frontend/src/features/dashboard/components/recent-requests-table.test.tsx;frontend/src/features/dashboard/components/recent-requests-table.tsx;frontend/src/features/dashboard/schemas.ts;frontend/src/test/mocks/factories.ts;frontend/src/utils/formatters.test.ts;frontend/src/utils/formatters.ts;tests/integration/test_request_logs_filters.py
+Soju06/codex-lb,137,4,c8426d4b4cab9e6ce11dea6af08b04d0908fef25,2026-03-07T16:10:24Z,fix(proxy): settle service tier usage correctly,12,1,1,2,8,openspec/changes/add-service-tier-pricing/specs/api-keys/spec.md;openspec/specs/api-keys/spec.md,app/core/usage/pricing.py;app/modules/api_keys/service.py;app/modules/proxy/api.py;app/modules/proxy/service.py;tests/integration/test_api_keys_api.py;tests/integration/test_request_logs_filters.py;tests/unit/test_api_keys_service.py;tests/unit/test_pricing.py
+epam/ai-dial-admin-frontend,3846,1,eda142b787ee42e27da257d9460dcdbbd808759d,2026-07-09T12:48:55Z,"feat(analytics/QueryBuilder): implement query builder with analytics foundation (Issue #3844)
+
+Adds the Query Builder interface for analytics with full UI implementation, including:
+- Query builder component with visual interface for building queries
+- Filter, aggregate, field selection, and sorting capabilities
+- Result sidebar with statistics display
+- Query state management via context
+
+Refactors analytics foundation:
+- Rename analytics-v2 to analytics throughout the codebase
+- Rename AnalyticsV2DataApi to AnalyticsDataApi
+- Flatten route structure: /analytics-v2/query-builder → /query-builder
+- Add query-builder server actions for query execution
+- Expand analytics models (Entity, Query, Table, QueryBuilder)
+- Add analytics constants and i18n translations
+- Update menu configuration to support new analytics structure
+- Add comprehensive test coverage for components and utilities
+
+Note: Tables UI is intentionally excluded and parked (empty /tables placeholder created).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",69,1,1,3,54,openspec/changes/add-analytics-v2-query-builder/specs/analytics/spec.md;openspec/changes/add-analytics-v2-sql-editor/specs/analytics/spec.md;openspec/specs/analytics/spec.md,apps/ai-dial-admin/src/app/[lang]/analytics-v2/query-builder/page.tsx;apps/ai-dial-admin/src/app/[lang]/analytics-v2/tables/page.tsx;apps/ai-dial-admin/src/app/[lang]/layout.tsx;apps/ai-dial-admin/src/app/[lang]/query-builder/actions.ts;apps/ai-dial-admin/src/app/[lang]/query-builder/page.tsx;apps/ai-dial-admin/src/app/[lang]/query-builder/tests/actions.spec.ts;apps/ai-dial-admin/src/app/[lang]/tables/page.tsx;apps/ai-dial-admin/src/app/api/api.ts;apps/ai-dial-admin/src/components/Analytics/Common/TypeBadge.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Aggregate/Aggregates.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Aggregate/GroupBySection.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Aggregate/TimeBuckets.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Fields/FieldCheckboxGrid.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Fields/TaggedFieldPicker.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Filter/FilterCondition.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Filter/FilterGroup.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/LabeledField.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Mode/ModeSelector.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Page/PageSection.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/QueryBuilder.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Result/QueryResultSidebar.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Result/StatChip.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Select/SelectProjection.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Sort/SortKeys.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Source/SchemaPreviewPopup.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/Source/SourceSection.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/context.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/tests/QueryBuilder.spec.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/tests/QueryResultSidebar.spec.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/deserialize.ts;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/fields.ts;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/result.ts;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/serialize.ts;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/state.ts;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/tests/deserialize.spec.ts;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/tests/fields.spec.ts;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/tests/result.spec.ts;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/tests/serialize.spec.ts;apps/ai-dial-admin/src/components/Menu/MenuItem/tests/MenuItem.spec.tsx;apps/ai-dial-admin/src/components/Menu/menu-configuration.tsx;apps/ai-dial-admin/src/components/Menu/tests/menu-configuration.spec.ts;apps/ai-dial-admin/src/constants/analytics/query-builder.ts;apps/ai-dial-admin/src/constants/i18n.ts;apps/ai-dial-admin/src/locales/en.ts;apps/ai-dial-admin/src/models/analytics/entity.ts;apps/ai-dial-admin/src/models/analytics/query-builder.ts;apps/ai-dial-admin/src/models/analytics/query.ts;apps/ai-dial-admin/src/models/analytics/table.ts;apps/ai-dial-admin/src/models/feature-flags.ts;apps/ai-dial-admin/src/server/analytics/analytics-data-api.ts;apps/ai-dial-admin/src/server/analytics/tests/analytics-data-api.spec.ts;apps/ai-dial-admin/src/types/routes.ts;apps/ai-dial-admin/src/utils/tabs/tests/utils.spec.ts;apps/ai-dial-admin/test-setup.tsx
+epam/ai-dial-admin-frontend,3846,2,a7ba8a88111b41ec6764aa17cdf71d7db1a0eb43,2026-07-09T13:46:26Z,"style(analytics/QueryBuilder): fix prettier formatting (Issue #3844)
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",3,0,1,0,2,,apps/ai-dial-admin/src/components/Analytics/QueryBuilder/tests/QueryBuilder.spec.tsx;apps/ai-dial-admin/src/components/Analytics/QueryBuilder/utils/tests/fields.spec.ts

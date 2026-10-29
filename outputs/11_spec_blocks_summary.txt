@@ -1,0 +1,79 @@
+STEP 11 - SPEC REQUIREMENT BLOCKS
+============================================================
+Template lines loaded: 6,527 keys, 654 bold labels
+Minimum substantive tokens: 8
+
+SPEC FILE OUTCOMES
+outcome
+ok         18930
+deleted      282
+
+DOCUMENT TYPES (spec files processed)
+doc_type
+os_archive_spec      8370
+os_canonical_spec    6819
+os_change_spec       2187
+sk_spec              1454
+os_other               44
+sk_other               39
+other                  15
+os_archive_other        2
+
+DELTA BLOCKS BY KIND (all docs)
+block_kind      primary
+os_purpose      False       3251
+os_removed      False        505
+os_renamed      False          6
+os_requirement  False      27042
+                True       22019
+section         False      15956
+sk_edge_cases   True         828
+sk_entities     False        776
+sk_requirement  True       14775
+sk_sc           False       5492
+sk_user_story   True        3147
+
+Template lines removed: 15,862 of ~1,140,504 raw lines (1.4%)
+Lifecycle-flagged blocks: {'archive_copy': 20205, 'archive_sync': 9270}
+
+PRIMARY SUBSTANTIVE BLOCKS (exposure population for RQ1/RQ2)
+  ok episodes                          : 3,336
+  episodes with >=1 primary block      : 2,584 (77.5%)
+  primary blocks                       : 40,071
+          episodes  blocks  median_tokens  ok_episodes
+tool                                                  
+OpenSpec      1786   21713          113.0         2339
+SpecKit        798   18358           25.0          997
+
+EXACT-DUPLICATE PREVIEW (identical normalized primary blocks)
+  distinct block texts                 : 38,642
+  texts appearing in >1 episode        : 1,427
+  ...of which in >1 repository         : 8
+
+MOST WIDESPREAD PRIMARY BLOCK TEXTS - REVIEW FOR RESIDUAL BOILERPLATE
+(if these are template text, the template list is missing something)
+  [2 repos, 2 eps] supported container runtime command the repository shall use a published supported runtime command for container execution docker image starts the kno
+  [2 repos, 2 eps] module entry points mirror supported hub actions the engine package shall expose stable module entrypoints for ask refresh and mcp operations execute 
+  [2 repos, 2 eps] ci exercises the same supported surfaces the repository shall verify both packages and their documented entrypoints in github actions engine and cli t
+  [2 repos, 2 eps] environment validation the installer shall verify that all necessary system prerequisites are met before attempting installation missing python the in
+  [2 repos, 2 eps] contributor setup matches the split package layout the repository shall document a contributor workflow that matches the real and package boundaries f
+  [2 repos, 2 eps] cli proxy commands use supported engine entry points the system shall route ag ask and ag refresh through published engine entrypoints rather than unp
+  [2 repos, 2 eps] system must display a loading indicator during mutation execution and prevent duplicate submissions
+  [2 repos, 2 eps] cross platform installation the system shall provide an automated installation mechanism that works on linux macos and windows linux mac installation 
+  [1 repos, 3 eps] wszystkie teksty ui musz by w j zyku polskim
+  [1 repos, 3 eps] server go core server the file shall contain the server struct definition config struct with allowedorigins rpc protocol types rpcrequest rpcresponse 
+  [1 repos, 2 eps] finding provenance metadata the finding struct shall include source string tags string version int and updatedat time time fields these fields are opt
+  [1 repos, 2 eps] what happens when the user enters an empty or non vless url the system rejects it and shows an error no config is stored or used what happens when the
+  [1 repos, 2 eps] p2p url safety the system shall filter out results pointing to private internal network addresses when ctxkeys isp2prequest ctx is true filtering shal
+  [1 repos, 2 eps] race combinator the package shall provide race t any ctx context context streams map string stream t stream tag t that yields events from the first st
+  [1 repos, 2 eps] mergedstream uses merge combinator mergedstream shall delegate to the existing merge combinator for stream merging it shall not reimplement merge logi
+  [1 repos, 2 eps] relationships with stored bendpoints must route through those points relationships without bendpoints must use a direct boundary to boundary line
+  [1 repos, 2 eps] default backend selection the system shall provide a sensible default for the backend configuration if the key is missing for a given provider missing
+  [1 repos, 2 eps] the server shall persist daemon task execution state in a daemontaskexecution model the server shall define a prisma model daemontaskexecution that st
+  [1 repos, 2 eps] requestedagent routing is advisory via enriched prompt the requestedagent field on agentrun shall be advisory only it influences routing through an en
+  [1 repos, 2 eps] tree view for file changes when a commit touches many files across multiple directories a flat list of relative paths can be hard to scan the user wan
+  [1 repos, 2 eps] the schema printing script must use schemabootstrapmodule instead of the full appmodule when an environment variable schema bootstrap light 1 is set d
+  [1 repos, 2 eps] groceries context separates data and ui concerns the factory shall produce separate data and ui context values matching the current split context patt
+  [1 repos, 2 eps] phase b cleanup stack accumulates rollback functions app new phase b shall maintain a cleanupstack that accumulates named cleanup functions as compone
+  [1 repos, 2 eps] cursor plugin asset refresh the update command shall refresh cursor plugin files by re copying assets from the npm package to the installed location o
+  [1 repos, 2 eps] auto fix workflow permissions when the audit finds github actions workflows missing a top level permissions block osps 01 remediation automatically ad

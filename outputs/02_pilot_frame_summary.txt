@@ -1,0 +1,102 @@
+SPECMINE PILOT SAMPLING FRAME
+================================================================================
+
+OVERALL
+--------------------------------------------------------------------------------
+Candidate PRs: 4,861
+Candidate repositories: 535
+PRs with ANY recoverable spec history: 4,860
+PRs with ALL changed spec paths having history: 3,716
+Basic pilot-ready PRs: 4,811
+Repositories with at least one basic pilot-ready PR: 534
+
+BY TOOL
+--------------------------------------------------------------------------------
+       tool  candidate_prs  repositories  any_history  all_history  pilot_ready
+   openspec           3204           295         3203         2145         3154
+    speckit           1409           198         1409         1346         1409
+       moai             82             1           82           68           82
+claude_code             69            19           69           68           69
+  conductor             61            18           61           54           61
+      codex             15             2           15           14           15
+       trae             10             7           10           10           10
+   agent_os              6             3            6            6            6
+   opencode              3             1            3            3            3
+     cursor              2             1            2            2            2
+
+BY LANGUAGE
+--------------------------------------------------------------------------------
+   repo_language  candidate_prs  repositories  pilot_ready
+      TypeScript           1570           142         1569
+              Go           1081            69         1081
+          Python            756            96          756
+            Rust            314            46          314
+              C#            215            27          215
+            Dart            156             7          156
+      JavaScript            126            24          126
+             C++            103            11          103
+           Swift             92            14           92
+            Java             87            18           87
+          Elixir             63             4           14
+          Kotlin             61            12           61
+           Scala             53             2           53
+            HTML             48            11           48
+           Shell             28             9           28
+        Markdown             15             1           15
+            Ruby             14             4           14
+             Vue              9             2            9
+             PHP              9             4            9
+         Haskell              6             3            6
+      Dockerfile              6             1            6
+      PowerShell              5             3            5
+     WebAssembly              5             1            5
+             Lua              4             3            4
+         Clojure              4             1            4
+               C              4             3            4
+          Svelte              4             3            4
+            TSQL              3             1            3
+Jupyter Notebook              3             3            3
+         Gherkin              3             1            3
+         PLpgSQL              3             1            3
+            SCSS              3             1            3
+           Astro              2             1            2
+              F#              1             1            1
+             HCL              1             1            1
+             Nim              1             1            1
+      Emacs Lisp              1             1            1
+               R              1             1            1
+           Typst              1             1            1
+
+TOP 30 REPOSITORIES BY CANDIDATE COUNT
+--------------------------------------------------------------------------------
+                                        repo_name     tool repo_language  candidate_prs  pilot_ready  repo_stars  repo_size_kb
+          elastic/terraform-provider-elasticstack openspec            Go            292          292         208         66702
+           BlackBeltTechnology/pi-agent-dashboard openspec    TypeScript            164          164         183         61685
+                   alfredoperez/speckit-companion  speckit    TypeScript            160          160          70         71740
+tencentcloudstack/terraform-provider-tencentcloud openspec            Go            135          135         223        139226
+                            theoden8/webspace_app openspec          Dart            129          129         165         14537
+                                  Soju06/codex-lb openspec        Python            127          127        2166         25038
+                      epam/ai-dial-admin-frontend openspec    TypeScript             96           95          11         14421
+                                 modu-ai/moai-adk     moai            Go             82           82        1117        229517
+                                    kalbasit/ncps openspec            Go             81           81         319          7019
+                              alkem-io/client-web  speckit    TypeScript             77           77          24         99627
+                              Chorus-AIDLC/Chorus openspec    TypeScript             72           72        1065        118398
+                                    langoai/lango openspec            Go             70           70          11         17802
+                                 kniwase/WebComPy openspec        Python             69           69          26          4508
+                            qixing-jk/all-api-hub openspec    TypeScript             65           65        4373        156073
+                      smart-mcp-proxy/mcpproxy-go  speckit            Go             63           63         276        208673
+                               clay-good/OpenLore openspec    TypeScript             61           61         187         11863
+                              netclaw-dev/netclaw openspec            C#             58           58         142         14643
+                              UseJunior/safe-docx openspec    TypeScript             51           51          36          7396
+               zhukunpenglinyutong/desktop-cc-gui openspec    TypeScript             49           49        3530         74265
+                          carverauto/serviceradar openspec        Elixir             49            0         882        567493
+                                    timcsy/ai-api  speckit        Python             48           48          15          3861
+                                     bug-ops/zeph  speckit          Rust             47           47          43         34046
+                             Myriad-Dreamin/cosmo openspec         Scala             47           47          16          2459
+                              Fission-AI/OpenSpec openspec    TypeScript             47           47       59031          5008
+                      Codagent-AI/agent-validator openspec    TypeScript             46           46          28         50986
+                         hugr-lab/mssql-extension  speckit           C++             45           45         118          3882
+                                  alkem-io/server  speckit    TypeScript             42           42          29         42528
+                          TencentBlueKing/bk-lite openspec        Python             41           41          18        123642
+                codeready-toolchain/claw-operator openspec            Go             39           39          14          1375
+                              davidmatousek/tachi  speckit        Python             38           38          80        130537

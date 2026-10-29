@@ -1,0 +1,11 @@
+file,size_bytes,size,rows,columns
+kiro_files.parquet,13866773,13.22 MB,98574,12
+openspec_artifact_files.parquet,419958278,400.50 MB,266230,12
+openspec_code_refs.parquet,10415210,9.93 MB,435401,8
+pr_files.parquet,5808191,5.54 MB,348141,12
+pull_requests.parquet,590349,576.51 KB,5992,25
+repo_trees.parquet,1532485,1.46 MB,73030,5
+spec_content_features.parquet,10783042,10.28 MB,468307,40
+spec_file_commits.parquet,422810704,403.22 MB,780335,24
+spec_files.parquet,675630759,644.33 MB,470795,124
+spec_links.parquet,40892263,39.00 MB,2421323,5

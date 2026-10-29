@@ -1,0 +1,110 @@
+STEP 12e - DEV SET: AGREEMENT AND CALIBRATION
+================================================================
+Items in key: 159
+
+0. LABEL HYGIENE
+  annotator 1: missing 0, invalid labels 0, invalid behaviour_differs 0, COPIED without behaviour_differs 1
+  annotator 2: missing 0, invalid labels 0, invalid behaviour_differs 0, COPIED without behaviour_differs 0
+  label distribution
+                  annotator1  annotator2
+  BOILERPLATE             14          15
+  COPIED                  96          93
+  RELATED                 37          39
+  REVISION                 2           2
+  SAME_BEHAVIOUR           1           2
+  UNRELATED                9           8
+
+1. AGREEMENT (n = 159 items with two valid labels)
+  raw agreement: 93.1%
+  kappa 7 labels                                            : 0.88  [95% CI 0.81, 0.94]
+  kappa collapsed (COPIED/REVISION/SAME/OTHER/UNC)          : 0.89  [95% CI 0.81, 0.95]
+  kappa binary COPIED vs not                                : 0.91  [95% CI 0.84, 0.96]
+  kappa binary reuse-or-same (COPIED|SAME_BEHAVIOUR) vs not : 0.89  [95% CI 0.82, 0.96]
+  (Landis-Koch: 0.41-0.60 moderate, 0.61-0.80 substantial, > 0.80 almost perfect)
+
+  specific agreement per label (2*both / (n1 + n2))
+    COPIED          0.96   (a1 96, a2 93, both 91)
+    REVISION        1.00   (a1 2, a2 2, both 2)
+    SAME_BEHAVIOUR  0.00   (a1 1, a2 2, both 0)
+    RELATED         0.95   (a1 37, a2 39, both 36)
+    BOILERPLATE     0.76   (a1 14, a2 15, both 11)
+    UNRELATED       0.94   (a1 9, a2 8, both 8)
+
+  confusion (rows annotator 1, columns annotator 2)
+  annotator2      BOILERPLATE  COPIED  RELATED  REVISION  SAME_BEHAVIOUR  UNRELATED
+  annotator1                                                                       
+  BOILERPLATE              11       2        1         0               0          0
+  COPIED                    2      91        2         0               1          0
+  RELATED                   0       0       36         0               1          0
+  REVISION                  0       0        0         2               0          0
+  SAME_BEHAVIOUR            1       0        0         0               0          0
+  UNRELATED                 1       0        0         0               0          8
+
+  behaviour_differs on items both called COPIED (n=90): agreement 92.2%, kappa 0.82
+  a2      entity  no  other  value
+  a1                              
+  entity      64   0      0      2
+  no           0   7      0      1
+  other        2   0     10      0
+  value        1   0      1      2
+
+  skimming check (items split at median combined length 88 words):
+    short items: agreement 87.5%, kappa 0.80  (n=80)
+    long  items: agreement 98.7%, kappa 0.97  (n=79)
+    A much lower kappa on long items suggests long items were not read in full.
+
+2. LABEL x STRATUM (agreed label; DISAGREE = needs adjudication)
+  final        BOILERPLATE  COPIED  DISAGREE  RELATED  REVISION  UNRELATED  All
+  stratum                                                                      
+  copied                 0      24         1        0         0          0   25
+  cross_gray             4       0         2        0         0          3    9
+  gray                   6      47         3        3         2          0   61
+  lineage                0       3         0        1         0          0    4
+  random_ctrl            0       2         0        4         0          4   10
+  sem_mid                0       3         1        9         0          0   13
+  sem_tail               0       1         0        5         0          1    7
+  sem_top                1      11         4       14         0          0   30
+  All                   11      91        11       36         2          8  159
+
+3. LEXICAL AXIS vs HUMAN COPIED (agreed items only; within the sample, not population rates)
+  near rule                vs COPIED          : precision 1.00 (26/26), recall 0.29 (26/91)
+  near rule                vs COPIED|REVISION : precision 1.00 (26/26), recall 0.28 (26/93)
+  near or gray (>= 0.30)   vs COPIED          : precision 0.80 (74/92), recall 0.81 (74/91)
+  near or gray (>= 0.30)   vs COPIED|REVISION : precision 0.83 (76/92), recall 0.82 (76/93)
+
+  threshold grid on max(J5, C5) vs human COPIED:
+    >= 0.15: precision 0.80  recall 0.86  (flagged 97, true 91)
+    >= 0.20: precision 0.81  recall 0.85  (flagged 95, true 91)
+    >= 0.25: precision 0.81  recall 0.84  (flagged 94, true 91)
+    >= 0.30: precision 0.80  recall 0.81  (flagged 92, true 91)
+    >= 0.40: precision 0.92  recall 0.54  (flagged 53, true 91)
+    >= 0.50: precision 0.93  recall 0.43  (flagged 42, true 91)
+    >= 0.60: precision 0.97  recall 0.37  (flagged 35, true 91)
+    >= 0.80: precision 0.95  recall 0.20  (flagged 19, true 91)
+
+  human COPIED below the gray threshold (missed by the lexical axis): 17
+  by stratum: sem_top=11, sem_mid=3, random_ctrl=2, sem_tail=1
+  behaviour_differs among them: entity=12, other=2, disagree=2, no=1
+
+4. SEMANTIC AXIS (sem_top / sem_mid / sem_tail items)
+  margin band     n  agreed  SAME   COPIED  REVISION  SAME|COPIED  (shares of agreed)
+  [1.06,  max)    6      4   0.00    0.75     0.00       0.75
+  [1.04, 1.06)   24     22   0.00    0.36     0.00       0.36
+  [1.02, 1.04)    9      9   0.00    0.22     0.00       0.22
+  [0.00, 1.02)   11     10   0.00    0.20     0.00       0.20
+
+  weighted population estimates (ranked pool = 4,794 episode pairs; dev share of each
+  stratum treated as a random sample of it):
+    SAME_BEHAVIOUR              : ~0   (sem_top 0, sem_mid 0, sem_tail 0)
+    COPIED (lexically missed)   : ~760   (sem_top 25, sem_mid 135, sem_tail 599)
+    SAME|COPIED                 : ~760   (sem_top 25, sem_mid 135, sem_tail 599)
+
+  random non-reuse controls (n agreed = 10): UNRELATED=4, RELATED=4, COPIED=2
+  -> share COPIED|SAME among random controls 20.0%; pool 48,943 episode pairs; implied unretrieved reuse ~9,789 pairs (very imprecise at this n)
+
+5. LINEAGE RULE CHECK (n = 4 lineage-only pairs in this split)
+  COPIED=3, RELATED=1
+  Expect mostly REVISION (or COPIED with behaviour_differs=no). Many SAME/RELATED would mean the
+  lineage rule also removes different requirements that merely share a capability.
+
+Wrote 11 disagreements to outputs\12d_annotation\adjudication_dev.html and adjudication_dev.csv

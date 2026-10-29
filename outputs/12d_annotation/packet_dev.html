@@ -1,0 +1,2915 @@
+<!doctype html><meta charset='utf-8'><title>Spec pairs - dev</title>
+<style>body{font-family:system-ui,sans-serif;max-width:1200px;margin:2em auto;padding:0 1em}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px;vertical-align:top}.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 2.5em}.pair pre{white-space:pre-wrap;background:#f6f6f6;padding:10px;margin:0;font-size:13px}h3{margin:1.5em 0 .4em}</style>
+
+<h2>Codebook - requirement pair labels</h2>
+<p>Each item shows two requirement blocks (A and B) from two different pull requests.
+Judge <b>only the requirement text</b>. Do not look up the projects, do not guess where the
+pair came from, and do not discuss items with the other annotator until both label files
+are final. Ignore template scaffolding (headings, "Given/When/Then" keywords, "MUST/SHALL",
+requirement numbers such as FR-012).</p>
+<table>
+<tr><th>Label</th><th>Use when</th></tr>
+<tr><td><b>COPIED</b></td><td>One was written by copying the other: the same sentences or the same
+sentence structure reused, possibly with changed values, a few clauses added or removed, or
+the subject swapped for another entity (e.g. <i>scan_vcf_zarr / read_vcf_zarr</i> rewritten as
+<i>scan_bigbed / read_bigbed</i>). There must be shared <i>specific</i> wording - phrases, enumerations,
+examples, clause order - not just the usual sentence form ("System MUST support filtering by X" vs
+"... by Y" alone is not COPIED). Fill <b>behaviour_differs</b>.</td></tr>
+<tr><td><b>REVISION</b></td><td>Both state the SAME requirement for the SAME feature, and one reads as a
+later version or a restatement of the other ("MUST continue to...", "MUST remain...",
+"preserve the existing..."), not as reuse for a new feature.</td></tr>
+<tr><td><b>SAME_BEHAVIOUR</b></td><td>Worded independently (no copied sentence structure), but both
+require the same system behaviour: an implementation that satisfies one would satisfy the other.</td></tr>
+<tr><td><b>RELATED</b></td><td>Same feature area or topic, but they require different behaviour.</td></tr>
+<tr><td><b>BOILERPLATE</b></td><td>The only shared content is generic: template phrases, generic lists
+of questions, generic quality rules ("styling MUST be theme-safe", "errors are logged"), or a
+<b>project-wide convention</b> restated for each new item (e.g. "the resource SHALL be registered in
+provider.go", "unit tests SHALL use gomonkey and run with go test -gcflags=all=-l") - text that any
+requirement of that kind in the project would contain. Write <i>convention</i> in notes for these.</td></tr>
+<tr><td><b>UNRELATED</b></td><td>Different topics.</td></tr>
+<tr><td><b>UNCERTAIN</b></td><td>Use sparingly, and say why in <i>notes</i>.</td></tr>
+</table>
+<p><b>behaviour_differs</b> (fill only for COPIED), one of:<br>
+<i>no</i> - only the wording changed;<br>
+<i>value</i> - a value, limit, condition, actor or negation changed;<br>
+<i>entity</i> - the same requirement applied to a different entity, format, component or command;<br>
+<i>other</i> - explain in notes.</p>
+<p>If both REVISION and COPIED seem possible, choose REVISION only when the text itself signals the
+same feature (e.g. "continue", "remain", "existing"); otherwise COPIED.</p>
+<p>Write labels in your own CSV file using exactly these words, one row per item id.</p>
+
+<h3>D-001</h3><div class='pair'><div><b>A</b><pre>### Requirement: 角色分配 UI 展示外部应用角色
+`get_role_tree` API SHALL 返回所有有 Role 记录的应用（包括 `is_build_in=False` 的外部应用）的角色树，不再按 `is_build_in` 过滤。
+
+#### Scenario: 角色树包含外部应用
+- **WHEN** 管理员打开编辑组织或编辑用户弹窗，加载角色树
+- **THEN** 角色树中包含已创建外部应用的 `user` 角色节点
+
+#### Scenario: 未创建外部应用时角色树不受影响
+- **WHEN** 系统中没有外部应用
+- **THEN** 角色树仅展示内置应用的角色，与修改前行为一致
+</pre></div><div><b>B</b><pre>### Requirement: Data collection workflows produce a structured incident evidence package
+The system SHALL produce a structured incident evidence package as the output of the data collection agent so that downstream analysis agents can consume collection results without parsing free-form text.
+
+#### Scenario: Evidence package contains core sections
+- **WHEN** a data collection flow completes for a resolved alert target
+- **THEN** the output contains alert metadata, target metadata, collection scope, evidence blocks, collection summary, missing data, and errors in a stable structure
+
+#### Scenario: Evidence package records partial collection results
+- **WHEN** one or more collection steps fail or are skipped while other steps succeed
+- **THEN** the output evidence package preserves successful evidence blocks and explicitly marks failed or skipped blocks with status and error details
+
+#### Scenario: Evidence package structure does not depend on prompt formatting alone
+- **WHEN** the data collection agent invokes underlying collection tools to assemble incident context
+- **THEN** the final evidence package is produced by tool or orchestration-layer formatting rules rather than relying solely on prompt instructions to maintain output structure
+</pre></div></div>
+<h3>D-002</h3><div class='pair'><div><b>A</b><pre>- **FR-008**: Symphony MUST prevent duplicate active claims for the same ticket or worktree across poll cycles, retries, and manual actions.</pre></div><div><b>B</b><pre>- **FR-019**: Matrix MUST prevent duplicate active coding-agent claims for the same task/workspace during polling, retries, and manual actions.</pre></div></div>
+<h3>D-003</h3><div class='pair'><div><b>A</b><pre>### Requirement: Refuse server start on Node outside engines range
+
+`packages/server/src/node-guard.ts` SHALL expose a pure predicate `isOutOfEnginesRange(version: string): boolean` returning `true` when the running Node falls outside the cap declared in root `package.json#engines.node` (`&gt;=22.19.0 &lt;26`). `assertNodeVersionSupported()` — called at the top of every server entry point (`cmdStart`, `runForeground`) — SHALL write `buildEnginesRangeMessage(version)` to stderr and exit with code `1` when the predicate is true. The check fires AFTER the existing `isAffectedNode` Fastify-bug guard so both messages remain distinguishable.
+
+Rationale: the predicate gives a single, actionable startup-time error when the running Node falls outside the cap. The cap is permissive enough to cover Node 22.19+, 24, and 25 (the three lines CI smoke matrices test) while catching configurations that are genuinely out of support (below the pi 0.75 floor, or speculative future majors).
+
+History: the cap was briefly `&lt;25` in commit 63a8d531 on the theory that subprocess `npm ci` (worktree-spawn bootstrap) would EBADENGINE on Node 25. CI smoke matrices had been running Node 25 cleanly the whole time (because they pass `--engine-strict=false`); the dev-reported EBADENGINE was almost certainly an nvm subprocess-PATH artifact, not a real engines failure. Bumping engines to `&lt;26` removes the npm-side trigger at the source and restores Node 25 as a first-class target.
+
+Lockstep contract: the upper bound MUST track `package.json#engines.node`. When the cap moves, the predicate moves with it.
+
+CI lockstep contract: `.github/workflows/ci.yml` `standalone-install-smoke-linux` and `standalone-install-smoke-windows` matrices SHALL include every Node major in the engines range. Today that is `[22, 24, 25]`.
+
+#### Scenario: Refuse Node 26 at startup
+
+- **WHEN** the server entry point runs under `node v26.x.x` or newer
+- **THEN** `assertNodeVersionSupported()` SHALL write a message containing `❌  pi-dashboard cannot start on Node v26.` and `Required: &gt;=22.19.0 &lt;26` to stderr
+- **AND** SHALL call `process.exit(1)` before any Fastify route is registered
+
+#### Scenario: Allow Node 25
+
+- **WHEN** the server entry point runs under `node v25.x.x`
+- **THEN** `assertNodeVersionSupported()` SHALL return normally
+- **AND** the server SHALL proceed to start Fastify
+
+#### Scenario: Refuse Node below floor at startup
+
+- **WHEN** the server entry point runs under `node v22.18.x` or older
+- **THEN** `assertNodeVersionSupported()` SHALL exit with code `1` after writing the engines-range message
+- **AND** the existing `isAffectedNode` Fastify-bug message MAY take precedence when the same version is also in the Fastify-affected range (caller-order, not behavior-changing)
+
+#### Scenario: Allow Node 24 LTS
+
+- **WHEN** the server entry point runs under `node v24.3.0` through `node v24.x.x`
+- **THEN** `assertNodeVersionSupported()` SHALL return normally
+- **AND** the server SHALL proceed to start Fastify
+
+#### Scenario: Allow Node 22.19+
+
+- **WHEN** the server entry point runs under `node v22.19.0` or any later `22.x.x`
+- **THEN** `assertNodeVersionSupported()` SHALL return normally
+</pre></div><div><b>B</b><pre>### Requirement: Write target authorization SHALL be allowlist-bounded
+
+The server SHALL gate every markdown write through a pure `isWritableMdTarget(absPath, { cwd? })` check. With a `cwd`, allowed targets SHALL be `&lt;cwd&gt;/**/*.md` and `&lt;cwd&gt;/.pi/**`. Without a `cwd` (global scope), allowed targets SHALL be limited to `~/.pi/agent/**/*.md`. Paths SHALL be realpath-normalized before the check; symlink or `..` escape and non-markdown targets SHALL be rejected with `403`.
+
+The file picker SHALL only offer candidates that satisfy the same allowlist, so the UI can never present a target the guard rejects.
+
+#### Scenario: Out-of-scope path is rejected
+- **GIVEN** a write request for `/etc/passwd`
+- **WHEN** the server evaluates `isWritableMdTarget`
+- **THEN** the check fails
+- **AND** the server responds `403`
+- **AND** no write occurs
+
+#### Scenario: Symlink escape is rejected
+- **GIVEN** `&lt;cwd&gt;/notes.md` is a symlink resolving to `~/.ssh/config`
+- **WHEN** the user attempts to save it
+- **THEN** realpath normalization resolves the target outside the allowlist
+- **AND** the server responds `403`
+
+#### Scenario: Global scope rejects paths outside the pi dir
+- **GIVEN** a global-scope write request for `~/Documents/secret.md`
+- **WHEN** the server evaluates `isWritableMdTarget` with no `cwd`
+- **THEN** the check fails because the target is not under `~/.pi/agent`
+- **AND** the server responds `403`
+</pre></div></div>
+<h3>D-004</h3><div class='pair'><div><b>A</b><pre>### Requirement: Lifecycle — force replacement (REQ-013)
+
+Changing any of `rule_id`, `space_id`, `consumer`, or `rule_type_id` SHALL require destroying and recreating the resource rather than an in-place update.
+
+#### Scenario: Replace on immutable field
+
+- GIVEN an in-place plan change only to `consumer`
+- WHEN Terraform evaluates the plan
+- THEN the plan SHALL indicate replace (destroy/create) for the resource
+</pre></div><div><b>B</b><pre>### Requirement: Immutable fields (REQ-011)
+
+When `tool_id`, `type`, or `space_id` changes, the resource SHALL require replacement (destroy and recreate) rather than performing an in-place update.
+
+#### Scenario: Changing tool_id
+
+- GIVEN a configuration change to `tool_id`, `type`, or `space_id`
+- WHEN Terraform plans the change
+- THEN the resource SHALL be marked for replacement
+</pre></div></div>
+<h3>D-005</h3><div class='pair'><div><b>A</b><pre>- **FR-011**: System MUST automatically refresh tokens when the access token is within a configurable threshold of expiration (default: 5 minutes before expiry).</pre></div><div><b>B</b><pre>- **FR-042**: MUST archive auto-generated examples with SuccessScore &lt; 50 past retention period (default 180 days).</pre></div></div>
+<h3>D-006</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** user references `tencentcloud_bh_bind_device_resource` in their Terraform configuration
+- **THEN** the provider SHALL recognize and handle the resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_mongodb_audit_log_file` SHALL be available as a resource type
+
+</pre></div></div>
+<h3>D-007</h3><div class='pair'><div><b>A</b><pre>### Requirement: Data source registration
+The data source SHALL be registered in `tencentcloud/provider.go` with key `tencentcloud_teo_web_security_templates` and listed in `tencentcloud/provider.md`.
+
+#### Scenario: Provider registration
+- **WHEN** the provider is initialized
+- **THEN** the data source `tencentcloud_teo_web_security_templates` SHALL be available for use in Terraform configurations
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The data source SHALL be registered in `provider.go` with key `tencentcloud_teo_content_quota` mapped to `teo.DataSourceTencentCloudTeoContentQuota()`, and a corresponding entry SHALL be added to `provider.md`.
+
+#### Scenario: Data source available in provider
+- **WHEN** the provider is initialized
+- **THEN** the `tencentcloud_teo_content_quota` data source SHALL be available for use in Terraform configurations
+</pre></div></div>
+<h3>D-008</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource Registration
+The resource SHALL be registered in `provider.go` with the name `tencentcloud_teo_multi_path_gateway_line` and the corresponding function `ResourceTencentCloudTeoMultiPathGatewayLine()`.
+
+#### Scenario: Resource appears in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_multi_path_gateway_line` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Resource registration
+The resource SHALL be registered in `tencentcloud/provider.go` and `tencentcloud/provider.md` following the pattern of existing TEO resources.
+
+#### Scenario: Resource is registered in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_multi_path_gateway_secret_key` SHALL be available as a resource type
+- **AND** the resource factory function `ResourceTencentCloudTeoMultiPathGatewaySecretKeyConfig` SHALL be registered
+</pre></div></div>
+<h3>D-009</h3><div class='pair'><div><b>A</b><pre>- **FR-001**: System MUST allow users to select zero, one, or multiple branches from the branch filter dropdown.</pre></div><div><b>B</b><pre>- **FR-009**: System MUST allow users to select individual tracks for removal.</pre></div></div>
+<h3>D-010</h3><div class='pair'><div><b>A</b><pre>- **FR-029**: All existing counterfactual functionality MUST work identically after refactoring</pre></div><div><b>B</b><pre>- **FR-020**: All existing earn functionality MUST work identically after refactoring (widget, consent, asset selection)</pre></div></div>
+<h3>D-011</h3><div class='pair'><div><b>A</b><pre>- **FR-020**: All existing tests MUST pass without modification (or be updated to match new structure if paths changed)</pre></div><div><b>B</b><pre>- **FR-020**: All existing tests MUST pass without modification (or with minimal adaptation to new import paths)</pre></div></div>
+<h3>D-012</h3><div class='pair'><div><b>A</b><pre>- **FR-010**: Kalkulator MUSI używać klasy `BasicCalculator` jako bazowej</pre></div><div><b>B</b><pre>- **FR-005**: Kalkulator MUSI używać klasy `BasicCalculator` jako bazy</pre></div></div>
+<h3>D-013</h3><div class='pair'><div><b>A</b><pre>### Requirement: Vite Plugin Implementation
+
+The `@runtime-env/vite-plugin` SHALL be implemented following Vite&#x27;s official plugin authoring guidelines to ensure a seamless and idiomatic developer experience.
+
+#### Scenario: Code Structure
+
+- **GIVEN** a developer inspects the `packages/vite-plugin/src` directory
+- **WHEN** they view the file structure
+- **THEN** they find a modular structure with logic separated by Vite mode (`dev`, `build`, `preview`, `vitest`).
+
+#### Scenario: Maintainability
+
+- **GIVEN** a developer needs to modify the plugin&#x27;s behavior for a specific mode
+- **WHEN** they locate the corresponding mode-specific file (e.g., `build.ts`)
+- **THEN** they can easily understand and modify the relevant logic without affecting other modes.
+</pre></div><div><b>B</b><pre>### Requirement: Vite Plugin Implementation
+
+The `@runtime-env/vite-plugin` SHALL be implemented following Vite&#x27;s official plugin authoring guidelines to ensure a seamless and idiomatic developer experience, utilizing the `apply` property for mode-specific logic and providing robust TypeScript types.
+
+#### Scenario: Code Structure
+
+- **GIVEN** a developer inspects the `packages/vite-plugin/src` directory
+- **WHEN** they view the file structure
+- **THEN** they find a modular structure with logic separated by Vite mode (`dev`, `build`, `preview`, `vitest`).
+- **AND** shared logic for CLI invocation and file system utilities SHALL be centralized in `utils.ts` to ensure consistency and maintainability.
+- **AND** `index.ts` delegates to these modes by returning an array of plugin objects.
+
+#### Scenario: Mode-Specific Logic with `apply`
+
+- **GIVEN** the `@runtime-env/vite-plugin` is loaded by Vite.
+- **WHEN** Vite is in `dev`, `build`, `preview`, or `test` mode.
+- **THEN** only the plugins relevant to that mode SHALL be active, controlled via the `apply` property or conditional logic in the plugin array.
+- **AND** the `test` mode plugin SHALL leverage official Vitest types to ensure type safety without `any` casts.
+
+#### Scenario: Maintainability
+
+- **GIVEN** a developer needs to modify the plugin&#x27;s behavior for a specific mode
+- **WHEN** they locate the corresponding mode-specific file (e.g., `build.ts`)
+- **THEN** they can easily understand and modify the relevant logic without affecting other modes, while utilizing shared helpers from `utils.ts` for common tasks.
+</pre></div></div>
+<h3>D-014</h3><div class='pair'><div><b>A</b><pre>- **FR-030**: Task cards MUST display the task title, status, a workspace/execution indicator (if active), and a link to the associated chat session.</pre></div><div><b>B</b><pre>- **FR-011**: System MUST display agent tool executions as visual cards with tool name, target, and real-time status</pre></div></div>
+<h3>D-015</h3><div class='pair'><div><b>A</b><pre>- **FR-021**: System MUST store dynamically registered clients in memory with configurable TTL (clients re-register on expiration).</pre></div><div><b>B</b><pre>- **FR-016**: System MUST handle client registration expiration by re-registering when needed.</pre></div></div>
+<h3>D-016</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** user references `tencentcloud_bh_bind_device_resource` in their Terraform configuration
+- **THEN** the provider SHALL recognize and handle the resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** a user references `tencentcloud_teo_function_component_binding` in their Terraform configuration
+- **THEN** the provider SHALL recognize and handle the resource
+</pre></div></div>
+<h3>D-017</h3><div class='pair'><div><b>A</b><pre>### Requirement: Import passthrough and composite id expectations (REQ-006)
+
+The resource SHALL support Terraform import by passing the supplied import identifier directly into the `id` attribute. Because read, update, and delete parse `id` as a composite identifier, a functional imported id MUST be in the format `&lt;space_id&gt;/&lt;workflow_id&gt;` with exactly one `/`; if later operations parse a different format, they SHALL return the composite-id diagnostic produced by the shared composite-id parser.
+
+#### Scenario: Composite import id
+
+- GIVEN an import id `observability/workflow-1234`
+- WHEN import runs
+- THEN the resource SHALL persist that string to `id` for subsequent refresh
+
+#### Scenario: Non-composite imported id
+
+- GIVEN an imported `id` that does not contain exactly one `/`
+- WHEN a later read, update, or delete parses the id
+- THEN the resource SHALL return an error diagnostic describing the required composite id format
+</pre></div><div><b>B</b><pre>### Requirement: Import passthrough and composite id expectations (REQ-007)
+
+The resource SHALL support Terraform import by passing the supplied import identifier directly into the `id` attribute. A functional imported id MUST be in the format `&lt;space_id&gt;/&lt;skill_id&gt;` with exactly one `/`; if later operations parse a different format, they SHALL return the composite-id diagnostic produced by the shared composite-id parser.
+
+#### Scenario: Composite import id
+
+- GIVEN an import id `default/my-skill`
+- WHEN import runs
+- THEN the resource SHALL persist that string to `id` for subsequent refresh
+
+#### Scenario: Non-composite imported id
+
+- GIVEN an imported `id` that does not contain exactly one `/`
+- WHEN a later read, update, or delete parses the id
+- THEN the resource SHALL return an error diagnostic describing the required composite id format
+</pre></div></div>
+<h3>D-018</h3><div class='pair'><div><b>A</b><pre>### Requirement: Mode switch at ceremony level
+
+The system SHALL support `--mode scrum|kanban|safe` at ceremony level so defaults for filters and sections follow the selected framework (e.g. Kanban: flow-oriented sections; SAFe: PI-oriented hints when available).
+
+**Rationale**: Δ3—one flag for framework context.
+
+#### Scenario: Ceremony with mode
+
+**Given**: User runs `specfact backlog ceremony standup --mode kanban`
+
+**When**: The command executes
+
+**Then**: Defaults for filters and sections follow Kanban (e.g. flow/WIP context when available); output order may follow exceptions-first when data exists
+
+**Acceptance Criteria**:
+
+- Mode is passed through to underlying backlog command; behavior aligns with mode when backend supports it.
+</pre></div><div><b>B</b><pre>### Requirement: Mode switch (scrum|kanban|safe)
+
+The system SHALL support `--mode scrum|kanban|safe` to change defaults for filters and sections (e.g. Kanban: flow columns; SAFe: PI context).
+
+**Rationale**: Plan E1—ceremony-native defaults per framework.
+
+#### Scenario: Standup with mode
+
+**Given**: SpecFact CLI and backlog adapter
+
+**When**: The user runs `specfact backlog daily --mode kanban`
+
+**Then**: Default filters and section behavior align with Kanban (e.g. flow-focused); when `--mode safe`, PI context when available
+
+**Acceptance Criteria**:
+
+- `--mode scrum|kanban|safe` changes defaults; existing backlog daily behavior otherwise unchanged.
+</pre></div></div>
+<h3>D-019</h3><div class='pair'><div><b>A</b><pre>### User Story 6 - Dry Run Preview (Priority: P3)
+
+A user wants to preview what will be migrated before actually performing the operation.
+
+**Why this priority**: Safety feature that helps users avoid mistakes.
+
+**Independent Test**: Can be fully tested by adding `--dry-run` flag to any migrate command.
+
+**Acceptance Scenarios**:
+
+1. **Given** any migrate command with `--dry-run`, **When** executed, **Then** output shows what would happen without making any changes.
+
+2. **Given** `cursor-history migrate --dry-run /old/path /new/path`, **When** output is displayed, **Then** it lists each session that would be migrated with its ID and title.
+
+---
+</pre></div><div><b>B</b><pre>### User Story 4 - Dry Run Shows Path Changes (Priority: P2)
+
+A developer wants to preview what paths would change before committing to a migration.
+
+**Why this priority**: Useful for confidence but not critical for the core fix.
+
+**Independent Test**: Run migration with `--dry-run` flag and verify the output indicates file paths will be updated.
+
+**Acceptance Scenarios**:
+
+1. **Given** a session with file operations, **When** I run migrate with `--dry-run`, **Then** the preview should indicate that file paths will be updated to the destination workspace
+
+---
+</pre></div></div>
+<h3>D-020</h3><div class='pair'><div><b>A</b><pre>- **FR-017**: All existing functionality MUST work identically after refactoring</pre></div><div><b>B</b><pre>- **FR-020**: All existing earn functionality MUST work identically after refactoring (widget, consent, asset selection)</pre></div></div>
+<h3>D-021</h3><div class='pair'><div><b>A</b><pre>- **FR-004**: System MUST support JSON output format via `--json` flag for all commands
+  to enable scripting and piping to other tools.</pre></div><div><b>B</b><pre>- **FR-007**: System MUST support the `--only` filter in JSON output mode</pre></div></div>
+<h3>D-022</h3><div class='pair'><div><b>A</b><pre>- **FR-029**: All existing counterfactual functionality MUST work identically after refactoring</pre></div><div><b>B</b><pre>- **FR-017**: All existing functionality MUST work identically after refactoring</pre></div></div>
+<h3>D-023</h3><div class='pair'><div><b>A</b><pre>- **FR-020**: System MUST redirect the user to the login page if their session expires during use.</pre></div><div><b>B</b><pre>- **FR-008**: System MUST redirect the user to the login page when an expired-token error is returned during sub-category fetching.</pre></div></div>
+<h3>D-024</h3><div class='pair'><div><b>A</b><pre>- **FR-011**: Wszystkie teksty UI MUSZĄ być w języku polskim</pre></div><div><b>B</b><pre>- **FR-007**: Wszystkie teksty UI MUSZĄ być w języku polskim</pre></div></div>
+<h3>D-025</h3><div class='pair'><div><b>A</b><pre>### Requirement: Deployment is deleted when Claw is deleted
+The system SHALL configure owner references such that Kubernetes garbage collection automatically deletes the Deployment when the owning Claw is deleted.
+
+#### Scenario: Garbage collection deletes Deployment
+- **WHEN** an Claw is deleted
+- **THEN** the Kubernetes API server SHALL automatically delete the associated Deployment due to the controller owner reference
+</pre></div><div><b>B</b><pre>### Requirement: Deployment is deleted when OpenClawInstance is deleted
+The system SHALL configure owner references such that Kubernetes garbage collection automatically deletes the Deployment when the owning OpenClawInstance is deleted.
+
+#### Scenario: Garbage collection deletes Deployment
+- **WHEN** an OpenClawInstance is deleted
+- **THEN** the Kubernetes API server SHALL automatically delete the associated Deployment due to the controller owner reference
+</pre></div></div>
+<h3>D-026</h3><div class='pair'><div><b>A</b><pre>### Requirement: pathling_evaluate_fhirpath has roxygen2 documentation
+
+The function SHALL include roxygen2 documentation with a title, description,
+parameter documentation for all parameters, return value documentation, family
+tag, and export tag. The `@examples` block SHALL demonstrate evaluating a simple
+expression against a Patient resource.
+
+#### Scenario: Documentation is present
+
+- **WHEN** the function is defined
+- **THEN** it SHALL have roxygen2 comments documenting its purpose, all parameters, and return value
+</pre></div><div><b>B</b><pre>### Requirement: pc_fhirpath_to_column has roxygen2 documentation
+
+The function SHALL include roxygen2 documentation with a title, description, parameter documentation, return value, and export tag.
+
+#### Scenario: Documentation is present
+
+- **WHEN** the function is defined
+- **THEN** it SHALL have roxygen2 comments documenting its purpose, parameters (`pc`, `resource_type`, `fhirpath_expression`), and return value
+</pre></div></div>
+<h3>D-027</h3><div class='pair'><div><b>A</b><pre>- **FR-006**: System MUST provide clear error messages when no compatible driver is available</pre></div><div><b>B</b><pre>- **FR-006**: System MUST provide clear error messages when OAuth fails due to scope issues, including discovered vs configured scopes and actionable fix suggestions</pre></div></div>
+<h3>D-028</h3><div class='pair'><div><b>A</b><pre>- **FR-007**: All action icons MUST display a descriptive tooltip on hover.</pre></div><div><b>B</b><pre>- **FR-010**: The cloud icon button MUST show a &quot;Manage Remotes&quot; tooltip on hover</pre></div></div>
+<h3>D-029</h3><div class='pair'><div><b>A</b><pre>### Requirement: Delete (REQ-015)
+
+When destroying, the resource SHALL use `id` as the role name and delete it via the Kibana Delete role HTTP API implemented through `internal/clients/kibanaoapi` and `generated/kbapi`.
+
+#### Scenario: Destroy
+
+- GIVEN destroy is requested
+- WHEN delete runs
+- THEN the provider SHALL call Delete role for the name stored in `id`
+</pre></div><div><b>B</b><pre>### Requirement: Delete (REQ-020)
+
+When destroying, the resource SHALL parse `id` to determine the role name and then delete it via the Delete role API.
+
+#### Scenario: Destroy
+
+- GIVEN destroy is requested
+- WHEN delete runs
+- THEN the provider SHALL call Delete role for the name parsed from `id`
+</pre></div></div>
+<h3>D-030</h3><div class='pair'><div><b>A</b><pre>### Requirement: Simplified and Documented Vite Integration
+
+A new Vite-native plugin, `@runtime-env/vite-plugin`, SHALL be provided to simplify the integration of `runtime-env` with Vite projects, adhering to Vite&#x27;s security model for environment variables.
+
+#### Scenario: Plugin is zero-config
+
+- **GIVEN** a user has installed `@runtime-env/vite-plugin`.
+- **WHEN** they configure the plugin in their `vite.config.ts` using `runtimeEnv()`.
+- **THEN** it SHALL automatically enable `gen-js` and `interpolateIndexHtml` features.
+- **AND** it SHALL automatically detect and use Vite&#x27;s standard environment files (`.env`, `.env.local`, `.env.[mode]`, `.env.[mode].local`) based on the current Vite mode and `envDir`.
+- **AND** it SHALL validate that all variable keys in the schema comply with Vite&#x27;s `envPrefix` configuration (defaulting to `VITE_`).
+- **AND** it SHALL use default values for `schemaFile` (`.runtimeenvschema.json`) and `globalVariableName` (`runtimeEnv`).
+- **AND** the `gen-ts` sub-command SHALL be automatically executed if a `tsconfig.json` file is found in the project root, with a fixed output file `src/runtime-env.d.ts`.
+- **AND** the `runtimeEnv` function SHALL NOT accept any arguments.
+- **AND** the plugin SHALL provide public documentation (e.g., `README.md`) explaining installation, usage, and how it respects `envDir` and `envPrefix`.
+
+#### Scenario: Documentation covers setup and prerequisites
+
+- **GIVEN** a user is reading the `README.md` for `@runtime-env/vite-plugin`.
+- **WHEN** they look for setup instructions.
+- **THEN** it SHALL guide them to create a `.runtimeenvschema.json` file.
+- **AND** it SHALL explain that schema variables must follow the `envPrefix` (default `VITE_`) to be included.
+- **AND** it SHALL guide them to create `.env` files.
+- **AND** it SHALL guide them to add a `&lt;script&gt;` tag to `index.html` for loading `/runtime-env.js`.
+- **AND** it SHALL provide a link to the root `README.md` for `@runtime-env/cli` documentation.
+</pre></div><div><b>B</b><pre>### Requirement: Vite Plugin Implementation
+
+The `@runtime-env/vite-plugin` SHALL be implemented following Vite&#x27;s official plugin authoring guidelines to ensure a seamless and idiomatic developer experience.
+
+#### Scenario: Code Structure
+
+- **GIVEN** a developer inspects the `packages/vite-plugin/src` directory
+- **WHEN** they view the file structure
+- **THEN** they find a modular structure with logic separated by Vite mode (`dev`, `build`, `preview`, `vitest`).
+- **AND** there is no shared `utils.ts` or common runtime logic file; each mode file is self-contained.
+- **AND** `index.ts` delegates to these modes by returning an array of plugin objects.
+
+#### Scenario: Maintainability
+
+- **GIVEN** a developer needs to modify the plugin&#x27;s behavior for a specific mode
+- **WHEN** they locate the corresponding mode-specific file (e.g., `build.ts`)
+- **THEN** they can easily understand and modify the relevant logic without affecting other modes.
+</pre></div></div>
+<h3>D-031</h3><div class='pair'><div><b>A</b><pre>### Requirement: CRD defines printcolumns for status visibility
+The OpenClaw CRD SHALL define printcolumns to display the Available condition status and reason in kubectl table output.
+
+#### Scenario: Ready column shows Available condition status
+- **WHEN** user runs `kubectl get openclaw`
+- **THEN** the output SHALL include a &quot;Ready&quot; column showing the status value from the Available condition (True, False, or Unknown)
+
+#### Scenario: Reason column shows Available condition reason
+- **WHEN** user runs `kubectl get openclaw`
+- **THEN** the output SHALL include a &quot;Reason&quot; column showing the reason value from the Available condition (e.g., Provisioning, Ready)
+
+#### Scenario: Age column is not displayed
+- **WHEN** user runs `kubectl get openclaw`
+- **THEN** the Age column SHALL NOT appear in the default table output
+
+#### Scenario: Printcolumns use JSONPath to extract condition fields
+- **WHEN** examining the CRD manifest
+- **THEN** printcolumn definitions SHALL use JSONPath expressions to extract status and reason from the Available condition (e.g., `.status.conditions[?(@.type==&quot;Available&quot;)].status`)
+
+#### Scenario: Empty status cells when condition not yet set
+- **WHEN** an OpenClaw instance is newly created and the controller has not yet set status conditions
+- **THEN** the Ready and Reason columns MAY be empty until the first reconciliation completes
+</pre></div><div><b>B</b><pre>### Requirement: CRD defines printcolumns for status visibility
+The Claw CRD SHALL define printcolumns to display the Ready condition status and reason in kubectl table output.
+
+#### Scenario: Ready column shows Ready condition status
+- **WHEN** user runs `kubectl get claw`
+- **THEN** the output SHALL include a &quot;Ready&quot; column showing the status value from the Ready condition (True, False, or Unknown)
+
+#### Scenario: Reason column shows Ready condition reason
+- **WHEN** user runs `kubectl get claw`
+- **THEN** the output SHALL include a &quot;Reason&quot; column showing the reason value from the Ready condition (e.g., Provisioning, Ready)
+
+#### Scenario: Age column is not displayed
+- **WHEN** user runs `kubectl get claw`
+- **THEN** the Age column SHALL NOT appear in the default table output
+
+#### Scenario: Printcolumns use JSONPath to extract condition fields
+- **WHEN** examining the CRD manifest
+- **THEN** printcolumn definitions SHALL use JSONPath expressions to extract status and reason from the Ready condition (e.g., `.status.conditions[?(@.type==&quot;Ready&quot;)].status`)
+
+#### Scenario: Empty status cells when condition not yet set
+- **WHEN** a Claw instance is newly created and the controller has not yet set status conditions
+- **THEN** the Ready and Reason columns MAY be empty until the first reconciliation completes
+</pre></div></div>
+<h3>D-032</h3><div class='pair'><div><b>A</b><pre>### User Story 1 - Icon Buttons with Tooltips (Priority: P1)
+
+A developer opens the git graph. All interactive buttons in the control bar (Filter, Search, Refresh, Fetch, Compare, Manage Remotes, Settings) display as icon-only buttons. Hovering any icon button shows a tooltip with its function name.
+
+**Why this priority**: This is the foundational visual change that all other stories build on. Without icon buttons, the control bar remains cluttered. Delivers a cleaner UI even before toggle panels are added.
+
+**Independent Test**: Can be fully tested by opening the graph panel and verifying each button renders as an icon with a readable tooltip on hover, with no regression in click behavior.
+
+**Acceptance Scenarios**:
+
+1. **Given** the graph panel is open, **When** the user looks at the control bar, **Then** Filter, Search, Refresh, Fetch, Compare, Manage Remotes, and Settings all display as icon-only buttons (no visible text labels).
+2. **Given** any icon button is in the control bar, **When** the user hovers over it for a brief moment, **Then** a tooltip appears identifying the button&#x27;s function.
+3. **Given** icon buttons replace text buttons, **When** the user clicks Refresh or Fetch, **Then** the operation executes exactly as before (no regression).
+
+---
+</pre></div><div><b>B</b><pre>### User Story 2 - Toolbar Button Reorganization (Priority: P1)
+
+A user views the control bar and sees a cleaner layout: &quot;Manage Remotes...&quot; has moved from a text button to a cloud icon button positioned between the settings icon and the loaded commits count. The remaining action buttons are reordered to Refresh, Fetch, Search for a more logical flow (refresh local first, then fetch remote, then search).
+
+**Why this priority**: Improves toolbar clarity and reduces visual clutter. &quot;Manage Remotes...&quot; is an infrequent action that doesn&#x27;t warrant a prominent text button.
+
+**Independent Test**: Can be tested by visually verifying the new toolbar layout order and that the cloud icon button opens the remote management dialog.
+
+**Acceptance Scenarios**:
+
+1. **Given** the control bar is displayed, **When** the user looks at the action buttons after the branch dropdown, **Then** the buttons appear in order: Refresh, Fetch, Search
+2. **Given** the control bar is displayed, **When** the user looks at the area between the loaded commits count and the settings gear icon, **Then** a cloud icon button for &quot;Manage Remotes&quot; is visible
+3. **Given** the user clicks the cloud icon button, **Then** the Remote Management dialog opens
+4. **Given** the user hovers over the cloud icon button, **Then** a tooltip shows &quot;Manage Remotes&quot;
+
+---
+</pre></div></div>
+<h3>D-033</h3><div class='pair'><div><b>A</b><pre>- **FR-007**: System MUST apply content guardrails to generated replies (no IPs, credentials, customer names)</pre></div><div><b>B</b><pre>- **FR-005**: System MUST apply content guardrails to all spoken content (no IP addresses, credentials, customer names, or other sensitive data)</pre></div></div>
+<h3>D-034</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller filters by resource name
+The system SHALL configure the controller to watch all OpenClaw resources but only reconcile resources named &quot;instance&quot;, skipping all other named resources.
+
+#### Scenario: Resource named &#x27;instance&#x27; triggers reconciliation
+- **WHEN** an OpenClaw named &#x27;instance&#x27; is created
+- **THEN** the controller&#x27;s Reconcile function SHALL process the resource
+
+#### Scenario: Resource with different name is skipped
+- **WHEN** an OpenClaw with a name other than &#x27;instance&#x27; is created
+- **THEN** the controller&#x27;s Reconcile function SHALL skip processing and return successfully without creating a Deployment
+
+#### Scenario: Multiple resources with different names
+- **WHEN** multiple OpenClaw resources exist with different names
+- **THEN** the controller SHALL only reconcile the resource named &#x27;instance&#x27; and skip all others
+
+#### Scenario: Skipped resource is logged
+- **WHEN** an OpenClaw with a name other than &#x27;instance&#x27; is reconciled
+- **THEN** the controller SHALL log that the resource is being skipped due to name mismatch
+</pre></div><div><b>B</b><pre>### Requirement: Controller reconciles all OpenClawInstance resources
+The system SHALL configure the controller to watch all OpenClawInstance resources but only reconcile resources named &quot;instance&quot;, skipping all other named resources.
+
+#### Scenario: Resource named &#x27;instance&#x27; triggers reconciliation
+- **WHEN** an OpenClawInstance named &#x27;instance&#x27; is created
+- **THEN** the controller&#x27;s Reconcile function SHALL process the resource and create a Deployment
+
+#### Scenario: Resource with different name is skipped
+- **WHEN** an OpenClawInstance with a name other than &#x27;instance&#x27; is created
+- **THEN** the controller&#x27;s Reconcile function SHALL skip processing and return successfully without creating a Deployment
+
+#### Scenario: Multiple resources with different names
+- **WHEN** multiple OpenClawInstance resources exist with different names
+- **THEN** the controller SHALL only reconcile the resource named &#x27;instance&#x27; and skip all others
+
+#### Scenario: Skipped resource is logged
+- **WHEN** an OpenClawInstance with a name other than &#x27;instance&#x27; is reconciled
+- **THEN** the controller SHALL log that the resource is being skipped due to name mismatch
+</pre></div></div>
+<h3>D-035</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` under ResourcesMap with key `tencentcloud_teo_security_api_resource` and value `teo.ResourceTencentCloudTeoSecurityAPIResource()`.
+
+The resource SHALL be listed in `tencentcloud/provider.md` under the TEO section.
+
+#### Scenario: Provider registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_security_api_resource` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-036</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller filters by resource name
+The system SHALL check the Claw resource name early in the reconciliation loop and skip processing if the name is not &quot;instance&quot;.
+
+#### Scenario: Name check occurs after fetch
+- **WHEN** the Reconcile function fetches the Claw resource
+- **THEN** it SHALL immediately check if the resource name equals &quot;instance&quot; before proceeding with any other logic
+
+#### Scenario: Name filtering returns success
+- **WHEN** a resource name does not match &quot;instance&quot;
+- **THEN** the Reconcile function SHALL return `ctrl.Result{}, nil` (success) without error
+
+#### Scenario: Name filtering does not affect NotFound handling
+- **WHEN** a resource is not found during fetch
+- **THEN** the controller SHALL still handle NotFound errors before checking the name
+</pre></div><div><b>B</b><pre>### Requirement: Controller filters by resource name
+The system SHALL check the OpenClawInstance resource name early in the reconciliation loop and skip processing if the name is not &quot;instance&quot;.
+
+#### Scenario: Name check occurs after fetch
+- **WHEN** the Reconcile function fetches the OpenClawInstance resource
+- **THEN** it SHALL immediately check if the resource name equals &quot;instance&quot; before proceeding with any other logic
+
+#### Scenario: Name filtering returns success
+- **WHEN** a resource name does not match &quot;instance&quot;
+- **THEN** the Reconcile function SHALL return `ctrl.Result{}, nil` (success) without error
+
+#### Scenario: Name filtering does not affect NotFound handling
+- **WHEN** a resource is not found during fetch
+- **THEN** the controller SHALL still handle NotFound errors before checking the name
+</pre></div></div>
+<h3>D-037</h3><div class='pair'><div><b>A</b><pre>### Requirement: Lifecycle and connection (REQ-009–REQ-011)
+
+Changing `name` SHALL require replacement (`ForceNew`). By default, the resource SHALL use the provider-level Elasticsearch client. When `elasticsearch_connection` is configured, the resource SHALL construct and use a resource-scoped Elasticsearch client for all API calls.
+
+#### Scenario: ForceNew on name change
+
+- GIVEN `name` changes in configuration
+- WHEN Terraform plans
+- THEN replacement SHALL be required
+</pre></div><div><b>B</b><pre>### Requirement: Validation and connection selection (REQ-008–REQ-010)
+
+The resource SHALL reject configuration that omits all five phase blocks `hot`, `warm`, `cold`, `frozen`, and `delete`. The resource SHALL accept `metadata` and allocation filters only when they are valid JSON objects. By default, the resource SHALL use the provider-level Elasticsearch client; when `elasticsearch_connection` is configured, the resource SHALL construct and use a resource-scoped Elasticsearch client for create, read, update, and delete.
+
+#### Scenario: No lifecycle phases configured
+
+- GIVEN all phase blocks are absent
+- WHEN configuration is validated
+- THEN the provider SHALL return a validation error before any lifecycle API call
+
+#### Scenario: Resource-scoped connection override
+
+- GIVEN `elasticsearch_connection` is configured for the resource
+- WHEN CRUD operations run
+- THEN the provider SHALL use that resource-scoped connection
+</pre></div></div>
+<h3>D-038</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller filters ConfigMap watch by name
+The system SHALL configure the ConfigMap watch to only trigger reconciliation for ConfigMaps named &quot;openclaw-config&quot;, ignoring all other ConfigMaps.
+
+#### Scenario: ConfigMap named &#x27;openclaw-config&#x27; triggers reconciliation
+- **WHEN** a ConfigMap named &#x27;openclaw-config&#x27; is created or updated
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: ConfigMap with different name is ignored
+- **WHEN** a ConfigMap with a name other than &#x27;openclaw-config&#x27; is created or updated
+- **THEN** the controller&#x27;s Reconcile function SHALL NOT be invoked
+</pre></div><div><b>B</b><pre>### Requirement: Controller filters ConfigMap watch by name
+The system SHALL configure the ConfigMap watch to only trigger reconciliation for ConfigMaps named &quot;openclaw-config&quot;, ignoring all other ConfigMaps.
+
+#### Scenario: ConfigMap named &#x27;openclaw-config&#x27; triggers reconciliation
+- **WHEN** a ConfigMap named &#x27;openclaw-config&#x27; is created or updated
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: ConfigMap with different name is ignored
+- **WHEN** a ConfigMap with a name other than &#x27;openclaw-config&#x27; is created or updated
+- **THEN** the controller&#x27;s Reconcile function SHALL NOT be invoked
+</pre></div></div>
+<h3>D-039</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource registration in provider
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource appears in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_confirm_multi_path_gateway_origin_acl` is available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource `tencentcloud_teo_shared_cname` SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_shared_cname` is available as a resource type for use in Terraform configurations
+</pre></div></div>
+<h3>D-040</h3><div class='pair'><div><b>A</b><pre>### Requirement: Claude Model Refresh MUST Be Fail-Safe
+
+The system MUST replace the visible Claude backend catalog on successful refresh and preserve the previous usable catalog when refresh fails.
+
+#### Scenario: successful refresh clears stale configured models
+- **WHEN** Claude model refresh succeeds
+- **AND** the refreshed settings/env catalog no longer contains models from the previous provider source
+- **THEN** the selector MUST remove those stale configured models
+- **AND** it MUST keep user custom models available
+
+#### Scenario: successful empty refresh falls back to builtin catalog
+- **WHEN** Claude model refresh succeeds with no settings/env model overrides
+- **AND** no user custom Claude models exist
+- **THEN** the selector MUST show the built-in Claude catalog entries
+- **AND** it MUST NOT synthesize bare alias entries or options derived from the current selected value
+
+#### Scenario: failed refresh preserves previous catalog
+- **WHEN** Claude model refresh fails
+- **THEN** the selector MUST keep the previously visible catalog
+- **AND** it MUST keep custom models available
+
+#### Scenario: failed refresh preserves selected model
+- **WHEN** Claude model refresh fails
+- **THEN** the selector MUST keep the current selected model if it can still resolve to a runtime model
+
+#### Scenario: refresh failure is diagnosable
+- **WHEN** Claude model refresh fails
+- **THEN** the system MUST expose a diagnosable failure reason through UI feedback or debug diagnostics
+</pre></div><div><b>B</b><pre>### Requirement: Refresh MUST Preserve Valid Selection And Existing Catalog On Failure
+
+Refreshing model config MUST be fail-safe: it MUST keep the current selection when still valid, and MUST retain the prior catalog when refresh fails.
+
+#### Scenario: valid current selection remains selected
+- **WHEN** refresh completes successfully
+- **AND** the previously selected model still exists in the refreshed model catalog
+- **THEN** the selector MUST keep that model selected
+
+#### Scenario: missing current selection falls back by existing rules
+- **WHEN** refresh completes successfully
+- **AND** the previously selected model no longer exists in the refreshed model catalog
+- **THEN** the selector MUST choose the next model using the existing default/preferred model selection rules
+
+#### Scenario: failed refresh keeps previous catalog
+- **WHEN** refresh fails
+- **THEN** the selector MUST keep the previously visible model catalog
+- **AND** it MUST NOT replace the catalog with an empty list solely because refresh failed
+
+#### Scenario: failed refresh keeps current selection
+- **WHEN** refresh fails
+- **THEN** the selector MUST keep the current selected model value
+- **AND** it MUST NOT clear the selection solely because refresh failed
+</pre></div></div>
+<h3>D-041</h3><div class='pair'><div><b>A</b><pre>- **FR-007**: System MUST register as `json-google-drive` storage plugin with proper `PLUGIN_METADATA`.</pre></div><div><b>B</b><pre>- **FR-004**: System MUST switch `plugin_registry.activate_storage()` to `json-google-drive` on success.</pre></div></div>
+<h3>D-042</h3><div class='pair'><div><b>A</b><pre>### Requirement: Metrics refreshed on operator startup
+The operator SHALL list all existing Claw resources on startup and populate gauge metrics (`claw_instance_status`, `claw_instance_info`) for each instance before the controller begins processing reconcile events.
+
+#### Scenario: Metrics restored after restart with existing instances
+- **WHEN** the operator starts and there are existing Claw resources in the cluster
+- **THEN** the `/metrics` endpoint SHALL return correct `claw_instance_status` and `claw_instance_info` series for all existing instances
+
+#### Scenario: Metrics reflect current status after restart
+- **WHEN** the operator restarts and a Claw instance has Ready condition with reason=Ready
+- **THEN** the metric `claw_instance_status{status=&quot;ready&quot;}` SHALL be `1` for that instance
+- **THEN** the metric `claw_instance_status{status=&quot;provisioning&quot;}` SHALL be `0` for that instance
+
+#### Scenario: Multiple instances across namespaces
+- **WHEN** the operator starts with Claw instances in different namespaces
+- **THEN** metrics SHALL be populated for all instances across all namespaces
+
+#### Scenario: No Claw resources exist
+- **WHEN** the operator starts and there are no Claw resources in the cluster
+- **THEN** no metric series SHALL be created
+- **THEN** the operator SHALL start normally
+</pre></div><div><b>B</b><pre>### Requirement: Ready condition indicates overall readiness
+The controller SHALL maintain a Ready condition type to indicate whether the Claw instance is ready for use. When device pairing is disabled, the Ready condition SHALL NOT depend on the device-pairing Deployment.
+
+#### Scenario: Ready condition set to False during provisioning
+- **WHEN** a Claw instance named &#x27;instance&#x27; is created
+- **THEN** the controller SHALL set Ready condition with status=False, reason=Provisioning, message describing deployment progress
+
+#### Scenario: Ready condition set to True when ready (device pairing enabled)
+- **WHEN** the claw, proxy, and device-pairing Deployments all have Available=True status
+- **THEN** the controller SHALL set Ready condition with status=True, reason=Ready
+
+#### Scenario: Ready condition set to True when ready (device pairing disabled)
+- **WHEN** `shouldDisableDevicePairing()` returns `true` and the claw and proxy Deployments have Available=True status
+- **THEN** the controller SHALL set Ready condition with status=True, reason=Ready
+- **THEN** the controller SHALL NOT check the device-pairing Deployment status
+
+#### Scenario: DevicePairingConfigured condition omitted when disabled
+- **WHEN** `shouldDisableDevicePairing()` returns `true`
+- **THEN** the controller SHALL NOT set the `DevicePairingConfigured` condition
+- **THEN** if a `DevicePairingConfigured` condition previously existed, the controller SHALL remove it from the status conditions
+
+#### Scenario: Ready condition remains False if any deployment not ready
+- **WHEN** either openclaw or openclaw-proxy Deployment has Available condition not equal to True
+- **THEN** the controller SHALL keep Ready condition at status=False, reason=Provisioning
+</pre></div></div>
+<h3>D-043</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource documentation
+The system SHALL generate a `.md` documentation file for the resource following the gendoc/README.md format, including one-line description, example usage, and import section.
+
+#### Scenario: Documentation file exists
+- **WHEN** the resource is implemented
+- **THEN** a documentation file `resource_tc_teo_load_balancer.md` SHALL exist in the teo service directory with proper format
+</pre></div><div><b>B</b><pre>### Requirement: Documentation
+The system SHALL provide a `.md` documentation file following the project documentation format, including description, example usage, and import section.
+
+#### Scenario: Documentation file exists
+- **WHEN** the resource is added
+- **THEN** a `resource_tc_teo_prefetch_origin_limit_config.md` file SHALL exist in the teo service directory
+</pre></div></div>
+<h3>D-044</h3><div class='pair'><div><b>A</b><pre>- **FR-009**: System MUST provide clear error messages when recipe application fails, including which entity failed and why</pre></div><div><b>B</b><pre>- **FR-006**: System MUST provide clear error messages when no compatible driver is available</pre></div></div>
+<h3>D-045</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider Registration
+The system SHALL register `tencentcloud_teo_edge_kv_namespace` in `tencentcloud/provider.go` resource map and add the corresponding entry in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_edge_kv_namespace` is available as a valid resource type
+</pre></div><div><b>B</b><pre>### Requirement: Resource registration
+The system SHALL register `tencentcloud_kubernetes_roll_out_sequence` in `tencentcloud/provider.go` resource map and add the corresponding entry in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_kubernetes_roll_out_sequence` is available as a valid resource type
+</pre></div></div>
+<h3>D-046</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The system SHALL register the new datasource `tencentcloud_dbdc_db_custom_nodes` in `tencentcloud/provider.go` with the datasource mapping entry.
+
+#### Scenario: Provider registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_dbdc_db_custom_nodes` SHALL be available as a datasource in Terraform configurations
+</pre></div><div><b>B</b><pre>### Requirement: Data source registration
+数据源 MUST 在 Provider 中注册为 `tencentcloud_cvm_account_quota`，使其可在 Terraform 配置中使用。
+
+#### Scenario: Data source is accessible
+- **WHEN** 用户在 Terraform 配置中使用 `data &quot;tencentcloud_cvm_account_quota&quot;`
+- **THEN** Terraform 能够成功识别并初始化该数据源
+</pre></div></div>
+<h3>D-047</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** user references `tencentcloud_teo_edge_kv` in their configuration
+- **THEN** Terraform SHALL recognize it as a valid resource type
+</pre></div></div>
+<h3>D-048</h3><div class='pair'><div><b>A</b><pre>- **FR-009**: System MUST ensure all components render null when feature is disabled (proxy stub behavior)</pre></div><div><b>B</b><pre>- **FR-009**: System MUST ensure all No Fee Campaign components render null when the feature is disabled (via proxy stubs)</pre></div></div>
+<h3>D-049</h3><div class='pair'><div><b>A</b><pre>- **FR-021**: Retry processing MUST reuse saved source artifacts and the recording source mode without requiring the user to re-record.</pre></div><div><b>B</b><pre>- **FR-011**: Retry MUST recompute or reuse turn ordering from saved source artifacts without requiring a new recording.</pre></div></div>
+<h3>D-050</h3><div class='pair'><div><b>A</b><pre>- **FR-002**: Every feature MUST have a standard folder structure with `components/`, `hooks/`, `services/`, `store/`, `types/`, and `constants.ts`</pre></div><div><b>B</b><pre>- **FR-001**: The ledger feature MUST have a standard folder structure with dedicated directories for components, hooks, state management, type definitions, and constants</pre></div></div>
+<h3>D-051</h3><div class='pair'><div><b>A</b><pre>### Requirement: CRD manifest is generated
+The system SHALL generate a CRD manifest YAML file at `config/crd/bases/` containing the OpenClaw schema.
+
+#### Scenario: CRD manifest is available for deployment
+- **WHEN** operator installation manifests are generated
+- **THEN** the OpenClaw CRD YAML SHALL be present in `config/crd/bases/`
+
+#### Scenario: CRD includes status subresource
+- **WHEN** examining the generated CRD manifest
+- **THEN** it SHALL include `status: {}` in the subresources section
+</pre></div><div><b>B</b><pre>### Requirement: CRD manifest is generated
+The system SHALL generate a CRD manifest YAML file at `config/crd/bases/` containing the Claw schema.
+
+#### Scenario: CRD manifest is available for deployment
+- **WHEN** operator installation manifests are generated
+- **THEN** the Claw CRD YAML SHALL be present in `config/crd/bases/`
+
+#### Scenario: CRD includes status subresource
+- **WHEN** examining the generated CRD manifest
+- **THEN** it SHALL include `status: {}` in the subresources section
+</pre></div></div>
+<h3>D-052</h3><div class='pair'><div><b>A</b><pre>### Requirement: Version compatibility gates (REQ-012–REQ-013)
+
+When `description` is configured (non-null), the resource SHALL verify the Elasticsearch server version is at least 8.15.0, and if it is lower the resource SHALL fail with an “Unsupported Feature” error. When `remote_indices` is configured with one or more entries, the resource SHALL verify the Elasticsearch server version is at least 8.10.0, and if it is lower the resource SHALL fail with an “Unsupported Feature” error.
+
+#### Scenario: Description on older cluster
+
+- GIVEN `description` is set and Elasticsearch is below 8.15.0
+- WHEN create or update runs
+- THEN the provider SHALL fail with an “Unsupported Feature” error
+</pre></div><div><b>B</b><pre>### Requirement: Compatibility — version-gated features (REQ-009–REQ-017)
+
+When `supports_agentless` is configured, the resource SHALL verify the stack version is at least 8.15.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error. When `inactivity_timeout` is configured, the resource SHALL verify the stack version is at least 8.7.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error. When `unenrollment_timeout` is configured, the resource SHALL verify the stack version is at least 8.15.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error. When `global_data_tags` is configured with one or more entries, the resource SHALL verify the stack version is at least 8.15.0, and if it is lower the resource SHALL fail with a &quot;global_data_tags ES version error&quot;. When `host_name_format` is set to `&quot;fqdn&quot;`, the resource SHALL verify the stack version is at least 8.7.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error. When `space_ids` is configured, the resource SHALL verify the stack version is at least 9.1.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error. When `required_versions` is configured, the resource SHALL verify the stack version is at least 9.1.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error. When `advanced_monitoring_options` is configured, the resource SHALL verify the stack version is at least 8.16.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error. When `advanced_settings` is configured, the resource SHALL verify the stack version is at least 8.17.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error. When `is_protected` is `true`, the resource SHALL verify the stack version is at least 8.10.0, and if it is lower the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error.
+
+#### Scenario: global_data_tags on unsupported version
+
+- GIVEN stack version &lt; 8.15.0
+- WHEN `global_data_tags` is set with one or more entries
+- THEN the resource SHALL fail with a version error before calling the API
+
+#### Scenario: host_name_format fqdn on unsupported version
+
+- GIVEN stack version &lt; 8.7.0
+- WHEN `host_name_format = &quot;fqdn&quot;` is configured
+- THEN the resource SHALL fail with an &quot;Unsupported Elasticsearch version&quot; error
+
+#### Scenario: Supported version passes gate
+
+- GIVEN stack version meets the minimum for a feature
+- WHEN the feature is configured
+- THEN the resource SHALL proceed with the API call
+</pre></div></div>
+<h3>D-053</h3><div class='pair'><div><b>A</b><pre>- **FR-014**: System MUST handle Spotify API rate limits transparently using automatic retry with exponential backoff.</pre></div><div><b>B</b><pre>- **FR-007**: System MUST handle Spotify token refresh transparently during operations.</pre></div></div>
+<h3>D-054</h3><div class='pair'><div><b>A</b><pre>### Requirement: AI Trend Analysis
+
+系统 SHALL 提供基于LLM的AI走势分析能力，分析股票技术面并给出操作建议。
+
+#### Scenario: AI Analysis Success
+- **WHEN** 用户请求 `600519.SH` 的AI走势分析
+- **THEN** 系统调用LLM分析该股票的技术指标
+- **AND** 返回趋势判断（上涨/下跌/震荡）
+- **AND** 返回支撑位和压力位
+- **AND** 返回技术信号列表（如&quot;MACD金叉&quot;）
+- **AND** 返回分析摘要文本
+- **AND** 返回风险提示免责声明
+
+#### Scenario: AI Analysis with Langfuse Tracing
+- **WHEN** 系统执行AI分析
+- **THEN** LLM调用过程被Langfuse追踪记录
+- **AND** 追踪包含trace_name=&quot;market_trend_analysis&quot;
+
+#### Scenario: AI Analysis - LLM Unavailable
+- **WHEN** LLM服务不可用
+- **THEN** 系统返回错误提示&quot;AI分析服务暂不可用&quot;
+- **AND** 仍返回基础技术指标数据
+
+---
+</pre></div><div><b>B</b><pre>### Requirement: Analysis Dashboard for Frontend
+The system MUST provide comprehensive dashboard data for frontend visualization.
+
+#### Scenario: Get Dashboard Data with Tech Snapshots
+- **Given** 目标池的技术指标和AI分析结果已生成
+- **When** 用户请求仪表盘数据
+- **Then** 返回每只股票的技术得分、MA位置状态、AI分析摘要、技术指标快照（`tech_snapshot`），支持按得分排序，前端可直接渲染图表
+
+#### Scenario: Individual Stock Deep Analysis
+- **Given** 用户指定某只股票
+- **When** 发送 `POST /api/quant/analysis/{ts_code}`
+- **Then** 先检查该股票日线数据就绪；就绪则返回完整深度分析报告（含所有技术指标图表数据、AI分析结果和历史分析对比）；缺失则返回 `MissingDataSummary`
+</pre></div></div>
+<h3>D-055</h3><div class='pair'><div><b>A</b><pre>### Requirement: The system SHALL enforce size limits on node content
+Node names SHALL have a maximum length of 5000 characters across all entry points (map creation, node addition, node editing). This prevents abuse and ensures consistent behavior.
+
+#### Scenario: Normal node name accepted
+- **WHEN** a user creates or edits a node with a 2000-character name
+- **THEN** the system SHALL accept it
+
+#### Scenario: Oversized node name rejected
+- **WHEN** a user creates or edits a node with a name exceeding 5000 characters
+- **THEN** the system SHALL reject it with a validation error
+</pre></div><div><b>B</b><pre>### Requirement: Node fields SHALL have maximum length limits
+The system SHALL enforce maximum lengths on node text fields. Values exceeding the limit SHALL be rejected.
+
+#### Scenario: Name within limit accepted
+- **WHEN** a user enters a node name of 500 characters
+- **THEN** the system SHALL accept it
+
+#### Scenario: Name exceeding limit rejected
+- **WHEN** a user enters a node name exceeding 512 characters
+- **THEN** the system SHALL reject the value
+</pre></div></div>
+<h3>D-056</h3><div class='pair'><div><b>A</b><pre>- **FR-002**: The system MUST detect GitHub remote URLs (both HTTPS and SSH formats) and construct a compare URL of the form `https://github.com/&lt;owner&gt;/&lt;repo&gt;/compare/&lt;base&gt;...&lt;head&gt;`.</pre></div><div><b>B</b><pre>- **FR-004**: The system MUST recognize GitHub remote URLs in both HTTPS form (`https://github.com/&lt;owner&gt;/&lt;repo&gt;.git`) and SSH form (`git@github.com:&lt;owner&gt;/&lt;repo&gt;.git`), stripping any trailing `.git`.</pre></div></div>
+<h3>D-057</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller handles resource not found
+The controller SHALL handle the case where the OpenClaw resource is not found during reconciliation.
+
+#### Scenario: OpenClaw deleted before reconciliation
+- **WHEN** the OpenClaw resource is not found during reconciliation
+- **THEN** the controller logs that the resource was deleted
+- **THEN** the controller returns without error (no requeue)
+</pre></div><div><b>B</b><pre>### Requirement: Controller handles resource not found
+The controller SHALL handle the case where the OpenClaw resource is not found during reconciliation.
+
+#### Scenario: OpenClaw deleted before reconciliation
+- **WHEN** the OpenClaw resource is not found during reconciliation
+- **THEN** the controller logs that the resource was deleted
+- **THEN** the controller returns without error (no requeue)
+- **THEN** Kubernetes garbage collection removes owned resources
+</pre></div></div>
+<h3>D-058</h3><div class='pair'><div><b>A</b><pre>### Requirement: Import MongoDB audit service
+
+The system SHALL support importing an existing audit service configuration using the `instance_id` as the import ID.
+
+#### Scenario: Import existing audit service
+- **WHEN** user runs `terraform import tencentcloud_mongodb_audit_service.example cmgo-xxxxxx`
+- **THEN** the system reads the audit configuration and populates the state
+</pre></div><div><b>B</b><pre>### Requirement: Import existing audit service
+The system SHALL support importing an existing audit service configuration by instance_id.
+
+#### Scenario: Successfully import audit service
+- **WHEN** user runs `terraform import tencentcloud_postgres_audit_service.example &lt;instance_id&gt;`
+- **THEN** the system reads the audit service configuration and populates the state with all attributes
+</pre></div></div>
+<h3>D-059</h3><div class='pair'><div><b>A</b><pre>- **FR-008**: Every feature&#x27;s main entry point MUST check its feature flag and render nothing when disabled</pre></div><div><b>B</b><pre>- **FR-018**: The main earn component MUST check the feature flag and render nothing when disabled or loading</pre></div></div>
+<h3>D-060</h3><div class='pair'><div><b>A</b><pre>- **FR-001**: The library MUST investigate and document how DuckDB Airport extension communicates RETURNING column names (via headers, metadata, or other protocol mechanisms).</pre></div><div><b>B</b><pre>- **FR-010a**: Example documentation MUST specify DuckDB 1.4+ and latest Airport extension as requirements</pre></div></div>
+<h3>D-061</h3><div class='pair'><div><b>A</b><pre>- **FR-002**: The dashboard MUST show projects as the primary content, with each project card navigating directly to the chat interface on click.</pre></div><div><b>B</b><pre>- **FR-021**: The dashboard MUST display projects as the primary content, with associated workspaces grouped under their project.</pre></div></div>
+<h3>D-062</h3><div class='pair'><div><b>A</b><pre>- **FR-023**: Geoblocking and blocked address checks MUST continue to work exactly as before</pre></div><div><b>B</b><pre>- **FR-017**: System MUST maintain full backward compatibility — the global API key MUST continue to work exactly as before, and agent tokens are purely additive.</pre></div></div>
+<h3>D-063</h3><div class='pair'><div><b>A</b><pre>### Requirement: API error surfacing (REQ-008)
+
+When the API returns a non-success status (other than 404 on read or delete), the resource SHALL surface the error to Terraform diagnostics.
+
+#### Scenario: API error on create
+
+- GIVEN the Kibana API returns an error on create, update, read, or delete
+- WHEN the provider handles the response
+- THEN the error SHALL appear in Terraform diagnostics
+</pre></div><div><b>B</b><pre>### Requirement: API error surfacing (REQ-008)
+
+When the API returns a non-success status (other than 404 on read or delete), the resource SHALL surface the error to Terraform diagnostics.
+
+#### Scenario: API error on create
+
+- GIVEN the Kibana API returns an error on create, update, read, or delete
+- WHEN the provider handles the response
+- THEN the error SHALL appear in Terraform diagnostics
+</pre></div></div>
+<h3>D-064</h3><div class='pair'><div><b>A</b><pre>### Requirement: Documentation and acceptance test MUST follow project conventions
+
+- The HCL example markdown SHALL live at `tencentcloud/services/cls/resource_tc_cls_console.md` (mirroring `resource_tc_config_compliance_pack.md`) and contain at least one full HCL example using account-password login and one Import example.
+- An acceptance test SHALL live at `tencentcloud/services/cls/resource_tc_cls_console_test.go` (mirroring `resource_tc_config_compliance_pack_test.go`) covering: basic Create, Update of `remarks`, and `ImportState` round-trip.
+- Running `make doc` SHALL regenerate `website/docs/r/cls_console.html.markdown`.
+
+#### Scenario: Generated website doc lists the resource
+
+- **WHEN** `make doc` runs
+- **THEN** `website/docs/r/cls_console.html.markdown` exists and lists every schema attribute defined in the Schema requirement above.
+
+#### Scenario: Acceptance test name and structure
+
+- **WHEN** the test file is opened
+- **THEN** the package is `cls_test`, the test function is `TestAccTencentCloudClsConsoleResource_basic`, and it includes `tcacctest.AccPreCheck`, two HCL configs (initial and updated), and an `ImportState` step with `ImportStateVerify: true`.
+</pre></div><div><b>B</b><pre>### Requirement: Documentation and acceptance test MUST follow project conventions
+
+- The HCL example markdown SHALL live at `tencentcloud/services/bh/resource_tc_bh_bind_device_account_kubeconfig.md` (mirroring `resource_tc_config_compliance_pack.md`) and contain at least one full HCL example, plus an explicit NOTE explaining (a) the absence of a query API (state is authoritative; drift is invisible) and (b) the absence of an unbind API (`terraform destroy` does NOT remove the backend binding).
+- An acceptance test SHALL live at `tencentcloud/services/bh/resource_tc_bh_bind_device_account_kubeconfig_test.go` (mirroring `resource_tc_config_compliance_pack_test.go`) covering: basic Create, Update of `kubeconfig`. **No** `ImportState` step is included (no query API ⇒ import would produce empty state).
+- Running `make doc` SHALL regenerate `website/docs/r/bh_bind_device_account_kubeconfig.html.markdown`.
+
+#### Scenario: Generated website doc lists the resource
+
+- **WHEN** `make doc` runs
+- **THEN** `website/docs/r/bh_bind_device_account_kubeconfig.html.markdown` exists and lists every schema attribute defined in the Schema requirement above.
+
+#### Scenario: Acceptance test name and structure
+
+- **WHEN** the test file is opened
+- **THEN** the package is `bh_test`, the test function is `TestAccTencentCloudBhBindDeviceAccountKubeconfigResource_basic`, and it includes `tcacctest.AccPreCheck`, two HCL configs (initial and updated `kubeconfig`), but does NOT include an `ImportState` step.
+</pre></div></div>
+<h3>D-065</h3><div class='pair'><div><b>A</b><pre>### Requirement: JSON field mapping — read/state (REQ-023–REQ-027)
+On read, the resource SHALL marshal the API response fields `trigger`, `input`, `condition`, `actions`, and `metadata` back into normalized JSON strings and store them in state. When the API response includes a non-nil `transform`, the resource SHALL marshal it to a normalized JSON string and store it in state. When the API response has a nil `transform`, the resource SHALL clear `transform` from state so the Terraform state reflects the remote watch. The resource SHALL store `watch_id` and `active` (from `watch.status.state.active`) directly from the API response. The resource SHALL store `throttle_period_in_millis` from the API response. JSON fields SHALL normalize semantically equivalent JSON so formatting-only changes do not create perpetual diffs.
+
+#### Scenario: transform removed from the remote watch
+- **GIVEN** the watch previously had a `transform` stored in Terraform state
+- **WHEN** read runs and the API response has no `transform` field
+- **THEN** the `transform` attribute SHALL be cleared from state
+
+#### Scenario: active synced from watch status
+- **GIVEN** the watch is deactivated on the cluster
+- **WHEN** read runs
+- **THEN** `active` in state SHALL reflect `watch.status.state.active` from the API response
+</pre></div><div><b>B</b><pre>### Requirement: JSON field mapping — read/state (REQ-023–REQ-027)
+
+On read, the resource SHALL marshal the API response fields `trigger`, `input`, `condition`, and `metadata` back into normalized JSON strings and store them in state. For `actions`, the resource SHALL marshal the API response into a normalized JSON string, but when the API response contains a redacted string sentinel at a nested path and a prior known Terraform `actions` JSON value (state on refresh, or plan on read-after-write after create or update) has a concrete string at the same path, the resource SHALL preserve that prior concrete string at that path in the final stored JSON. When no prior concrete value exists for a redacted `actions` path, the resource SHALL store the API value as returned. When the API response includes a non-nil `transform`, the resource SHALL marshal it to a normalized JSON string and store it in state. When the API response has a nil `transform`, the resource SHALL clear `transform` from state so the Terraform state reflects the remote watch. The resource SHALL store `watch_id` and `active` (from `watch.status.state.active`) directly from the API response. The resource SHALL store `throttle_period_in_millis` from the API response. JSON fields SHALL normalize semantically equivalent JSON so formatting-only changes do not create perpetual diffs.
+
+#### Scenario: transform removed from the remote watch
+
+- **GIVEN** the watch previously had a `transform` stored in Terraform state
+- **WHEN** read runs and the API response has no `transform` field
+- **THEN** the `transform` attribute SHALL be cleared from state
+
+#### Scenario: active synced from watch status
+
+- **GIVEN** the watch is deactivated on the cluster
+- **WHEN** read runs
+- **THEN** `active` in state SHALL reflect `watch.status.state.active` from the API response
+
+#### Scenario: redacted action secret preserved from prior state
+
+- **GIVEN** the last-applied `actions` JSON in Terraform state includes a concrete nested secret value at a path
+- **WHEN** read runs and the API response returns `::es_redacted::` for that nested action path
+- **THEN** the final `actions` value in state SHALL keep the prior concrete secret for that path
+- **AND** non-redacted action fields from the API response SHALL still be reflected in state
+
+#### Scenario: imported watch with redacted action secret
+
+- **GIVEN** Terraform has no prior concrete `actions` value in state or plan for a redacted nested path
+- **WHEN** read runs and the API response returns `::es_redacted::` for that path
+- **THEN** the `actions` value in state SHALL store the redacted API value for that path
+</pre></div></div>
+<h3>D-066</h3><div class='pair'><div><b>A</b><pre>- **FR-009**: The `useIsEarnFeatureEnabled` hook MUST be exported from the public API</pre></div><div><b>B</b><pre>- **FR-018**: Types MUST be exported from the public API for external consumers if needed</pre></div></div>
+<h3>D-067</h3><div class='pair'><div><b>A</b><pre>### Requirement: zone_id schema parameter
+The `tencentcloud_teo_zone` resource SHALL include a `zone_id` schema field of type `schema.TypeString` with `Computed: true`. This field represents the site ID returned by the TEO API.
+
+#### Scenario: zone_id is populated after resource creation
+- **WHEN** a `tencentcloud_teo_zone` resource is created successfully
+- **THEN** the `zone_id` field SHALL be set to the `ZoneId` value from the `CreateZone` API response
+
+#### Scenario: zone_id is populated during resource read
+- **WHEN** a `tencentcloud_teo_zone` resource is read (refresh/plan)
+- **THEN** the `zone_id` field SHALL be set to the `ZoneId` value from the `DescribeZones` API response (`Zone.ZoneId`)
+</pre></div><div><b>B</b><pre>### Requirement: Resource schema definition
+The system SHALL provide a `tencentcloud_ga2_forwarding_policy` resource with the following schema fields:
+- `global_accelerator_id` (TypeString, Required, ForceNew) — The global accelerator instance ID.
+- `listener_id` (TypeString, Required, ForceNew) — The listener ID.
+- `host` (TypeString, Required) — The domain/host for the forwarding policy.
+- `forwarding_policy_id` (TypeString, Computed) — The forwarding policy ID returned by the cloud API.
+- `default_host_flag` (TypeBool, Computed) — Whether this is the default host policy for the listener.
+
+The resource SHALL declare a Timeouts block with Create/Update/Delete defaults of 5 minutes.
+
+#### Scenario: Schema validation on create
+- **WHEN** a user creates a `tencentcloud_ga2_forwarding_policy` resource without `global_accelerator_id`
+- **THEN** Terraform SHALL report a validation error indicating the field is required.
+
+#### Scenario: Schema validation on create without host
+- **WHEN** a user creates a `tencentcloud_ga2_forwarding_policy` resource without `host`
+- **THEN** Terraform SHALL report a validation error indicating the field is required.
+</pre></div></div>
+<h3>D-068</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider Registration
+The resource SHALL be registered in `provider.go` under `ResourcesMap` with key `tencentcloud_teo_security_api_service` and value `teo.ResourceTencentCloudTeoSecurityApiService()`. The `provider.md` file SHALL be updated to include the resource in the TEO section.
+
+#### Scenario: Resource available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_security_api_service` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-069</h3><div class='pair'><div><b>A</b><pre>- **FR-008**: 系统必须允许用户在多个布局类型之间切换。</pre></div><div><b>B</b><pre>- **FR-003**: 系统必须允许用户在先前任务处理时提交新的生成任务</pre></div></div>
+<h3>D-070</h3><div class='pair'><div><b>A</b><pre>### Requirement: Princesses 交付必须同时包含自动化验证与视觉证据
+系统 SHALL 为 Princesses 的正式接入提供相关 Vitest、真实入口 E2E、evidence 文档，以及资源链路的上传回查。
+
+#### Scenario: Princesses 准备收口
+- **WHEN** Princesses 的资源、静态数据与能力均已接入
+- **THEN** 系统 MUST 运行相关 Smash Up 测试
+- **AND** 系统 MUST 至少提供 1 条真实入口 E2E 与关键截图证据
+- **AND** 若新增资源已进入运行时链路，系统 MUST 完成压缩、上传与远端可访问性验证
+</pre></div><div><b>B</b><pre>### Requirement: Fairies 交付必须同时包含自动化验证与视觉证据
+系统 SHALL 为 Fairies 的正式接入提供相关 Vitest、真实入口 E2E、evidence 文档，以及资源链路的上传回查。
+
+#### Scenario: Fairies 准备收口
+- **WHEN** Fairies 的资源、静态数据与能力均已接入
+- **THEN** 系统 MUST 运行相关 Smash Up 测试
+- **AND** 系统 MUST 至少提供 1 条真实入口 E2E 与关键截图证据
+- **AND** 若新增资源已进入运行时链路，系统 MUST 完成压缩、上传与远端可访问性验证
+</pre></div></div>
+<h3>D-071</h3><div class='pair'><div><b>A</b><pre>- **FR-001**: The project page MUST default to a chat interface with a session sidebar, message area, and input field — no other tabs or navigation within the project.</pre></div><div><b>B</b><pre>- **FR-022**: The project detail page MUST default to the chat view, showing a session list sidebar and a message panel.</pre></div></div>
+<h3>D-072</h3><div class='pair'><div><b>A</b><pre>- **FR-012**: All connection credentials (SuzieQ REST API URL, API
+  key/token) MUST be read from environment variables at runtime.</pre></div><div><b>B</b><pre>- **FR-016**: All connection credentials (NAUTOBOT_URL, NAUTOBOT_TOKEN) MUST be read from environment variables at runtime.</pre></div></div>
+<h3>D-073</h3><div class='pair'><div><b>A</b><pre>- **FR-009**: System MUST show a loading indicator while service catalog data is being fetched or modified.</pre></div><div><b>B</b><pre>- **FR-003**: System MUST show a loading indicator while products are being fetched.</pre></div></div>
+<h3>D-074</h3><div class='pair'><div><b>A</b><pre>- **FR-005**: Cały tekst w menu MUST być w języku polskim.</pre></div><div><b>B</b><pre> - **FR-006**: Teksty w UI MUST być w języku polskim.</pre></div></div>
+<h3>D-075</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller has RBAC permissions
+The controller SHALL have necessary RBAC permissions defined via kubebuilder annotations.
+
+#### Scenario: OpenClaw resource permissions
+- **WHEN** the controller is deployed
+- **THEN** RBAC rules grant get, list, and watch permissions for OpenClaw resources
+
+#### Scenario: PVC permissions
+- **WHEN** the controller is deployed
+- **THEN** RBAC rules grant get, list, watch, and create permissions for PersistentVolumeClaim resources
+</pre></div><div><b>B</b><pre>### Requirement: Controller has RBAC permissions
+The controller SHALL have necessary RBAC permissions defined via kubebuilder annotations, including permissions to read Deployment status and update OpenClaw status.
+
+#### Scenario: OpenClaw resource permissions
+- **WHEN** the controller is deployed
+- **THEN** RBAC rules grant get, list, and watch permissions for OpenClaw resources
+
+#### Scenario: OpenClaw status permissions
+- **WHEN** the controller is deployed
+- **THEN** RBAC rules grant update and patch permissions for OpenClaw/status subresource
+
+#### Scenario: ConfigMap permissions
+- **WHEN** the controller is deployed
+- **THEN** RBAC rules grant get, list, watch, create, update, and patch permissions for ConfigMap resources
+
+#### Scenario: PersistentVolumeClaim permissions
+- **WHEN** the controller is deployed
+- **THEN** RBAC rules grant get, list, watch, create, update, and patch permissions for PersistentVolumeClaim resources
+
+#### Scenario: Deployment permissions
+- **WHEN** the controller is deployed
+- **THEN** RBAC rules grant get, list, watch, create, update, and patch permissions for Deployment resources
+</pre></div></div>
+<h3>D-076</h3><div class='pair'><div><b>A</b><pre>### Requirement: Documentation
+The system SHALL provide a `.md` documentation file following the project documentation format, including description, example usage, and import section.
+
+#### Scenario: Documentation file exists
+- **WHEN** the resource is added
+- **THEN** a `resource_tc_teo_prefetch_origin_limit_config.md` file SHALL exist in the teo service directory
+</pre></div><div><b>B</b><pre>### Requirement: Resource documentation
+The system SHALL include a `resource_tc_teo_prefetch_task_operation.md` documentation file with a description, example usage, and import section (not applicable for OPERATION type).
+
+#### Scenario: Documentation file exists
+- **WHEN** the resource is added
+- **THEN** a corresponding .md file SHALL exist in the teo service directory with proper format following the gendoc README guidelines
+</pre></div></div>
+<h3>D-077</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider-level Kibana client by default (REQ-005)
+
+The resource SHALL use the provider&#x27;s configured Kibana OpenAPI (`kbapi`) client by default for all parameter API operations (create, read, update, and delete). When `kibana_connection` is configured on the resource, the resource SHALL resolve an effective scoped client from that block and SHALL use the scoped Kibana OpenAPI client for all of those operations.
+
+#### Scenario: Standard provider connection
+
+- **WHEN** `kibana_connection` is not configured on the resource
+- **THEN** all parameter API operations SHALL use the provider-level Kibana OpenAPI client
+
+#### Scenario: Scoped Kibana connection
+
+- **WHEN** `kibana_connection` is configured on the resource
+- **THEN** all parameter API operations SHALL use the scoped Kibana OpenAPI client derived from that block
+</pre></div><div><b>B</b><pre>### Requirement: Provider-level Kibana client by default with scoped override (REQ-004)
+
+The resource SHALL use the provider&#x27;s configured Kibana OpenAPI client by default. When `kibana_connection` is configured on the resource, the resource SHALL resolve an effective scoped client from that block and SHALL use the scoped Kibana OpenAPI client for all skill operations.
+
+#### Scenario: Standard provider configuration
+
+- WHEN `kibana_connection` is not configured on the resource
+- THEN all Skills API calls SHALL use the provider-level Kibana OpenAPI client
+
+#### Scenario: Scoped Kibana connection
+
+- WHEN `kibana_connection` is configured on the resource
+- THEN all Skills API calls SHALL use the scoped Kibana OpenAPI client derived from that block
+</pre></div></div>
+<h3>D-078</h3><div class='pair'><div><b>A</b><pre>- **FR-011**: All summarization configuration values (model, timeout, max length, max messages, recent message weight) MUST be configurable via environment variables with sensible defaults.</pre></div><div><b>B</b><pre>- **FR-023**: All thresholds, limits, retention periods, and intervals MUST be configurable via environment variables with sensible defaults (per Constitution Principle XI).</pre></div></div>
+<h3>D-079</h3><div class='pair'><div><b>A</b><pre>### Requirement: Theme menu output remains compatible
+
+The system SHALL preserve the existing theme menu value object shape while sourcing hierarchy from the
+new fields.
+
+#### Scenario: Menu tree is returned to themes
+
+- **WHEN** the theme menu API returns a Menu
+- **THEN** the response SHALL include the tree under `MenuVo.menuItems`
+- **AND** child MenuItems SHALL be nested under `MenuItemVo.children`
+
+#### Scenario: Stored Menu spec is included
+
+- **WHEN** the theme menu API returns `MenuVo.spec`
+- **THEN** `MenuVo.spec.menuItems` SHALL remain the stored legacy Menu spec value
+- **AND** it SHALL NOT be recomputed from the new MenuItem ownership fields
+</pre></div><div><b>B</b><pre>### Requirement: Theme category output remains compatible
+
+The system SHALL preserve existing theme-facing category value object shapes while sourcing hierarchy from `spec.parent`.
+
+#### Scenario: Category tree is returned to themes
+
+- **WHEN** a theme queries category trees
+- **THEN** child Categories SHALL be nested under `CategoryTreeVo.children`
+- **AND** each child CategoryTreeVo SHALL expose `parentName`
+
+#### Scenario: Category spec remains included
+
+- **WHEN** a theme receives `CategoryVo` or `CategoryTreeVo`
+- **THEN** the value object SHALL include the stored Category spec
+- **AND** stored legacy `spec.children` values SHALL NOT be recomputed from `spec.parent`
+
+#### Scenario: Breadcrumbs are rendered
+
+- **WHEN** a theme queries breadcrumbs for a Category
+- **THEN** the breadcrumb path SHALL be derived from `spec.parent`
+- **AND** the output SHALL remain a list of `CategoryVo` values
+</pre></div></div>
+<h3>D-080</h3><div class='pair'><div><b>A</b><pre>- **FR-010**: System MUST enforce 30-minute call duration limit</pre></div><div><b>B</b><pre>- **FR-004**: System MUST enforce rate limits: maximum 3 outbound calls per hour, maximum 10 per 24-hour period</pre></div></div>
+<h3>D-081</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` under ResourcesMap with key `tencentcloud_teo_security_api_resource` and value `teo.ResourceTencentCloudTeoSecurityAPIResource()`.
+
+The resource SHALL be listed in `tencentcloud/provider.md` under the TEO section.
+
+#### Scenario: Provider registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_security_api_resource` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider Registration
+The resource SHALL be registered in `provider.go` under `ResourcesMap` with key `tencentcloud_teo_security_api_service` and value `teo.ResourceTencentCloudTeoSecurityApiService()`. The `provider.md` file SHALL be updated to include the resource in the TEO section.
+
+#### Scenario: Resource available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_security_api_service` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-082</h3><div class='pair'><div><b>A</b><pre>### User Story 4 - Enable Lazy Loading (Priority: P4)
+
+The counterfactual feature&#x27;s main components are lazy-loaded using Next.js `dynamic()` imports from the feature&#x27;s root `index.ts`. When the feature flag is disabled, no counterfactual code is loaded into the browser bundle.
+
+**Why this priority**: Lazy loading reduces initial bundle size and enables true feature isolation. Disabled features should not consume bandwidth or parsing time.
+
+**Independent Test**: Can be fully tested by disabling the feature flag, building the application, and verifying counterfactual code is not included in the initial bundle. Check that counterfactual chunks exist but are not loaded until needed.
+
+**Acceptance Scenarios**:
+
+1. **Given** the refactored counterfactual feature, **When** the feature&#x27;s main components are exported from `index.ts`, **Then** they use `dynamic()` imports with appropriate `ssr` settings
+2. **Given** the feature flag is disabled, **When** the application loads, **Then** no counterfactual JavaScript is loaded in the browser
+3. **Given** the feature flag is enabled, **When** a page using counterfactual loads, **Then** counterfactual code is loaded on-demand as a separate chunk
+4. **Given** the application builds, **When** examining build output, **Then** counterfactual feature has its own chunk files indicating code splitting
+
+---
+</pre></div><div><b>B</b><pre>- **FR-011**: Every feature MUST be lazy-loaded using Next.js `dynamic()` imports</pre></div></div>
+<h3>D-083</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_mongodb_audit_log_file` SHALL be available as a resource type
+
+</pre></div></div>
+<h3>D-084</h3><div class='pair'><div><b>A</b><pre>### Requirement: Homebrew Cask は in-app updater と共存する
+
+`scripts/build-cask.ts` の Cask 文字列に `auto_updates true` を追加しなければならない (MUST)。これにより bare `brew upgrade` は Cork の `.app` の `CFBundleVersion` を読んでローカルが古い場合のみ更新を実行する (Homebrew/brew#21882 以降の挙動)。`brew upgrade --cask cork` (名前指定) は従来通り常に更新を実行できなければならない (MUST)。Cask の `preflight` (ad-hoc 再 codesign + xattr 除去) は DMG 直インストール経路の保険として保持しなければならない (MUST)。
+
+#### Scenario: Cask に auto_updates true が含まれる
+
+- **WHEN** 新リリース後に `scripts/build-cask.ts` が走って `koki-develop/homebrew-tap` の `Casks/cork.rb` を更新する
+- **THEN** 生成された `cork.rb` に `auto_updates true` 行が含まれる
+
+#### Scenario: in-app updater 後の brew upgrade
+
+- **WHEN** ユーザーが Cork を in-app updater で 0.16.0 に上げた後、`brew upgrade` (bare) を実行する
+- **THEN** Brew は `Cork.app` の bundle version を 0.16.0 と認識し、Cask の version と一致するため何も再ダウンロードしない
+- **AND** ローカルの `Cork.app` は破壊されない (in-app 更新の成果がそのまま残る)
+
+#### Scenario: brew upgrade --cask cork (名前指定)
+
+- **WHEN** ユーザーが `brew upgrade --cask cork` を明示的に実行する
+- **THEN** Brew は version 比較に関係なく Cask を再インストール (DMG 再ダウンロード + preflight 再署名) する
+- **AND** これはユーザーが意図的に行うリセット操作として機能する
+</pre></div><div><b>B</b><pre>- **FR-002**: システムはwire.NewSetをkessoku.Setに変換できなければならない</pre></div></div>
+<h3>D-085</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller has RBAC permissions
+The system SHALL generate RBAC markers and permissions for the controller to manage OpenClaw, ConfigMap (read-only), and Deployment resources.
+
+#### Scenario: Controller can list OpenClaw resources
+- **WHEN** the controller starts
+- **THEN** it SHALL have permissions to list OpenClaw resources
+
+#### Scenario: Controller can watch OpenClaw resources
+- **WHEN** the controller is running
+- **THEN** it SHALL have permissions to watch OpenClaw resources
+
+#### Scenario: Controller can get ConfigMaps
+- **WHEN** the controller checks if a ConfigMap exists
+- **THEN** it SHALL have permissions to get ConfigMap resources
+
+#### Scenario: Controller can create Deployments
+- **WHEN** the controller attempts to create a Deployment
+- **THEN** it SHALL have permissions to create Deployment resources in any namespace
+
+#### Scenario: Controller can get Deployments
+- **WHEN** the controller checks if a Deployment exists
+- **THEN** it SHALL have permissions to get Deployment resources
+
+#### Scenario: Controller can list Deployments
+- **WHEN** the controller needs to query existing Deployments
+- **THEN** it SHALL have permissions to list Deployment resources
+
+#### Scenario: Controller can watch Deployments
+- **WHEN** the controller sets up watches for owned resources
+- **THEN** it SHALL have permissions to watch Deployment resources
+</pre></div><div><b>B</b><pre>### Requirement: Controller has RBAC for Deployments
+The system SHALL define RBAC permissions for the controller to create, get, list, and watch Deployment resources.
+
+#### Scenario: Controller can create Deployments
+- **WHEN** the controller attempts to create a Deployment
+- **THEN** it SHALL have permissions to create Deployment resources in any namespace
+
+#### Scenario: Controller can get Deployments
+- **WHEN** the controller checks if a Deployment exists
+- **THEN** it SHALL have permissions to get Deployment resources
+
+#### Scenario: Controller can list Deployments
+- **WHEN** the controller needs to query existing Deployments
+- **THEN** it SHALL have permissions to list Deployment resources
+
+#### Scenario: Controller can watch Deployments
+- **WHEN** the controller sets up watches for owned resources
+- **THEN** it SHALL have permissions to watch Deployment resources
+</pre></div></div>
+<h3>D-086</h3><div class='pair'><div><b>A</b><pre>### Requirement: Unit Testing
+The resource SHALL have unit tests at `tencentcloud/services/lighthouse/resource_tc_lighthouse_share_blueprint_across_account_attachment_test.go`.
+
+Tests SHALL use gomonkey for mocking cloud API calls and cover Create, Read, Update, Delete, and Import scenarios.
+
+Tests SHALL be runnable with `go test -gcflags=all=-l` and pass successfully.
+
+#### Scenario: Unit tests pass
+- **WHEN** `go test -gcflags=all=-l` is run on the test file
+- **THEN** all unit tests SHALL pass without errors
+</pre></div><div><b>B</b><pre>### Requirement: Unit tests using gomonkey mock
+The resource SHALL have unit tests in `resource_tc_teo_confirm_multi_path_gateway_origin_acl_config_test.go` using gomonkey to mock the cloud API calls. Tests SHALL be runnable with `go test -gcflags=all=-l`.
+
+#### Scenario: Unit tests cover Read operation
+- **WHEN** unit tests are run
+- **THEN** the Read operation is tested with mocked DescribeMultiPathGatewayOriginACL response
+
+#### Scenario: Unit tests cover Update operation
+- **WHEN** unit tests are run
+- **THEN** the Update/Confirm operation is tested with mocked ConfirmMultiPathGatewayOriginACL response
+</pre></div></div>
+<h3>D-087</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller creates Deployment after ConfigMap exists
+The system SHALL create a Deployment using the embedded manifest after detecting that the &#x27;openclaw-config&#x27; ConfigMap exists.
+
+#### Scenario: Deployment is created when ConfigMap exists
+- **WHEN** the Reconcile function detects that the &#x27;openclaw-config&#x27; ConfigMap exists
+- **THEN** it SHALL create a Deployment using the embedded manifest from `internal/manifests/deployment.yaml`
+
+#### Scenario: Deployment creation is skipped when ConfigMap does not exist
+- **WHEN** the Reconcile function runs but the &#x27;openclaw-config&#x27; ConfigMap does not exist yet
+- **THEN** it SHALL skip Deployment creation and complete successfully
+
+#### Scenario: Deployment creation is idempotent
+- **WHEN** the Deployment already exists
+- **THEN** the controller SHALL skip creation and return successfully without error
+</pre></div><div><b>B</b><pre>### Requirement: Controller creates Deployment after ConfigMap exists
+The system SHALL create a Deployment using the embedded manifest after detecting that the &#x27;claw-config&#x27; ConfigMap exists.
+
+#### Scenario: Deployment is created when ConfigMap exists
+- **WHEN** the Reconcile function detects that the &#x27;claw-config&#x27; ConfigMap exists
+- **THEN** it SHALL create a Deployment using the embedded manifest from `internal/manifests/deployment.yaml`
+
+#### Scenario: Deployment creation is skipped when ConfigMap does not exist
+- **WHEN** the Reconcile function runs but the &#x27;claw-config&#x27; ConfigMap does not exist yet
+- **THEN** it SHALL skip Deployment creation and complete successfully
+
+#### Scenario: Deployment creation is idempotent
+- **WHEN** the Deployment already exists
+- **THEN** the controller SHALL skip creation and return successfully without error
+</pre></div></div>
+<h3>D-088</h3><div class='pair'><div><b>A</b><pre>- **FR-004**: The compare link MUST open in a new browser tab and MUST NOT navigate the Argus dashboard.</pre></div><div><b>B</b><pre>- **FR-007**: Both links MUST open in a new browser tab, leaving the Argus dashboard undisturbed.</pre></div></div>
+<h3>D-089</h3><div class='pair'><div><b>A</b><pre>- **FR-004**: System MUST gate all gNMI Set operations behind
+  ServiceNow Change Request validation — no configuration change
+  is permitted without an approved CR in &quot;Implement&quot; state.</pre></div><div><b>B</b><pre>- **FR-015**: System MUST NOT require ServiceNow Change Request gating (lab-only operations)</pre></div></div>
+<h3>D-090</h3><div class='pair'><div><b>A</b><pre>### Requirement: Deployment is created in same namespace as OpenClawInstance
+The system SHALL create the Deployment resource in the same namespace as the owning OpenClawInstance resource.
+
+#### Scenario: Namespace matches owner
+- **WHEN** an OpenClawInstance is created in namespace &quot;test-ns&quot;
+- **THEN** the created Deployment SHALL also be in namespace &quot;test-ns&quot;
+</pre></div><div><b>B</b><pre>### Requirement: Deployment is created in same namespace as OpenClawInstance
+The system SHALL create the Deployment resource in the same namespace as the owning OpenClawInstance resource.
+
+#### Scenario: Namespace matches owner
+- **WHEN** an OpenClawInstance is created in namespace &quot;test-ns&quot;
+- **THEN** the created Deployment SHALL also be in namespace &quot;test-ns&quot;
+</pre></div></div>
+<h3>D-091</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource Documentation
+The system SHALL provide a markdown documentation file `resource_tc_teo_multi_path_gateway.md` with description, example usage, and import section.
+
+#### Scenario: Documentation exists
+- **WHEN** the resource is created
+- **THEN** a .md file SHALL exist with a one-line description mentioning TEO, example usage with zone_id and other parameters, and import section showing the composite ID format
+</pre></div><div><b>B</b><pre>### Requirement: Documentation
+The resource SHALL have a corresponding `.md` documentation file at `tencentcloud/services/teo/resource_tc_teo_multi_path_gateway_secret_key_config.md` following the project documentation standards.
+
+#### Scenario: Documentation file exists
+- **WHEN** the resource is created
+- **THEN** a `.md` file SHALL exist with a one-line description, example usage, and import section
+</pre></div></div>
+<h3>D-092</h3><div class='pair'><div><b>A</b><pre>- **FR-007**: Wszystkie teksty UI MUSZĄ być w języku polskim</pre></div><div><b>B</b><pre>- **FR-012**: Wszystkie teksty UI MUSZĄ być w języku polskim</pre></div></div>
+<h3>D-093</h3><div class='pair'><div><b>A</b><pre>### Requirement: Vite Plugin Implementation
+
+The `@runtime-env/vite-plugin` SHALL be implemented following Vite&#x27;s official plugin authoring guidelines to ensure a seamless and idiomatic developer experience.
+
+#### Scenario: Code Structure
+
+- **GIVEN** a developer inspects the `packages/vite-plugin/src` directory
+- **WHEN** they view the file structure
+- **THEN** they find a modular structure with logic separated by Vite mode (`dev`, `build`, `preview`, `vitest`).
+- **AND** there is no shared `utils.ts` or common runtime logic file; each mode file is self-contained.
+- **AND** `index.ts` delegates to these modes by returning an array of plugin objects.
+
+#### Scenario: Maintainability
+
+- **GIVEN** a developer needs to modify the plugin&#x27;s behavior for a specific mode
+- **WHEN** they locate the corresponding mode-specific file (e.g., `build.ts`)
+- **THEN** they can easily understand and modify the relevant logic without affecting other modes.
+</pre></div><div><b>B</b><pre>### Requirement: Vite Plugin Implementation
+
+The `@runtime-env/vite-plugin` SHALL be implemented following Vite&#x27;s official plugin authoring guidelines to ensure a seamless and idiomatic developer experience.
+
+#### Scenario: Code Structure
+
+- **GIVEN** a developer inspects the `packages/vite-plugin/src` directory
+- **WHEN** they view the file structure
+- **THEN** they find a modular structure with logic separated by Vite mode (`dev`, `build`, `preview`, `vitest`).
+
+#### Scenario: Maintainability
+
+- **GIVEN** a developer needs to modify the plugin&#x27;s behavior for a specific mode
+- **WHEN** they locate the corresponding mode-specific file (e.g., `build.ts`)
+- **THEN** they can easily understand and modify the relevant logic without affecting other modes.
+</pre></div></div>
+<h3>D-094</h3><div class='pair'><div><b>A</b><pre>- **FR-006**: The command preview MUST be selectable text and offer a Copy button (matching the existing `CommandPreview` component behavior).</pre></div><div><b>B</b><pre>- **FR-006**: The push dialog MUST include a copy button adjacent to the command preview that copies the command text to the system clipboard.</pre></div></div>
+<h3>D-095</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The system SHALL register the `tencentcloud_teo_function_replica` resource in provider.go and document it in provider.md.
+
+#### Scenario: Resource is available after provider registration
+- **WHEN** the provider is initialized
+- **THEN** the resource `tencentcloud_teo_function_replica` SHALL be available for use in Terraform configurations
+</pre></div><div><b>B</b><pre>### Requirement: Resource registration
+The resource SHALL be registered in `tencentcloud/provider.go` and `tencentcloud/provider.md` following the pattern of existing TEO resources.
+
+#### Scenario: Resource is registered in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_multi_path_gateway_secret_key` SHALL be available as a resource type
+- **AND** the resource factory function `ResourceTencentCloudTeoMultiPathGatewaySecretKeyConfig` SHALL be registered
+</pre></div></div>
+<h3>D-096</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource manages live origin stream configuration
+The provider SHALL expose a resource `tencentcloud_live_origin_stream_info_config` that manages the live origin stream settings for a playback domain via `ModifyOriginStreamInfo` and `DescribeOriginStreamInfo` APIs.
+
+#### Scenario: Create applies configuration
+- **WHEN** a user defines the resource with `domain_name` and required fields
+- **THEN** the provider SHALL call `ModifyOriginStreamInfo`, poll until `Status` is `1` or `3`, and set the resource ID to `domain_name`
+
+#### Scenario: Read reflects current state
+- **WHEN** the provider reads the resource
+- **THEN** it SHALL call `DescribeOriginStreamInfo` and map all returned fields to state
+
+#### Scenario: Update modifies configuration
+- **WHEN** any mutable field changes
+- **THEN** the provider SHALL call `ModifyOriginStreamInfo` with all current field values and poll for terminal status
+
+#### Scenario: Delete is a no-op
+- **WHEN** the resource is destroyed
+- **THEN** the provider SHALL return nil without calling any API (configuration cannot be deleted)
+</pre></div><div><b>B</b><pre>### Requirement: REQ-CLB-TG-QUERY-005 - 目标组资源支持 SnatEnable 参数
+
+The `tencentcloud_clb_target_group` resource MUST expose a `snat_enable` argument (boolean, optional + computed) that maps to the `SnatEnable` field of the TencentCloud CLB SDK in the `CreateTargetGroup`, `DescribeTargetGroupList`, and `ModifyTargetGroupAttribute` APIs.
+
+`tencentcloud_clb_target_group` 资源必须暴露 `snat_enable` 参数（Bool 类型，Optional + Computed），并将其分别映射到腾讯云 CLB SDK `CreateTargetGroup`、`DescribeTargetGroupList`、`ModifyTargetGroupAttribute` 三个 API 的 `SnatEnable` 字段，以打通源 IP 替换（SNAT）能力的 IaC 管理。
+
+**理由**：
+- SDK 三个 API 已原生支持 `SnatEnable`，Provider 仅需透传。
+- 用户当前必须借助控制台或外部脚本设置 SNAT，不利于自动化闭环。
+- 仅新增 Optional 字段，向后兼容。
+
+**约束**：
+- 不修改任何已有字段语义。
+- 不引入新的 SDK 依赖。
+- `snat_enable` 不设置 `Default`，遵循云端默认行为。
+- `snat_enable` 不设 `ForceNew`，支持在线修改。
+
+#### Scenario: 创建目标组时启用 SNAT
+
+- **WHEN** 用户在 HCL 中配置 `tencentcloud_clb_target_group` 资源并设置 `snat_enable = true`，执行 `terraform apply`
+- **THEN**
+  - Provider 将 `SnatEnable = true` 传入 `CreateTargetGroupRequest`
+  - 云端创建的目标组开启 SNAT
+  - Terraform state 中 `snat_enable` = `true`
+  - `terraform plan` 再次执行无 diff
+
+**验收标准**：
+- ✅ API 请求体中包含 `&quot;SnatEnable&quot;: true`
+- ✅ `terraform state show` 输出 `snat_enable = true`
+- ✅ 无重复 plan diff
+
+---
+
+#### Scenario: 创建目标组时未设置 snat_enable
+
+- **WHEN** 用户未在 HCL 中声明 `snat_enable`，执行 `terraform apply`
+- **THEN**
+  - Provider 不在 `CreateTargetGroupRequest` 中携带 `SnatEnable` 字段
+  - 云端按默认行为处理（默认关闭）
+  - Read 阶段从 `DescribeTargetGroupList` 回写真实值到 state（通过 Computed 能力）
+  - 后续 `terraform plan` 不产生意料之外的 diff
+
+**验收标准**：
+- ✅ 创建请求体不包含 `SnatEnable` 字段
+- ✅ Read 后 state 中 `snat_enable` 与云端一致
+- ✅ 存量未设置 `snat_enable` 的 TF 配置升级后无破坏性变更
+
+---
+
+#### Scenario: Read 流程回写 SnatEnable
+
+- **WHEN** Terraform 触发 `tencentcloud_clb_target_group` 的 Read 操作（refresh / plan）
+- **THEN**
+  - `ClbService.DescribeTargetGroupList` 返回的 `TargetGroupInfo.SnatEnable` 不为 nil 时
+  - Provider 通过 `d.Set(&quot;snat_enable&quot;, *targetGroup.SnatEnable)` 写入 state
+  - 与其他字段（`keepalive_enable` 等）共享相同的 nil 检查模式
+
+**验收标准**：
+- ✅ 通过控制台手动开启 SNAT 后，`terraform refresh` 能正确同步到 state
+- ✅ 通过控制台手动关闭 SNAT 后，`terraform refresh` 能正确同步到 state
+- ✅ API 异常返回 `SnatEnable = nil` 时，state 中字段保持为之前值不被错误清空
+
+---
+
+#### Scenario: Update 切换 SnatEnable 状态
+
+- **WHEN** 用户修改已有 `tencentcloud_clb_target_group` 配置中的 `snat_enable`（如从 `true` 改为 `false`），执行 `terraform apply`
+- **THEN**
+  - `d.HasChange(&quot;snat_enable&quot;)` 返回 `true`
+  - Provider 调用 `ModifyTargetGroupAttribute`，请求体包含 `SnatEnable = false`
+  - 不触发资源重建（Update 而非 Replace）
+  - state 同步为新值
+
+**验收标准**：
+- ✅ `terraform plan` 显示 `~ snat_enable: true -&gt; false`，且为 in-place update
+- ✅ API 调用为 `ModifyTargetGroupAttribute`，请求体包含 `SnatEnable`
+- ✅ 资源 ID 不变
+
+---
+
+#### Scenario: Service 层 CreateTargetGroup 接口扩展
+
+- **WHEN** 调用 `ClbService.CreateTargetGroup(...)` 创建目标组
+- **THEN**
+  - 函数签名末尾新增 `snatEnable *bool` 参数（紧随 `ipVersion string` 之后）
+  - 当 `snatEnable != nil` 时，赋值给 `request.SnatEnable`
+  - 当 `snatEnable == nil` 时，保持请求体中不携带该字段
+  - 仓库内所有调用点（资源 Create 函数）同步更新参数列表
+
+**验收标准**：
+- ✅ `go build ./...` 通过
+- ✅ `go vet ./...` 通过
+- ✅ 没有调用点遗漏（grep `CreateTargetGroup(` 全部覆盖）
+
+---
+
+</pre></div></div>
+<h3>D-097</h3><div class='pair'><div><b>A</b><pre>- **FR-016**: System MUST create the target directory (and parent directories) with mode 0755 if it does not exist.</pre></div><div><b>B</b><pre>- **FR-014**: System MUST automatically create target directories (and parent directories) with permissions 0755 if they do not exist</pre></div></div>
+<h3>D-098</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The system SHALL register `tencentcloud_waf_rate_limit` in `tencentcloud/provider.go` and document it in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_waf_rate_limit` is available as a valid resource type
+</pre></div><div><b>B</b><pre>### Requirement: Resource registration
+The system SHALL register `tencentcloud_kubernetes_roll_out_sequence` in `tencentcloud/provider.go` resource map and add the corresponding entry in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_kubernetes_roll_out_sequence` is available as a valid resource type
+</pre></div></div>
+<h3>D-099</h3><div class='pair'><div><b>A</b><pre>- **FR-001**: The LSP MUST validate task names in `tasks.register()` calls against the pattern `^[a-z]([a-z0-9-]*[a-z0-9])?$` and report diagnostics for invalid names.</pre></div><div><b>B</b><pre>- **FR-010**: Plugin MUST provide a `valid-task-name` rule that flags task names not matching the pattern `^[a-z]([a-z0-9-]*[a-z0-9])?$`</pre></div></div>
+<h3>D-100</h3><div class='pair'><div><b>A</b><pre>- **FR-009**: 系统必须使用浏览器本地存储（LocalStorage 或 IndexedDB）在页面刷新和浏览器会话之间持久保存任务数据</pre></div><div><b>B</b><pre>- **FR-017**: 系统必须使用浏览器本地存储（IndexedDB）持久化素材数据</pre></div></div>
+<h3>D-101</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller handles resource not found
+The controller SHALL handle the case where the OpenClaw resource is not found during reconciliation.
+
+#### Scenario: OpenClaw deleted before reconciliation
+- **WHEN** the OpenClaw resource is not found during reconciliation
+- **THEN** the controller logs that the resource was deleted
+- **THEN** the controller returns without error (no requeue)
+</pre></div><div><b>B</b><pre>### Requirement: Controller handles resource not found
+The controller SHALL handle the case where the Claw resource is not found during reconciliation.
+
+#### Scenario: Claw deleted before reconciliation
+- **WHEN** the Claw resource is not found during reconciliation
+- **THEN** the controller logs that the resource was deleted
+- **THEN** the controller returns without error (no requeue)
+- **THEN** Kubernetes garbage collection removes owned resources
+</pre></div></div>
+<h3>D-102</h3><div class='pair'><div><b>A</b><pre>### Requirement: E2E Docker Compose stack documentation
+
+The project SHALL document how to run Playwright E2E tests locally using `docker-compose.ci.yml` with the same services as CI: the application image, MongoDB, Redis, PostgreSQL, MySQL, Microsoft SQL Server, and the SQLite file mount. The documentation SHALL include: setting `APP_IMAGE` (or building a local tag), aligning `E2E_USERNAME` and `E2E_PASSWORD` with `UI_USERNAME` and `UI_PASSWORD` in compose, installing Playwright browsers (`pnpm --filter @archmax/e2e exec playwright install --with-deps chromium`), running tests, and tearing down with `docker compose ... down -v`. It SHALL note MSSQL container resource expectations and that the supported image is pulled from `mcr.microsoft.com/mssql/server`. The `docker-compose.ci.yml` app service SHALL provide a writable `ARCHMAX_DATA_DIR` (`/data`) via tmpfs so the application can write semantic model files and published builds required by the MCP E2E tests.
+
+#### Scenario: Contributor runs federated E2E before CI
+
+- **WHEN** a contributor follows the documented steps on a clean machine with Docker and pnpm
+- **THEN** they can start the full stack and execute the E2E suite successfully
+- **AND** federated-database tests behave the same as in GitHub Actions
+
+#### Scenario: MCP E2E tests use writable data volume
+
+- **WHEN** the Docker Compose stack is started
+- **THEN** the app container has a writable data directory at `/data`
+- **AND** semantic models created via the API are persisted and available to the MCP endpoint after publish
+</pre></div><div><b>B</b><pre>### Requirement: Playwright E2E Tests in CI
+
+The CI pipeline SHALL run Playwright end-to-end browser tests against the Docker image on every pull request. The E2E test infrastructure SHALL:
+
+- Live in a dedicated `apps/e2e/` workspace package with `@playwright/test`
+- Use a `docker-compose.ci.yml` that starts the application Docker image alongside MongoDB and Redis
+- Run after the Docker image is built and pushed to GHCR
+- Execute tests against `localhost:8080` (the nginx entrypoint of the Docker image)
+- Upload Playwright HTML reports and failure screenshots as GitHub Actions artifacts
+- Block the PR from merging if any E2E test fails
+
+The CI workflow SHALL generate random `UI_USERNAME` and `UI_PASSWORD` values at runtime and inject them into the Docker Compose stack and the Playwright test environment via `E2E_USERNAME` and `E2E_PASSWORD` env vars. Credentials MUST NOT be hardcoded in any committed file (compose file, test file, or workflow).
+
+`docker-compose.ci.yml` SHALL use environment variable interpolation (`${UI_USERNAME}`, `${UI_PASSWORD}`) instead of hardcoded credential values.
+
+The E2E test suite SHALL read login credentials exclusively from `E2E_USERNAME` and `E2E_PASSWORD` environment variables and MUST NOT contain hardcoded usernames or passwords.
+
+The test suite SHALL cover at minimum:
+- Health endpoint returns healthy
+- Unauthenticated redirect to login page
+- Login page renders correctly (heading, username field, password field, sign-in button)
+- Successful login with valid randomly-generated credentials
+- Failed login with empty password
+- Failed login with correct username and wrong password
+- Failed login with wrong username and wrong password
+
+#### Scenario: PR with passing E2E tests
+
+- **WHEN** a pull request is opened or updated
+- **AND** the Docker image builds successfully
+- **THEN** the E2E job generates random `UI_USERNAME` and `UI_PASSWORD` values
+- **AND** starts the Docker image with the generated credentials via Docker Compose
+- **AND** waits for the health endpoint to return healthy
+- **AND** runs Playwright tests with `E2E_USERNAME` and `E2E_PASSWORD` set to the generated values
+- **AND** the GitHub check is marked as successful
+
+#### Scenario: PR with failing E2E tests
+
+- **WHEN** a Playwright test fails (e.g., login page does not render, navigation error)
+- **THEN** the GitHub check is marked as failed
+- **AND** the Playwright HTML report and failure screenshots are uploaded as artifacts
+- **AND** the PR is blocked from merging
+
+#### Scenario: Docker image fails to start
+
+- **WHEN** the Docker image starts but the health endpoint does not return healthy within 60 seconds
+- **THEN** the E2E job fails without running Playwright tests
+- **AND** the container logs are captured for debugging
+
+#### Scenario: Empty password rejected at login
+
+- **WHEN** the e2e test submits the correct username with an empty password
+- **THEN** the login form shows an error
+- **AND** the user remains on the login page
+
+#### Scenario: Wrong password rejected at login
+
+- **WHEN** the e2e test submits the correct username with an incorrect password
+- **THEN** the login form shows an error banner
+- **AND** the user remains on the login page
+
+#### Scenario: Wrong username and password rejected at login
+
+- **WHEN** the e2e test submits an unknown username with an incorrect password
+- **THEN** the login form shows an error banner
+- **AND** the user remains on the login page
+</pre></div></div>
+<h3>D-103</h3><div class='pair'><div><b>A</b><pre>### Requirement: postgres 多实例执行中单个实例失败不影响其他实例
+
+postgres 工具在多实例批量执行模式下 SHALL 保证单个实例的失败不阻断其他实例。
+
+#### Scenario: 部分实例连接失败
+
+- **WHEN** 批量执行时某个 postgres 实例连接超时或认证失败
+- **THEN** 系统 SHALL 在该实例结果中标记 `ok: false` 并记录错误信息
+- **AND** 系统 SHALL 继续对剩余实例执行工具
+- **AND** 聚合结果中 `failed` 字段 SHALL 正确反映失败数量
+</pre></div><div><b>B</b><pre>### Requirement: 批量执行中单个实例失败不影响其他实例
+
+MySQL 工具在多实例批量执行模式下 SHALL 保证单个实例的失败不阻断其他实例。
+
+#### Scenario: 部分实例连接失败
+
+- **WHEN** 批量执行时某个实例连接超时或认证失败
+- **THEN** 系统 SHALL 在该实例结果中标记 `ok: false` 并记录错误信息
+- **AND** 系统 SHALL 继续对剩余实例执行工具
+- **AND** 聚合结果中 `failed` 字段 SHALL 正确反映失败数量
+
+#### Scenario: 所有实例均失败
+
+- **WHEN** 批量执行时所有实例均连接失败
+- **THEN** 系统 SHALL 返回聚合结果，`succeeded` 为 0
+- **AND** 每个实例的错误信息 SHALL 被独立保留
+</pre></div></div>
+<h3>D-104</h3><div class='pair'><div><b>A</b><pre>### User Story 1 - Plugin-Aware Type Dropdown (Priority: P1)
+
+When starting a pomodoro, the Type dropdown shows both standard types (Content, Product, etc.) and items injected by active extension plugins. Selecting a todo from the Todos plugin sets the type to the todo&#x27;s parent list name and links the pomodoro to that todo. This replaces the need for a separate &quot;Linked to&quot; picker.
+
+**Why this priority**: This is the user-facing integration point that makes plugins feel native. Without it, every future plugin (checklists, tickets) would need its own bespoke linking UI.
+
+**Independent Test**: Start a pomodoro, verify the dropdown shows standard types above a separator and todo items grouped by list below. Select a todo item — verify the completed pomodoro records the correct type and `linked_todo_id`.
+
+**Acceptance Scenarios**:
+
+1. **Given** the Todos plugin is active with pending todos, **When** the user opens the Type dropdown, **Then** todo lists with pending items appear below a separator, expandable into individual todos
+2. **Given** the Todos plugin is not active, **When** the user opens the Type dropdown, **Then** only standard types appear (no separator, no todo items)
+3. **Given** a future plugin declares `has_timer_types: true`, **When** the user opens the Type dropdown, **Then** that plugin&#x27;s items also appear below the separator
+
+---
+</pre></div><div><b>B</b><pre>### User Story 3 - Link pomodoro to a todo (Priority: P2)
+
+As a user, when I start or log a pomodoro, I want to optionally select a todo I&#x27;m working on, so my time tracking connects to my task list and I can later see how much time I spent on each todo.
+
+**Why this priority**: This is the key differentiator over Google Tasks — linking time to tasks. Deferred to P2 because CRUD (P1) must work first. This also lays infrastructure for ticket linking (#88 RT integration) later.
+
+**Independent Test**: Start a pomodoro, select a todo from the dropdown, complete it. The pomodoro record shows the linked todo. The todo shows total time spent.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is on the Timer tab starting/logging a pomodoro, **When** they click the optional &quot;Linked to&quot; selector, **Then** a two-level picker appears: first select a list (Professional, Personal, etc.), then select a todo within that list
+2. **Given** the user has selected a list in the picker, **When** the todos load, **Then** only active (non-completed) todos from that list are shown, sorted by priority
+3. **Given** a pomodoro is linked to a todo, **When** viewing the todo detail, **Then** the total time spent (sum of linked pomodoro durations) is displayed
+4. **Given** a pomodoro is linked to a todo, **When** viewing the History tab, **Then** the linked todo title appears on the pomodoro entry (format: &quot;List &gt; Todo title&quot;)
+5. **Given** a todo has linked pomodoros, **When** the todo is deleted, **Then** the pomodoros remain but their link is cleared (orphan-safe)
+
+---
+</pre></div></div>
+<h3>D-105</h3><div class='pair'><div><b>A</b><pre>- **FR-010**: System MUST return appropriate errors when DDL operations are attempted on non-dynamic implementations</pre></div><div><b>B</b><pre>- **FR-022**: DDL operations MUST provide descriptive error messages on failure</pre></div></div>
+<h3>D-106</h3><div class='pair'><div><b>A</b><pre>### Requirement: Existing Flow assets remain compatible
+The system SHALL preserve existing Flow asset and monitor instance contracts while changing the NetFlow metric query contract.
+
+#### Scenario: Existing NetFlow assets continue to match incoming records
+- **WHEN** an existing Flow asset has `netflow` enabled
+- **THEN** incoming NetFlow v5 and v9 records that match the asset source IP continue to receive `instance_id`, `instance_type`, `collect_type`, and `effective_sampling_rate`
+
+#### Scenario: Operational refresh updates persisted collector configs
+- **WHEN** the optimized collector definition is deployed to an environment with existing nodes
+- **THEN** running `node_init` followed by `repair_node_config` updates persisted collector defaults and repairs existing node configurations
+</pre></div><div><b>B</b><pre>### Requirement: Existing sFlow onboarding contracts remain compatible
+The system SHALL preserve existing Flow asset and monitor instance contracts while changing sFlow metric query behavior.
+
+#### Scenario: Existing sFlow assets continue to match incoming records
+- **WHEN** an existing Flow asset has `sflow` enabled
+- **THEN** incoming sFlow records that match the asset source IP continue to receive `instance_id`, `instance_type`, `collect_type`, `effective_sampling_rate`, and `fallback_sampling_rate`
+
+#### Scenario: sFlow listener and access guide stay stable
+- **WHEN** a user opens the sFlow access guide
+- **THEN** the system continues to present the existing sFlow listener endpoint and UDP port
+- **AND** no user-facing split by vendor or sFlow variant is introduced
+</pre></div></div>
+<h3>D-107</h3><div class='pair'><div><b>A</b><pre>- **FR-006**: The DML example MUST be updated to demonstrate the new Record-based signatures.</pre></div><div><b>B</b><pre>- **FR-013**: The DML example MUST be updated to demonstrate the new batch interfaces.</pre></div></div>
+<h3>D-108</h3><div class='pair'><div><b>A</b><pre>### Requirement: Workflow YAML semantic equality (REQ-014)
+
+The `workflow_configuration_yaml` attribute SHALL use a normalized YAML type that compares values semantically (by parsing YAML to canonical JSON with sorted keys) rather than by string equality, so that formatting and key-order differences do not produce spurious plan diffs.
+
+#### Scenario: Equivalent YAML with different formatting
+
+- GIVEN the stored and new workflow YAML are semantically equivalent but differ in formatting or key order
+- WHEN Terraform plans
+- THEN no diff SHALL be produced for `workflow_configuration_yaml`
+</pre></div><div><b>B</b><pre>### Requirement: YAML validation and semantic equality (REQ-008)
+
+`configuration_yaml` SHALL be validated as YAML. If the configured string is not valid YAML, Terraform validation SHALL fail with an `Invalid YAML` attribute diagnostic and the provider SHALL not call the workflow API. When two `configuration_yaml` values parse to the same YAML structure, the resource SHALL treat them as semantically equal even if they differ only by insignificant formatting or map key order.
+
+#### Scenario: Invalid YAML is rejected
+
+- GIVEN `configuration_yaml` that is not valid YAML
+- WHEN Terraform validates the resource configuration
+- THEN the resource SHALL return an `Invalid YAML` diagnostic on `configuration_yaml`
+
+#### Scenario: Equivalent YAML formatting
+
+- GIVEN two `configuration_yaml` values that decode to the same YAML structure
+- WHEN Terraform compares the values for planning or state reconciliation
+- THEN the resource SHALL treat them as semantically equal
+</pre></div></div>
+<h3>D-109</h3><div class='pair'><div><b>A</b><pre>### Requirement: Data source registration
+数据源 MUST 在 Provider 中注册为 `tencentcloud_cvm_repair_tasks`,使其可在 Terraform 配置中使用。
+
+#### Scenario: Data source is accessible
+- **WHEN** 用户在 Terraform 配置中使用 `data &quot;tencentcloud_cvm_repair_tasks&quot;`
+- **THEN** Terraform 能够成功识别并初始化该数据源
+</pre></div><div><b>B</b><pre>### Requirement: Data source registration
+数据源 MUST 在 Provider 中注册为 `tencentcloud_cvm_account_quota`，使其可在 Terraform 配置中使用。
+
+#### Scenario: Data source is accessible
+- **WHEN** 用户在 Terraform 配置中使用 `data &quot;tencentcloud_cvm_account_quota&quot;`
+- **THEN** Terraform 能够成功识别并初始化该数据源
+</pre></div></div>
+<h3>D-110</h3><div class='pair'><div><b>A</b><pre>### Requirement: Connection (REQ-007)
+
+The resource SHALL use the `elasticsearch_connection` block, injected by the `entitycore.ElasticsearchResource` envelope, to resolve a scoped Elasticsearch client per resource instance. When the block is absent, the provider-level connection is used.
+
+#### Scenario: Resource-level connection override
+- GIVEN an `elasticsearch_connection` block is provided on the resource
+- WHEN any CRUD operation is performed
+- THEN the scoped connection is used instead of the provider-level connection
+</pre></div><div><b>B</b><pre>### Requirement: Elasticsearch connection (REQ-010–REQ-011)
+
+The resource SHALL use the provider’s configured Elasticsearch client by default. When the (deprecated) `elasticsearch_connection` block is configured on the resource, the resource SHALL use that connection to create an Elasticsearch client for all API calls of that instance.
+
+#### Scenario: Resource-scoped connection
+
+- GIVEN `elasticsearch_connection` is set on the resource
+- WHEN any API call runs for that instance
+- THEN the client SHALL be built from that block
+</pre></div></div>
+<h3>D-111</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller reconciles all OpenClawInstance resources
+The system SHALL configure the controller to watch all OpenClawInstance resources but only reconcile resources named &quot;instance&quot;, skipping all other named resources.
+
+#### Scenario: Resource named &#x27;instance&#x27; triggers reconciliation
+- **WHEN** an OpenClawInstance named &#x27;instance&#x27; is created
+- **THEN** the controller&#x27;s Reconcile function SHALL process the resource and create a Deployment
+
+#### Scenario: Resource with different name is skipped
+- **WHEN** an OpenClawInstance with a name other than &#x27;instance&#x27; is created
+- **THEN** the controller&#x27;s Reconcile function SHALL skip processing and return successfully without creating a Deployment
+
+#### Scenario: Multiple resources with different names
+- **WHEN** multiple OpenClawInstance resources exist with different names
+- **THEN** the controller SHALL only reconcile the resource named &#x27;instance&#x27; and skip all others
+
+#### Scenario: Skipped resource is logged
+- **WHEN** an OpenClawInstance with a name other than &#x27;instance&#x27; is reconciled
+- **THEN** the controller SHALL log that the resource is being skipped due to name mismatch
+</pre></div><div><b>B</b><pre>### Requirement: Controller filters by resource name
+The system SHALL configure the controller to watch all OpenClawInstance resources but only reconcile resources named &quot;instance&quot;, skipping all other named resources.
+
+#### Scenario: Resource named &#x27;instance&#x27; triggers reconciliation
+- **WHEN** an OpenClawInstance named &#x27;instance&#x27; is created
+- **THEN** the controller&#x27;s Reconcile function SHALL process the resource
+
+#### Scenario: Resource with different name is skipped
+- **WHEN** an OpenClawInstance with a name other than &#x27;instance&#x27; is created
+- **THEN** the controller&#x27;s Reconcile function SHALL skip processing and return successfully without creating a Deployment
+
+#### Scenario: Multiple resources with different names
+- **WHEN** multiple OpenClawInstance resources exist with different names
+- **THEN** the controller SHALL only reconcile the resource named &#x27;instance&#x27; and skip all others
+
+#### Scenario: Skipped resource is logged
+- **WHEN** an OpenClawInstance with a name other than &#x27;instance&#x27; is reconciled
+- **THEN** the controller SHALL log that the resource is being skipped due to name mismatch
+</pre></div></div>
+<h3>D-112</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` ResourcesMap as `&quot;tencentcloud_teo_security_js_injection_rule&quot;` and listed in `tencentcloud/provider.md` under TEO category.
+
+#### Scenario: Resource available in provider
+- **WHEN** the provider is loaded
+- **THEN** `tencentcloud_teo_security_js_injection_rule` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-113</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource `tencentcloud_teo_shared_cname` SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_shared_cname` is available as a resource type for use in Terraform configurations
+</pre></div></div>
+<h3>D-114</h3><div class='pair'><div><b>A</b><pre>- **FR-012**: Wszystkie teksty UI MUSZĄ być w języku polskim</pre></div><div><b>B</b><pre>- **FR-011**: Wszystkie teksty UI MUSZĄ być w języku polskim</pre></div></div>
+<h3>D-115</h3><div class='pair'><div><b>A</b><pre>- **FR-017**: TypeScript type-checking via `pnpm test:ts` MUST continue to pass for the docs package after migration.</pre></div><div><b>B</b><pre>- **FR-013**: Type checking (`yarn test:ts`) MUST continue to work unchanged; this migration MUST NOT affect the TypeScript-only verification path.</pre></div></div>
+<h3>D-116</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The system SHALL register the `tencentcloud_teo_prefetch_origin_limit` resource in `provider.go` and add the resource entry in `provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** the provider is initialized
+- **THEN** the resource `tencentcloud_teo_prefetch_origin_limit` SHALL be available for use
+</pre></div><div><b>B</b><pre>### Requirement: Provider Registration
+The system SHALL register the `tencentcloud_teo_multi_path_gateway` resource in `provider.go` and add the resource entry in `provider.md`.
+
+#### Scenario: Resource registered in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_multi_path_gateway` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-117</h3><div class='pair'><div><b>A</b><pre>### User Story 3 - Ensure Proper Lazy Loading (Priority: P3)
+
+The bridge feature must be lazy-loaded using Next.js `dynamic()` imports to ensure code splitting. The feature&#x27;s code should not be included in the initial bundle.
+
+**Why this priority**: Code splitting is essential for performance. Including bridge code in the initial bundle increases load time for all users, even those who never use bridging.
+
+**Independent Test**: Can be fully tested by building the application and verifying that a separate chunk exists for the bridge feature code.
+
+**Acceptance Scenarios**:
+
+1. **Given** the bridge feature, **When** the application is built, **Then** the bridge code is in a separate chunk file
+2. **Given** a user who never navigates to the bridge page, **When** they use other parts of the app, **Then** zero bridge code is loaded
+3. **Given** the bridge feature, **When** lazy-loaded with `{ ssr: false }`, **Then** it does not cause hydration mismatches
+
+---
+</pre></div><div><b>B</b><pre>- **FR-011**: Every feature MUST be lazy-loaded using Next.js `dynamic()` imports</pre></div></div>
+<h3>D-118</h3><div class='pair'><div><b>A</b><pre>- **FR-003**: System MUST provide clear error messages when OPENROUTER_API_KEY is missing or invalid</pre></div><div><b>B</b><pre>- **FR-006**: System MUST provide clear error messages when no compatible driver is available</pre></div></div>
+<h3>D-119</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** user references `tencentcloud_bh_bind_device_resource` in their Terraform configuration
+- **THEN** the provider SHALL recognize and handle the resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** user references `tencentcloud_teo_edge_kv` in their configuration
+- **THEN** Terraform SHALL recognize it as a valid resource type
+</pre></div></div>
+<h3>D-120</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller watches ConfigMap resources
+The system SHALL configure the controller to watch ConfigMap resources that are owned by OpenClawInstance resources.
+
+#### Scenario: Controller triggers on ConfigMap create
+- **WHEN** a ConfigMap with an owner reference to an OpenClawInstance is created
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: Controller triggers on ConfigMap update
+- **WHEN** a ConfigMap with an owner reference to an OpenClawInstance is updated
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: Controller triggers on ConfigMap delete
+- **WHEN** a ConfigMap with an owner reference to an OpenClawInstance is deleted
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+</pre></div><div><b>B</b><pre>### Requirement: Controller watches ConfigMap resources
+The system SHALL configure the controller to watch ConfigMap resources that are owned by Claw resources.
+
+#### Scenario: Controller triggers on ConfigMap create
+- **WHEN** a ConfigMap with an owner reference to an Claw is created
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: Controller triggers on ConfigMap update
+- **WHEN** a ConfigMap with an owner reference to an Claw is updated
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: Controller triggers on ConfigMap delete
+- **WHEN** a ConfigMap with an owner reference to an Claw is deleted
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+</pre></div></div>
+<h3>D-121</h3><div class='pair'><div><b>A</b><pre>### Requirement: OpenClawInstance has Go API types
+The system SHALL define Go structs for `OpenClaw`, `OpenClawSpec`, and `OpenClawStatus` with appropriate Kubernetes API machinery tags.
+
+#### Scenario: API types are available for controller use
+- **WHEN** controller code imports the API package
+- **THEN** it SHALL have access to typed OpenClaw structs
+
+#### Scenario: Types support JSON serialization
+- **WHEN** OpenClaw is marshaled to JSON
+- **THEN** it SHALL include standard Kubernetes fields (apiVersion, kind, metadata, spec, status)
+</pre></div><div><b>B</b><pre>### Requirement: Claw has Go API types
+The system SHALL define Go structs for `Claw`, `ClawSpec`, and `ClawStatus` with appropriate Kubernetes API machinery tags.
+
+#### Scenario: API types are available for controller use
+- **WHEN** controller code imports the API package
+- **THEN** it SHALL have access to typed Claw structs
+
+#### Scenario: Types support JSON serialization
+- **WHEN** Claw is marshaled to JSON
+- **THEN** it SHALL include standard Kubernetes fields (apiVersion, kind, metadata, spec, status)
+
+#### Scenario: ClawSpec includes image field
+- **WHEN** ClawSpec is defined
+- **THEN** it SHALL include an `Image` field of type `string` with JSON tag `image`, defaulting to `ghcr.io/openclaw/openclaw:slim`
+
+#### Scenario: ClawStatus includes image field
+- **WHEN** ClawStatus is defined
+- **THEN** it SHALL include an `Image` field of type `string` with JSON tag `image`
+</pre></div></div>
+<h3>D-122</h3><div class='pair'><div><b>A</b><pre>### Requirement: Data source registration
+The data source SHALL be registered in `tencentcloud/provider.go` with key `tencentcloud_teo_web_security_templates` and listed in `tencentcloud/provider.md`.
+
+#### Scenario: Provider registration
+- **WHEN** the provider is initialized
+- **THEN** the data source `tencentcloud_teo_web_security_templates` SHALL be available for use in Terraform configurations
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The data source SHALL be registered in `provider.go` under the dataSources map with key `tencentcloud_teo_multi_path_gateway_origin_acl` and value `teo.DataSourceTencentCloudTeoMultiPathGatewayOriginAcl()`.
+
+#### Scenario: Data source available in provider
+- **WHEN** the provider is initialized
+- **THEN** the data source `tencentcloud_teo_multi_path_gateway_origin_acl` SHALL be available for use in Terraform configurations
+</pre></div></div>
+<h3>D-123</h3><div class='pair'><div><b>A</b><pre>- **FR-022**: All visualization requests described in this specification MUST be triggerable through natural-language conversation with NetClaw.</pre></div><div><b>B</b><pre>- **FR-038**: All interactions described in this specification MUST be triggerable through natural-language conversation with NetClaw; in-engine clickable UI is explicitly out of scope.</pre></div></div>
+<h3>D-124</h3><div class='pair'><div><b>A</b><pre>### Requirement: /reset 指令遷移
+現有的 `/reset` 系列指令 SHALL 遷移到指令路由框架中，保持完全相同的行為。
+
+#### Scenario: 個人對話重置
+- **WHEN** 已綁定用戶在個人對話中發送 `/reset` 或其任一別名
+- **THEN** 系統 SHALL 更新用戶的 `conversation_reset_at` 為當前時間
+- **AND** 回覆「已清除對話歷史，開始新對話！有什麼可以幫你的嗎？」
+
+#### Scenario: 群組中靜默忽略
+- **WHEN** 用戶在群組中發送 `/reset`
+- **THEN** 系統 SHALL 靜默忽略，不執行重置操作
+
+#### Scenario: 未綁定用戶重置
+- **WHEN** 未綁定用戶在個人對話中發送 `/reset`
+- **AND** `BOT_UNBOUND_USER_POLICY` 為 `restricted`
+- **THEN** 系統 SHALL 執行重置（受限模式也有對話歷史）
+- **AND** 回覆「已清除對話歷史，開始新對話！」
+</pre></div><div><b>B</b><pre>### Requirement: 個人對話重置功能
+Line Bot SHALL 支援個人對話的對話歷史重置。
+
+#### Scenario: 重置對話歷史
+- **WHEN** Line 用戶在個人對話中發送 `/新對話` 或 `/reset`
+- **THEN** 系統更新用戶的 `conversation_reset_at` 為當前時間
+- **AND** 回覆「已清除對話歷史，開始新對話！」
+- **AND** 後續 AI 處理不會看到重置前的對話內容
+
+#### Scenario: 群組不支援重置
+- **WHEN** Line 用戶在群組中發送重置指令
+- **THEN** 系統靜默忽略，不執行重置操作
+
+</pre></div></div>
+<h3>D-125</h3><div class='pair'><div><b>A</b><pre>### Requirement: 数据类型转换与空值处理
+数据源必须正确处理 API 返回的数据类型转换，安全处理空值和 nil 指针。
+
+**Rationale**: 腾讯云 SDK 使用指针类型，需要安全解引用避免程序崩溃。
+
+#### Scenario: 安全解引用指针字段
+- **WHEN** API 返回包含指针类型的字段
+- **THEN** 所有指针字段都经过 nil 检查后再设置
+
+**Acceptance Criteria**:
+- 在调用 set 方法前，先判断 Response 字段是否为 nil，若为 nil 则不调用 set 方法
+- nil 指针字段不会导致 panic
+- 遵循项目规则 #8
+</pre></div><div><b>B</b><pre>### Requirement: 数据类型转换与空值处理
+数据源必须正确处理 API 返回的数据类型转换，安全处理空值和 nil 指针。
+
+**Rationale**: 腾讯云 SDK 使用指针类型，DBCustomCluster.Tags 字段可能返回 null，需要安全解引用避免程序崩溃。
+
+#### Scenario: 安全解引用指针字段
+- **WHEN** API 返回包含指针类型的字段
+- **THEN** 所有指针字段都经过 nil 检查后再设置
+
+**Acceptance Criteria**:
+- 在调用 set 方法前，先判断 Response 字段是否为 nil，若为 nil 则不调用 set 方法
+- nil 指针字段不会导致 panic
+- 遵循项目规则 #8
+
+#### Scenario: Tags 字段空值处理
+- **WHEN** API 返回的 Tags 字段为 null
+- **THEN** 不调用 Tags 的 set 方法，省略该字段
+
+**Acceptance Criteria**:
+- DBCustomCluster.Tags 字段注释标注&quot;可能返回 null&quot;
+- nil 检查在 set 之前执行
+- 不因 Tags 为 nil 而导致数据源报错
+</pre></div></div>
+<h3>D-126</h3><div class='pair'><div><b>A</b><pre>### Requirement: Houmao provides a packaged `houmao-agent-gateway` system skill
+The system SHALL package a Houmao-owned system skill named `houmao-agent-gateway` under the maintained system-skill asset root.
+
+That skill SHALL instruct agents and operators to handle gateway-specific work through these supported surfaces:
+
+- `houmao-mgr agents gateway attach`
+- `houmao-mgr agents gateway detach`
+- `houmao-mgr agents gateway status`
+- `houmao-mgr agents gateway prompt|interrupt`
+- `houmao-mgr agents gateway send-keys`
+- `houmao-mgr agents gateway tui state|history|watch|note-prompt`
+- `houmao-mgr agents gateway reminders list|get|create|set|remove`
+- `houmao-mgr agents gateway mail-notifier status|enable|disable`
+- managed-agent HTTP routes under `/houmao/agents/{agent_ref}/gateway...`, including gateway reminder routes when the task is operating through pair-managed authority
+- direct live gateway HTTP only when the exact live `{gateway.base_url}` is already available and the task genuinely needs a gateway-only surface such as `/v1/status`, `/v1/reminders`, or `/v1/mail-notifier`
+
+The top-level `SKILL.md` for that packaged skill SHALL serve as an index/router that selects one local action-specific document for:
+
+- `lifecycle`
+- `discover`
+- `gateway-services`
+- `reminders`
+- `mail-notifier`
+
+That packaged skill SHALL remain the canonical Houmao-owned skill for gateway-specific lifecycle, discovery, gateway-only control, and reminder work whether the caller is another agent with an installed Houmao skill home or an external operator standing outside the managed session.
+
+That packaged skill SHALL treat these surfaces as explicitly out of scope:
+
+- `agents launch|join|stop|relaunch|cleanup`
+- `project easy specialist create|list|get|remove`
+- ordinary prompt or mailbox work that is already satisfied by `houmao-agent-messaging` and the mailbox skills
+- mailbox transport-specific filesystem or Stalwart internals
+- inventing new `houmao-mgr`, managed-agent API, or direct gateway routes that the current implementation does not expose
+
+#### Scenario: Installed skill points the caller at the supported gateway surfaces
+- **WHEN** an agent or operator opens the installed `houmao-agent-gateway` skill
+- **THEN** the skill directs the caller to the supported gateway lifecycle, reminder, notifier, and gateway-only control surfaces
+- **AND THEN** it does not redirect the caller to unrelated live-agent lifecycle, ordinary messaging, or transport-local mailbox repair work
+
+#### Scenario: Installed skill routes to action-specific local guidance
+- **WHEN** an agent reads the installed `houmao-agent-gateway` skill
+- **THEN** the top-level `SKILL.md` acts as an index/router for lifecycle, discovery, gateway-only services, reminders, and notifier guidance
+- **AND THEN** the detailed workflow lives in local action-specific documents rather than in one flattened entry page
+
+#### Scenario: Installed skill keeps non-gateway concerns out of scope
+- **WHEN** an agent reads the installed `houmao-agent-gateway` skill
+- **THEN** the skill marks ordinary prompt/mail flows, transport-specific mailbox internals, and unrelated live-agent lifecycle work as outside the packaged skill scope
+- **AND THEN** it does not present `houmao-agent-gateway` as the generic replacement for `houmao-agent-instance`, `houmao-agent-messaging`, or the mailbox skills
+</pre></div><div><b>B</b><pre>### Requirement: Joined-session adoption installs Houmao-owned mailbox skills by default
+When `houmao-mgr agents join` adopts a mailbox-enabled session, the join workflow SHALL install the current Houmao-owned system-skill selection resolved from the packaged catalog’s managed-join auto-install set list for the adopted tool home by default so later runtime-owned prompts can rely on the current Houmao-owned mailbox skills being installed.
+
+That joined-session installation SHALL:
+- resolve the adopted tool home through the join workflow’s authoritative home-resolution path,
+- invoke the shared Houmao system-skill installer rather than a mailbox-only installation code path,
+- include the current Houmao-owned mailbox skills in the resolved managed-join auto-install selection for the adopted tool,
+- project Houmao-owned mailbox skills only under reserved `houmao-&lt;skillname&gt;` paths in the visible skill destination for that tool,
+- preserve unrelated user-authored skill directories,
+- fail explicitly when default installation is required but the target skill destination cannot be resolved or updated safely.
+
+The join workflow MAY expose an explicit operator opt-out for default Houmao-owned skill installation. When that opt-out is used, later runtime-owned mailbox prompts and docs SHALL NOT assume the current Houmao-owned mailbox skills are installed for that joined session.
+
+#### Scenario: Joined mailbox-enabled session receives the managed-join mailbox skill set by default
+- **WHEN** an operator uses `houmao-mgr agents join` to adopt a mailbox-enabled session without opting out of Houmao skill installation
+- **THEN** the join workflow installs the current Houmao-owned system-skill selection resolved from the managed-join auto-install set list into the adopted tool home
+- **AND THEN** that resolved selection includes the current Houmao-owned mailbox skills needed for later runtime-owned mailbox prompts
+
+#### Scenario: Join preserves unrelated user-authored skills
+- **WHEN** `houmao-mgr agents join` installs the current Houmao-owned system-skill selection resolved from the managed-join auto-install set list into an adopted tool home
+- **THEN** it writes only to reserved Houmao-owned skill paths for the current skill set
+- **AND THEN** it does not delete or overwrite unrelated user-authored non-Houmao skill directories in that same visible skill destination
+
+#### Scenario: Join fails closed when required default Houmao-owned skill installation cannot complete
+- **WHEN** `houmao-mgr agents join` is using default Houmao-owned current-skill installation
+- **AND WHEN** the adopted tool home or skill destination cannot be resolved or updated safely
+- **THEN** the join command fails explicitly
+- **AND THEN** it does not publish a managed session whose later runtime prompts would assume missing Houmao-owned mailbox skills
+
+#### Scenario: Explicit join opt-out disables the installed-mailbox-skill assumption
+- **WHEN** an operator uses the explicit opt-out for default Houmao-owned skill installation during `houmao-mgr agents join`
+- **THEN** the join workflow may continue without projecting the current Houmao-owned mailbox skills
+- **AND THEN** later runtime-owned mailbox prompts for that joined session do not assume the current Houmao-owned mailbox skills are installed
+</pre></div></div>
+<h3>D-127</h3><div class='pair'><div><b>A</b><pre>- **FR-020**: All existing tests MUST pass without modification (or with minimal adaptation to new import paths)</pre></div><div><b>B</b><pre>- **FR-030**: All existing tests MUST pass without modification (except for import path updates)</pre></div></div>
+<h3>D-128</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The system SHALL register `tencentcloud_waf_rate_limit` in `tencentcloud/provider.go` and document it in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_waf_rate_limit` is available as a valid resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider Registration
+The system SHALL register `tencentcloud_teo_edge_kv_namespace` in `tencentcloud/provider.go` resource map and add the corresponding entry in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_edge_kv_namespace` is available as a valid resource type
+</pre></div></div>
+<h3>D-129</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource registration
+The resource SHALL be registered in `tencentcloud/provider.go` and `tencentcloud/provider.md` following the pattern of existing TEO resources.
+
+#### Scenario: Resource is registered in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_multi_path_gateway_secret_key` SHALL be available as a resource type
+- **AND** the resource factory function `ResourceTencentCloudTeoMultiPathGatewaySecretKeyConfig` SHALL be registered
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-130</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration for the new data source
+The data source `tencentcloud_teo_multi_path_gateway_region` SHALL be registered in `provider.go` and `provider.md`.
+
+#### Scenario: Data source is registered in provider
+- **WHEN** the provider is initialized
+- **THEN** the data source `tencentcloud_teo_multi_path_gateway_region` SHALL be available for use in Terraform configurations
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The data source SHALL be registered in `provider.go` under the dataSources map with key `tencentcloud_teo_multi_path_gateway_origin_acl` and value `teo.DataSourceTencentCloudTeoMultiPathGatewayOriginAcl()`.
+
+#### Scenario: Data source available in provider
+- **WHEN** the provider is initialized
+- **THEN** the data source `tencentcloud_teo_multi_path_gateway_origin_acl` SHALL be available for use in Terraform configurations
+</pre></div></div>
+<h3>D-131</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** a user references `tencentcloud_teo_function_component_binding` in their Terraform configuration
+- **THEN** the provider SHALL recognize and handle the resource
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_mongodb_audit_log_file` SHALL be available as a resource type
+
+</pre></div></div>
+<h3>D-132</h3><div class='pair'><div><b>A</b><pre>### Requirement: LoadConfig returns error on failure
+`LoadConfig()` and `LoadConfigFrom()` SHALL return `(ProjectConfig, error)`. If the config file does not exist, they SHALL return an empty config and nil error. If the file exists but cannot be read for another reason (e.g., permission denied, corrupt filesystem), they SHALL return the error. If the YAML is malformed, they SHALL return an error.
+
+#### Scenario: Config file with valid YAML
+- **WHEN** `LoadConfig()` is called and `openspec/config.yaml` contains valid YAML
+- **THEN** the function returns the parsed `ProjectConfig` and nil error
+
+#### Scenario: Config file with invalid YAML
+- **WHEN** `LoadConfig()` is called and `openspec/config.yaml` contains malformed YAML
+- **THEN** the function returns an empty `ProjectConfig` and a non-nil error
+
+#### Scenario: Config file read failure (not IsNotExist)
+- **WHEN** `LoadConfigFrom()` is called and `openspec/config.yaml` exists but `os.ReadFile` fails with a non-IsNotExist error (e.g., permission denied)
+- **THEN** the function returns an empty `ProjectConfig` and the error from `os.ReadFile`
+</pre></div><div><b>B</b><pre>### Requirement: Load project config from explicit root path
+The loader SHALL expose a `LoadConfigFrom(root string) (ProjectConfig, error)` function that reads `openspec/config.yaml` from the given root path.
+
+#### Scenario: Config file exists at root path
+- **WHEN** `LoadConfigFrom(&quot;/path/to/project&quot;)` is called and `openspec/config.yaml` exists with valid YAML
+- **THEN** the function returns the parsed `ProjectConfig` and nil error
+
+#### Scenario: Config file missing at root path
+- **WHEN** `LoadConfigFrom(&quot;/path/to/project&quot;)` is called and `openspec/config.yaml` does not exist
+- **THEN** the function returns an empty `ProjectConfig` and nil error (missing config is not an error)
+</pre></div></div>
+<h3>D-133</h3><div class='pair'><div><b>A</b><pre>- **FR-001**: The system MUST create a dedicated repository for the ecosystem adapter packages with its own release lifecycle and ownership boundary.</pre></div><div><b>B</b><pre>- **FR-006**: The adapter MUST register &quot;Polkadot&quot; as a distinct ecosystem in the ecosystem manager</pre></div></div>
+<h3>D-134</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource registration in provider
+The resource `tencentcloud_teo_security_client_attester` SHALL be registered in `provider.go` ResourcesMap and documented in `provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** the Terraform provider is initialized
+- **THEN** the resource `tencentcloud_teo_security_client_attester` SHALL be available for use in Terraform configurations
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `provider.go` ResourcesMap and documented in `provider.md`.
+
+#### Scenario: Resource available in provider
+- **WHEN** the Terraform provider is initialized
+- **THEN** the resource `tencentcloud_teo_confirm_origin_acl_update_operation` SHALL be available for use
+</pre></div></div>
+<h3>D-135</h3><div class='pair'><div><b>A</b><pre>### Requirement: Mode switch at ceremony level
+
+The system SHALL support `--mode scrum|kanban|safe` at ceremony level so defaults for filters and sections follow the selected framework (e.g. Kanban: flow-oriented sections; SAFe: PI-oriented hints when available).
+
+**Rationale**: Δ3—one flag for framework context.
+
+#### Scenario: Ceremony with mode
+
+**Given**: User runs `specfact backlog ceremony standup --mode kanban`
+
+**When**: The command executes
+
+**Then**: Defaults for filters and sections follow Kanban (e.g. flow/WIP context when available); output order may follow exceptions-first when data exists
+
+**Acceptance Criteria**:
+
+- Mode is passed through to underlying backlog command; behavior aligns with mode when backend supports it.
+</pre></div><div><b>B</b><pre>### Requirement: Mode switch (scrum|kanban|safe)
+
+The system SHALL support `--mode scrum|kanban|safe` to change defaults for filters and sections (e.g. Kanban: flow columns; SAFe: PI context).
+
+**Rationale**: Plan E1—ceremony-native defaults per framework.
+
+#### Scenario: Standup with mode
+
+**Given**: SpecFact CLI and backlog adapter
+
+**When**: The user runs `specfact backlog daily --mode kanban`
+
+**Then**: Default filters and section behavior align with Kanban (e.g. flow-focused); when `--mode safe`, PI context when available
+
+**Acceptance Criteria**:
+
+- `--mode scrum|kanban|safe` changes defaults; existing backlog daily behavior otherwise unchanged.
+</pre></div></div>
+<h3>D-136</h3><div class='pair'><div><b>A</b><pre>### Edge Cases
+
+- What happens when the Config Service v2 endpoints are not available for new v2 CGW endpoints?
+- How does the system handle an invalid or unrecognized service key in v2 requests?
+- What happens when the service key query parameter is missing or empty (returns 422)?
+- How does caching work with both v1 and v2 CGW endpoints coexisting (separate cache namespaces)?
+- Can a consumer call v1 and v2 CGW endpoints interchangeably during transition period?
+</pre></div><div><b>B</b><pre>### Edge Cases
+
+- What happens when the Config Service v2 endpoints are unavailable or return errors?
+- How does CGW handle invalid or unrecognized service keys in Config Service responses?
+- What happens when the CGW service key configuration is missing or empty (fallback to default &quot;cgw&quot;)?
+- How does CGW cache work when both CGW and frontend service keys are used simultaneously (separate cache namespaces)?
+- What happens when a chain configuration update occurs while CGW is processing a request using cached data?
+- How does CGW handle partial cache failures (some chains cached, others not)?
+- What happens when checking a feature flag for a chain that hasn&#x27;t been fetched/cached yet?
+- How does the service handle Config Service errors when fetching chain configurations for feature flag checks?
+</pre></div></div>
+<h3>D-137</h3><div class='pair'><div><b>A</b><pre>### Requirement: Controller watches ConfigMap resources
+The system SHALL configure the controller to watch ConfigMap resources that are owned by OpenClawInstance resources.
+
+#### Scenario: Controller triggers on ConfigMap create
+- **WHEN** a ConfigMap with an owner reference to an OpenClawInstance is created
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: Controller triggers on ConfigMap update
+- **WHEN** a ConfigMap with an owner reference to an OpenClawInstance is updated
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: Controller triggers on ConfigMap delete
+- **WHEN** a ConfigMap with an owner reference to an OpenClawInstance is deleted
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+</pre></div><div><b>B</b><pre>### Requirement: Controller watches ConfigMap resources
+The system SHALL configure the controller to watch ConfigMap resources that are owned by OpenClaw resources.
+
+#### Scenario: Controller triggers on ConfigMap create
+- **WHEN** a ConfigMap with an owner reference to an OpenClaw is created
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: Controller triggers on ConfigMap update
+- **WHEN** a ConfigMap with an owner reference to an OpenClaw is updated
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+
+#### Scenario: Controller triggers on ConfigMap delete
+- **WHEN** a ConfigMap with an owner reference to an OpenClaw is deleted
+- **THEN** the controller&#x27;s Reconcile function SHALL be invoked
+</pre></div></div>
+<h3>D-138</h3><div class='pair'><div><b>A</b><pre>- **FR-028**: System MUST emit OpenTelemetry spans and metrics for each pipeline stage with standardized naming conventions</pre></div><div><b>B</b><pre>- **FR-011**: System MUST emit OpenTelemetry spans, metrics, and structured logs for all orchestration operations</pre></div></div>
+<h3>D-139</h3><div class='pair'><div><b>A</b><pre>- **FR-006**: Kalkulator MUSI używać klasy `BasicCalculator` jako bazy.</pre></div><div><b>B</b><pre>- **FR-005**: Kalkulator MUSI używać klasy `BasicCalculator` jako bazy</pre></div></div>
+<h3>D-140</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource available after registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_mongodb_audit_log_file` SHALL be available as a resource type
+
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` under ResourcesMap with key `tencentcloud_teo_security_api_resource` and value `teo.ResourceTencentCloudTeoSecurityAPIResource()`.
+
+The resource SHALL be listed in `tencentcloud/provider.md` under the TEO section.
+
+#### Scenario: Provider registration
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_security_api_resource` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-141</h3><div class='pair'><div><b>A</b><pre>### Requirement: Provider registration
+The data source SHALL be registered in `provider.go` under the dataSources map with key `tencentcloud_teo_multi_path_gateway_origin_acl` and value `teo.DataSourceTencentCloudTeoMultiPathGatewayOriginAcl()`.
+
+#### Scenario: Data source available in provider
+- **WHEN** the provider is initialized
+- **THEN** the data source `tencentcloud_teo_multi_path_gateway_origin_acl` SHALL be available for use in Terraform configurations
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The data source SHALL be registered in `provider.go` with key `tencentcloud_teo_content_quota` mapped to `teo.DataSourceTencentCloudTeoContentQuota()`, and a corresponding entry SHALL be added to `provider.md`.
+
+#### Scenario: Data source available in provider
+- **WHEN** the provider is initialized
+- **THEN** the `tencentcloud_teo_content_quota` data source SHALL be available for use in Terraform configurations
+</pre></div></div>
+<h3>D-142</h3><div class='pair'><div><b>A</b><pre>### Requirement: Console category tree APIs provide canonical hierarchy
+
+The system SHALL provide Console APIs for reading and updating the editable Category hierarchy.
+
+#### Scenario: Console reads a canonical category tree
+
+- **WHEN** an administrator requests the Console Category tree
+- **THEN** the system SHALL list Categories and return them as a tree of nodes containing `category` and `children`
+- **AND** the returned `children` values SHALL be view data and SHALL NOT write to `Category.spec.children`
+
+#### Scenario: Console category tree handles invalid parent references
+
+- **WHEN** a Category has a missing parent, self parent, or cyclic parent chain
+- **THEN** the system SHALL render the affected Category as a root Category in the Console tree
+- **AND** the system SHALL continue returning other valid descendants where their parent chain remains valid
+
+#### Scenario: Console category tree is ordered canonically
+
+- **WHEN** multiple Categories share the same parent
+- **THEN** the system SHALL order them by priority, creation timestamp, and metadata name
+
+#### Scenario: Console moves a category by relative position
+
+- **WHEN** an administrator requests a position update for a Category with `parentName` and `beforeName`
+- **THEN** the system SHALL validate the move
+- **AND** the system SHALL update `spec.parent` and `spec.priority` for affected Categories
+- **AND** the system SHALL return the canonical Console Category tree
+
+#### Scenario: Category position update appends to a sibling list
+
+- **WHEN** an administrator requests a position update with `beforeName` unset or null
+- **THEN** the system SHALL place the moved Category at the end of the target sibling list
+
+#### Scenario: Category position update moves category to root
+
+- **WHEN** an administrator requests a position update with `parentName` unset or null
+- **THEN** the system SHALL remove `spec.parent` from the moved Category
+- **AND** the moved Category SHALL become a root Category
+
+#### Scenario: Category position update rejects invalid relatives
+
+- **WHEN** `parentName` or `beforeName` references a Category that does not exist
+- **THEN** the system SHALL reject the position update
+
+#### Scenario: Category position update rejects inconsistent sibling target
+
+- **WHEN** `beforeName` does not identify a sibling in the target parent after the move is applied
+- **THEN** the system SHALL reject the position update
+
+#### Scenario: Category position update rejects cycles
+
+- **WHEN** a position update would move a Category under itself or one of its descendants
+- **THEN** the system SHALL reject the position update
+
+#### Scenario: Category position update recalculates sibling priorities
+
+- **WHEN** a position update succeeds
+- **THEN** the system SHALL assign continuous integer priorities starting at zero to the target sibling list
+- **AND** if the parent changed, the system SHALL assign continuous integer priorities starting at zero to the original sibling list
+- **AND** the system SHALL persist only Categories whose `spec.parent` or `spec.priority` changed
+</pre></div><div><b>B</b><pre>### Requirement: Console menu item tree APIs provide canonical hierarchy
+
+The system SHALL provide Console APIs for reading and updating the editable MenuItem hierarchy of a
+selected Menu.
+
+#### Scenario: Console reads a canonical menu item tree
+
+- **WHEN** an administrator requests the Console MenuItem tree for a Menu by `menuName`
+- **THEN** the system SHALL list MenuItems whose `spec.menuName` equals the requested Menu name
+- **AND** the system SHALL return those MenuItems as a tree of nodes containing `menuItem` and `children`
+- **AND** the returned `children` values SHALL be view data and SHALL NOT write to `MenuItem.spec.children`
+
+#### Scenario: Console tree handles invalid parent references
+
+- **WHEN** a MenuItem in the selected Menu has a missing parent, self parent, parent outside the selected Menu,
+  or cyclic parent chain
+- **THEN** the system SHALL render the affected MenuItem as a root item in the Console tree
+- **AND** the system SHALL continue returning other valid descendants where their parent chain remains valid
+
+#### Scenario: Console tree is ordered canonically
+
+- **WHEN** multiple MenuItems share the same selected Menu and parent
+- **THEN** the system SHALL order them by priority, creation timestamp, and metadata name
+
+#### Scenario: Console moves a menu item by relative position
+
+- **WHEN** an administrator requests a position update for a MenuItem with `menuName`, `parentName`, and
+  `beforeName`
+- **THEN** the system SHALL validate the move within the requested Menu
+- **AND** the system SHALL update `spec.parent` and `spec.priority` for affected MenuItems
+- **AND** the system SHALL return the selected Menu&#x27;s canonical Console MenuItem tree
+
+#### Scenario: Position update appends to a sibling list
+
+- **WHEN** an administrator requests a position update with `beforeName` unset or null
+- **THEN** the system SHALL place the moved MenuItem at the end of the target sibling list
+
+#### Scenario: Position update moves an item to root
+
+- **WHEN** an administrator requests a position update with `parentName` unset or null
+- **THEN** the system SHALL remove `spec.parent` from the moved MenuItem
+- **AND** the moved MenuItem SHALL become a root item in the selected Menu
+
+#### Scenario: Position update keeps ownership fixed
+
+- **WHEN** an administrator requests a position update for a MenuItem
+- **THEN** the system SHALL require the moved MenuItem&#x27;s `spec.menuName` to equal the requested `menuName`
+- **AND** the system SHALL NOT change the moved MenuItem&#x27;s `spec.menuName`
+
+#### Scenario: Position update rejects invalid relatives
+
+- **WHEN** `parentName` or `beforeName` references a MenuItem that does not exist in the requested Menu
+- **THEN** the system SHALL reject the position update
+
+#### Scenario: Position update rejects inconsistent sibling target
+
+- **WHEN** `beforeName` does not identify a sibling in the target parent after the move is applied
+- **THEN** the system SHALL reject the position update
+
+#### Scenario: Position update rejects cycles
+
+- **WHEN** a position update would move a MenuItem under itself or one of its descendants
+- **THEN** the system SHALL reject the position update
+
+#### Scenario: Position update recalculates sibling priorities
+
+- **WHEN** a position update succeeds
+- **THEN** the system SHALL assign continuous integer priorities starting at zero to the target sibling list
+- **AND** if the parent changed, the system SHALL assign continuous integer priorities starting at zero to the
+  original sibling list
+- **AND** the system SHALL persist only MenuItems whose `spec.parent` or `spec.priority` changed
+</pre></div></div>
+<h3>D-143</h3><div class='pair'><div><b>A</b><pre>### Requirement: CalDAV login failures are classified as connection or authentication errors
+
+The system SHALL classify a failed CalDAV login (in the &quot;test&quot;, &quot;connect&quot;, and &quot;list available calendars&quot; flows) as either a connection error or an authentication error and report it with a matching user-facing message and HTTP status. The classification rules are:
+
+- A network-layer failure - the connection could not be established (DNS
+  resolution failure, connection refused/reset, timeout, host/network
+  unreachable) or the server&#x27;s TLS certificate could not be verified
+  (self-signed or otherwise untrusted) - SHALL be reported as a **connection
+  error** with a message that directs the user to check the server URL, their
+  network/firewall, and the server&#x27;s TLS certificate, and SHALL use an HTTP
+  status distinct from the authentication status (a `5xx` gateway status).
+- A genuine credentials rejection (the server responded with HTTP 401 /
+  &quot;invalid credentials&quot;) SHALL be reported as an **authentication error** with a
+  message directing the user to check their credentials, and SHALL use HTTP
+  status `401`.
+- An error that cannot be positively identified as a connection failure SHALL
+  default to the authentication classification, so the response is never less
+  informative than reporting an authentication failure.
+
+In all cases the response SHALL preserve the original error text in a `details`
+field and SHALL keep the existing JSON response shape (`error`, `details`, and
+the route&#x27;s existing `success` flag where present) so the existing UI renders it
+without change.
+
+#### Scenario: Self-signed / unreachable server is reported as a connection error
+
+- **WHEN** a CalDAV login fails with a `fetch failed` error (e.g. a self-signed
+  TLS certificate producing `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, or a DNS failure
+  producing `ENOTFOUND`)
+- **THEN** the classifier returns `kind: &quot;connection&quot;`
+- **AND** the user-facing message refers to the connection / server URL / TLS
+  certificate and not to credentials
+- **AND** the HTTP status is a `5xx` gateway status (`502`)
+
+#### Scenario: Wrong credentials are still reported as an authentication error
+
+- **WHEN** a CalDAV login fails with an `Invalid credentials` error (the server
+  returned HTTP 401)
+- **THEN** the classifier returns `kind: &quot;auth&quot;`
+- **AND** the user-facing message asks the user to check their credentials
+- **AND** the HTTP status is `401`
+
+#### Scenario: Unknown error defaults to authentication
+
+- **WHEN** a CalDAV login fails with an error that matches no known
+  connection/TLS signature
+- **THEN** the classifier returns `kind: &quot;auth&quot;` with the credentials message
+  and HTTP status `401`
+
+#### Scenario: Every CalDAV login route uses the classification
+
+- **WHEN** any CalDAV route that performs a login (test, connect, list available
+  calendars, or add a selected calendar) catches a login failure
+- **THEN** it returns the classified message and status from the shared
+  classifier
+- **AND** it includes the original error text in the `details` field
+
+#### Scenario: A post-login connection failure is also classified
+
+- **WHEN** login succeeds but a subsequent CalDAV network operation in the same
+  request (calendar discovery or path verification during test, calendar
+  discovery during list-available or add-calendar, or path validation during
+  connect) fails with a connection/TLS error
+- **THEN** the route reports it as a connection error (the connection message +
+  a `5xx` gateway status) rather than a generic 500 or a bad-path error
+- **AND** the connection classification is scoped to the CalDAV network call, so
+  a failure from non-CalDAV work in the same handler (e.g. a database query)
+  keeps the route&#x27;s existing generic error and status and is not mislabeled as a
+  CalDAV connection failure
+
+#### Scenario: The available-calendars list surfaces the classified error
+
+- **WHEN** the available-calendars list view receives a non-OK response from the
+  available-calendars endpoint
+- **THEN** it shows the server-provided error message (the classified
+  connection-or-auth message) rather than a generic &quot;no calendars&quot; empty state
+
+</pre></div><div><b>B</b><pre>### Requirement: CalDAV server URLs are canonicalized (origin only) before use as an identity key
+
+The stored CalDAV server URL SHALL have its origin canonicalized so trivial textual variants of the same endpoint do not bypass the duplicate guard and create duplicate accounts. Canonicalization SHALL lowercase the scheme and host and drop redundant default ports (443 for https, 80 for http). It SHALL preserve the path, query, and fragment byte-for-byte (no trailing-slash trimming, no case change), because `caldavUrl` is the exact endpoint later used for calendar listing and sync and CalDAV collection paths are slash- and case-sensitive. A value that is not a parseable URL SHALL be stored trimmed and otherwise unchanged.
+
+#### Scenario: Host/scheme/port variant is treated as the same server
+
+- **WHEN** a user connects `https://Server.example.com/dav` and later `https://server.example.com:443/dav`
+- **THEN** both resolve to the same stored URL
+- **AND** the second attempt is rejected as a duplicate rather than creating a second account
+
+#### Scenario: A path-based collection URL is stored exactly as validated
+
+- **WHEN** a user connects a path-based CalDAV URL such as `https://caldav.fastmail.com/dav/calendars/user/me/`
+- **THEN** the stored URL preserves the path and its trailing slash exactly
+- **AND** the endpoint later used for listing/sync is the same one that was validated
+
+#### Scenario: A fragment does not create a distinct account
+
+- **WHEN** a user connects `https://server.example.com/dav#a` and later `https://server.example.com/dav#b`
+- **THEN** the fragment is dropped from the stored URL (it is never sent to the server)
+- **AND** the second attempt is rejected as a duplicate rather than creating a second account
+</pre></div></div>
+<h3>D-144</h3><div class='pair'><div><b>A</b><pre>### Requirement: 1.5 秒采集并写入 Redis Latest 与 Stream
+系统 SHALL 按 1.5 秒周期从 Tushare 实时接口采集快照，并同时写入 Redis latest 与 Redis stream。
+
+#### Scenario: 正常采集周期
+- **GIVEN** 交易时段内
+- **WHEN** 采集循环触发（每 1.5 秒）
+- **THEN** 调用 `rt_k`、`rt_etf_k`、`rt_idx_k`、`rt_hk_k`
+- **AND** 最新快照写入 `stock:rtk:latest:{market}:{ts_code}`
+- **AND** 事件写入 `stock:rtk:stream:{market}`
+
+#### Scenario: 限流时自动降频与恢复
+- **GIVEN** 采集 worker 运行中
+- **WHEN** 连续 3 次异常（超时、限流、服务异常）
+- **THEN** 采集周期退避到 3 秒
+- **WHEN** 再连续 3 次异常
+- **THEN** 采集周期进一步退避到 5 秒
+- **WHEN** 连续 5 次成功调用
+- **THEN** 采集周期回到当前级别的上一级（逐级恢复到 1.5 秒）
+- **AND** 计数独立按市场维度
+
+#### Scenario: Redis stream 与 checkpoint 消费
+- **WHEN** 采集成功后，事件写入 `stock:rtk:stream:{market}`
+- **THEN** stream entry 保留至少 72 小时
+- **AND** 推送与落库 worker 分别维护各自的 checkpoint
+- **AND** 推送 checkpoint 更新条件：云端返回 ACK success
+- **AND** 落库 checkpoint 更新条件：全市场批次写入成功
+</pre></div><div><b>B</b><pre>### Requirement: News Data Retrieval
+系统 SHALL 能够获取和展示 A 股市场相关的财经新闻和上市公司公告。
+
+#### Scenario: 获取股票相关新闻
+- **WHEN** 用户请求特定股票的新闻
+- **THEN** 系统返回该股票近期相关的新闻列表
+- **AND** 每条新闻包含标题、内容摘要、来源、发布时间
+- **AND** 默认返回最近 7 天的新闻，最多 20 条
+
+#### Scenario: 获取市场整体新闻
+- **WHEN** 用户请求市场新闻
+- **THEN** 系统返回最新的财经快讯和市场动态
+- **AND** 支持按分类筛选（公告/快讯/分析）
+- **AND** 新闻按发布时间倒序排列
+
+#### Scenario: 新闻数据缓存
+- **WHEN** 系统频繁请求相同的新闻数据
+- **THEN** 系统使用 Redis 缓存减少外部 API 调用
+- **AND** 快讯类新闻缓存 TTL 为 5 分钟
+- **AND** 公告类新闻缓存 TTL 为 1 小时
+</pre></div></div>
+<h3>D-145</h3><div class='pair'><div><b>A</b><pre> - **FR-013**: All UI text MUST be in Polish language.</pre></div><div><b>B</b><pre>- **FR-012**: All text in screenshots and graphics MUST be in Polish language</pre></div></div>
+<h3>D-146</h3><div class='pair'><div><b>A</b><pre>### Requirement: Extra tool collision protection
+
+The OpenAPIServer SHALL reject conflicting extra tool registrations.
+
+#### Scenario: Duplicate extra tool id
+
+- **WHEN** two extra tools use the same configured tool ID
+- **THEN** server initialization fails with a clear error
+
+#### Scenario: Duplicate extra tool name
+
+- **WHEN** two extra tools use the same MCP tool name
+- **THEN** server initialization fails with a clear error
+
+#### Scenario: Conflict with generated tool
+
+- **WHEN** an extra tool uses the ID or name of an OpenAPI-generated tool
+- **THEN** server startup fails with a clear error
+</pre></div><div><b>B</b><pre>### Requirement: Exclude Tag Filtering
+
+The system SHALL allow operators to configure OpenAPI tags that are excluded from the exposed MCP tool surface.
+
+#### Scenario: Endpoint tool with excluded tag
+
+- **WHEN** an OpenAPI operation has a tag matching an excluded tag case-insensitively
+- **THEN** the corresponding endpoint tool is not listed or callable through the generated endpoint-tool registry
+
+#### Scenario: Explicit include conflicts with excluded tag
+
+- **WHEN** an endpoint is selected by `includeTools` and also has a matching excluded tag
+- **THEN** the endpoint remains excluded
+
+#### Scenario: Dynamic endpoint listing
+
+- **WHEN** dynamic mode lists or describes endpoints
+- **THEN** operations with matching excluded tags are omitted from dynamic discovery responses
+
+#### Scenario: Dynamic endpoint invocation
+
+- **WHEN** dynamic mode attempts to invoke an operation with a matching excluded tag
+- **THEN** the invocation is rejected before the upstream API request is made
+
+#### Scenario: Untagged endpoint
+
+- **WHEN** an operation has no tags
+- **THEN** exclude-tag filtering does not exclude it
+</pre></div></div>
+<h3>D-147</h3><div class='pair'><div><b>A</b><pre>### Requirement: Import menu offers JSON, Mermaid, and AI options
+The system SHALL provide an import menu that displays JSON and Mermaid import options when opened. When the AI feature is enabled, an AI generation option SHALL also be visible.
+
+#### Scenario: Open import menu
+- **WHEN** the user opens the import menu
+- **THEN** both &quot;JSON&quot; and &quot;MERMAID&quot; options SHALL be visible
+
+#### Scenario: AI enabled shows AI import option
+- **WHEN** the user opens the import menu
+- **AND** the AI feature flag is enabled
+- **THEN** an &quot;AI&quot; import option SHALL be visible alongside JSON and Mermaid options
+
+#### Scenario: AI disabled hides AI import option
+- **WHEN** the user opens the import menu
+- **AND** the AI feature flag is disabled
+- **THEN** only JSON and Mermaid import options SHALL be visible
+</pre></div><div><b>B</b><pre>### Requirement: AI generation dialog SHALL reflect generation state immediately
+
+The AI generation dialogs SHALL update their visible state immediately when async operations complete, without requiring additional user interaction. This applies to both the standalone AI import dialog and the mermaid dialog&#x27;s AI section.
+
+#### Scenario: AI generation result appears immediately in mermaid dialog
+- **WHEN** the user triggers AI generation in the mermaid import dialog
+- **AND** the server returns a successful response
+- **THEN** the generated mermaid syntax SHALL appear in the text area immediately without the user needing to click or interact with any other element
+
+#### Scenario: AI generation loading state updates immediately
+- **WHEN** the user triggers AI generation in the standalone AI import dialog
+- **THEN** the generate button SHALL be disabled immediately when generation starts
+- **AND** the button SHALL be re-enabled immediately when generation completes or fails
+
+#### Scenario: Pictogram search results appear immediately
+- **WHEN** the user searches for pictograms in the pictogram dialog
+- **AND** the ARASAAC API returns results
+- **THEN** the pictogram grid SHALL display results immediately without the user needing to click or interact with any other element
+</pre></div></div>
+<h3>D-148</h3><div class='pair'><div><b>A</b><pre>### Requirement: Content-hash incremental symbol indexing
+
+Symbol indexing SHALL reuse the existing `files` content-hash gate. A file whose
+`sha256` is unchanged SHALL be skipped. A changed file SHALL have its symbol
+nodes, outbound edges, and symbol chunks replaced. A deleted file SHALL have its
+symbol nodes-as-source and outbound edges removed while inbound edges are
+preserved.
+
+#### Scenario: Unchanged file is skipped
+
+- **WHEN** reindex runs and a source file&#x27;s `sha256` is unchanged
+- **THEN** its symbols SHALL NOT be re-extracted
+
+#### Scenario: Deleted file drops its symbols
+
+- **WHEN** a previously indexed source file is deleted and reindex runs
+- **THEN** its symbol nodes and outbound edges SHALL be removed
+- **AND** inbound edges from other files SHALL be preserved
+</pre></div><div><b>B</b><pre>### Requirement: Content-hash incremental indexing
+
+The indexer SHALL detect changed markdown via a layered check (mtime, then
+sha256), reindex only changed files (replacing that file&#x27;s chunks and edges),
+purge rows for files removed from disk, and support a `--force` full rebuild.
+
+#### Scenario: Unchanged file is skipped
+
+- **WHEN** `kb index` re-runs and a file&#x27;s mtime and sha256 are unchanged
+- **THEN** that file SHALL NOT be re-read or re-chunked
+
+#### Scenario: Changed file reindexes only itself
+
+- **WHEN** a single markdown file&#x27;s content changes and `kb index` re-runs
+- **THEN** only that file&#x27;s chunks and outbound edges SHALL be replaced
+- **AND** inbound edges from other files SHALL be preserved
+
+#### Scenario: Deleted file is purged
+
+- **WHEN** a previously indexed file no longer exists on disk and `kb index`
+  re-runs
+- **THEN** its chunks, nodes-as-source, and edges SHALL be removed from the index
+</pre></div></div>
+<h3>D-149</h3><div class='pair'><div><b>A</b><pre>### User Story 3 - Clear Text Filter (Priority: P2)
+
+A user has filtered commits by message text and wants to quickly clear the text filter without clearing other filters. They click a clear button on the Message filter field to remove the text, restoring visibility of all commits (subject to other active filters).
+
+**Why this priority**: Clearing a filter is a common action. A dedicated clear button improves usability but is not strictly required (the user can also manually select and delete the text).
+
+**Independent Test**: Can be tested by setting a Message filter, clicking the clear button, and verifying the filter text is removed and commits reappear.
+
+**Acceptance Scenarios**:
+
+1. **Given** the Message filter has text, **When** the user clicks the clear button, **Then** the text is removed and all commits matching other active filters become visible.
+2. **Given** the Message filter is empty, **Then** no clear button is shown.
+
+---
+</pre></div><div><b>B</b><pre>### User Story 3 - Clear Date Filter Value (Priority: P2)
+
+A user has previously set a date filter and wants to remove it. They click a clear button associated with the date field to reset the filter value.
+
+**Why this priority**: Clearing filters is a common and necessary operation, but secondary to the core set-filter workflow.
+
+**Independent Test**: Can be fully tested by setting a date filter, clicking the clear button, and verifying the filter is removed and all commits are shown again.
+
+**Acceptance Scenarios**:
+
+1. **Given** a &quot;From&quot; date filter is currently applied, **When** the user clicks the clear button on the &quot;From&quot; field, **Then** the date value is removed and the &quot;From&quot; filter is no longer applied.
+2. **Given** a &quot;To&quot; date filter is currently applied, **When** the user clicks the clear button on the &quot;To&quot; field, **Then** the date value is removed and the &quot;To&quot; filter is no longer applied.
+3. **Given** no date filter is applied, **Then** the clear button is either hidden or visually indicates there is nothing to clear.
+
+---
+</pre></div></div>
+<h3>D-150</h3><div class='pair'><div><b>A</b><pre>- **FR-016**: After maximum reconnection attempts (5), the terminal MUST stop retrying and display a manual retry option</pre></div><div><b>B</b><pre>- **FR-017**: System MUST attempt automatic reconnection before falling back to terminal mode</pre></div></div>
+<h3>D-151</h3><div class='pair'><div><b>A</b><pre>### Requirement: Nothing-to-do short-circuit
+
+When no monitoring configurations and no connections are discovered, the system SHALL print that there is nothing to uninstall and return without prompting or mutating.
+
+#### Scenario: No resources found
+
+- **GIVEN** the environment has no dtwiz-named GCP resources
+- **WHEN** the uninstaller runs
+- **THEN** it prints a &quot;nothing to uninstall&quot; message and exits successfully
+</pre></div><div><b>B</b><pre>### Requirement: When all recommendations are Done, exit cleanly without prompting
+
+When `actionable` is empty (all recommendations have `Done=true`), `dtwiz setup` SHALL
+print the Done entries with their descriptions and exit with code 0 — no prompt, no
+numbered list, no &quot;Cancel&quot; option.
+
+#### Scenario: All recommendations are Done
+
+- **GIVEN** every recommendation in the list has `Done=true`
+- **WHEN** `dtwiz setup` renders the section
+- **THEN** each Done entry is printed with its ✓ badge and description
+- **THEN** the command exits with code 0 and no confirmation prompt is shown
+</pre></div></div>
+<h3>D-152</h3><div class='pair'><div><b>A</b><pre>- **FR-009**: System MUST 保持非 TXT 預覽流程的既有行為不變。</pre></div><div><b>B</b><pre>- **FR-012**：系統必須保持非 TXT 畫面與流程的既有行為不變。</pre></div></div>
+<h3>D-153</h3><div class='pair'><div><b>A</b><pre>- **FR-002**: System MUST provide a command to automatically format code files</pre></div><div><b>B</b><pre>- **FR-020**: System MUST provide a command to list available backups with metadata</pre></div></div>
+<h3>D-154</h3><div class='pair'><div><b>A</b><pre>- **FR-006**: Unused code and packages MUST be removed from the main module</pre></div><div><b>B</b><pre>- **FR-002**: System MUST remove all unused directories from the repository</pre></div></div>
+<h3>D-155</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource Registration
+The resource SHALL be registered in `provider.go` with the name `tencentcloud_teo_multi_path_gateway_line` and the corresponding function `ResourceTencentCloudTeoMultiPathGatewayLine()`.
+
+#### Scenario: Resource appears in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_multi_path_gateway_line` SHALL be available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-156</h3><div class='pair'><div><b>A</b><pre>### Requirement: Helpbar del índice
+The helpbar in `ModeIndex` SHALL show navigation hints and SHALL reflect the current sort mode via the `s` binding label:
+- When sort mode is **name**: `j/k: navigate  Enter: open  Space: expand  click: select  s: sort by suffix  Esc: quit`
+- When sort mode is **suffix**: `j/k: navigate  Enter: open  Space: expand  click: select  s: sort by name  Esc: quit`
+
+#### Scenario: Helpbar en modo sort normal
+- **WHEN** the mode is `ModeIndex` and the sort order is **name**
+- **THEN** the helpbar shows `j/k: navigate  Enter: open  Space: expand  click: select  s: sort by suffix  Esc: quit`
+
+#### Scenario: Helpbar en modo sort por sufijo
+- **WHEN** the mode is `ModeIndex` and the sort order is **suffix**
+- **THEN** the helpbar shows `j/k: navigate  Enter: open  Space: expand  click: select  s: sort by name  Esc: quit`
+</pre></div><div><b>B</b><pre>### Requirement: Config view help bar shows navigation hints
+The help bar in `ModeViewingConfig` SHALL show `j/k: scroll  i/Esc: back  q: quit`. The help bars in `ModeIndex` and `ModeNormal` SHALL include `i: info` as a hint for opening this view.
+
+#### Scenario: Help bar content in config view
+- **WHEN** the config view is open
+- **THEN** the help bar displays `j/k: scroll  i/Esc: back  q: quit`
+
+#### Scenario: Help bar hint in index and normal mode
+- **WHEN** the user is in `ModeIndex` or `ModeNormal`
+- **THEN** the help bar includes `i: info`
+</pre></div></div>
+<h3>D-157</h3><div class='pair'><div><b>A</b><pre>### Requirement: Resource registration in provider
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource appears in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_confirm_multi_path_gateway_origin_acl` is available as a resource type
+</pre></div><div><b>B</b><pre>### Requirement: Provider registration
+The resource SHALL be registered in `tencentcloud/provider.go` and documented in `tencentcloud/provider.md`.
+
+#### Scenario: Resource is available in provider
+- **WHEN** the provider is initialized
+- **THEN** `tencentcloud_teo_domain_shared_cname_attachment` SHALL be available as a resource type
+</pre></div></div>
+<h3>D-158</h3><div class='pair'><div><b>A</b><pre>- **FR-005**: System MUST differentiate device types visually (routers, switches, firewalls, endpoints) through distinct shapes, colors, or materials.</pre></div><div><b>B</b><pre>- **FR-002**: System MUST represent each device as a distinct shape colored according to its role (at minimum: router, switch, firewall, load balancer, client/endpoint).</pre></div></div>
+<h3>D-159</h3><div class='pair'><div><b>A</b><pre>### User Story 1 - No Fee Campaign Feature Remains Functional After Migration (Priority: P1)
+
+After migration, all existing No Fee Campaign functionality must continue to work exactly as before. Users should see campaign banners, eligibility information, and transaction execution options without any visible changes to behavior or user experience.
+
+**Why this priority**: This is a refactoring task - the primary goal is maintaining existing functionality while improving code organization. Any regression would directly impact users&#x27; ability to use the sponsored transaction feature.
+
+**Independent Test**: Can be fully tested by verifying that all No Fee Campaign UI components render correctly, eligibility checks work, and transaction execution with the campaign option functions as expected. This delivers the core value of maintaining feature parity.
+
+**Acceptance Scenarios**:
+
+1. **Given** a user on a chain where No Fee Campaign is enabled, **When** they view the dashboard, **Then** the No Fee Campaign banner appears in the news carousel if they are eligible
+2. **Given** a user viewing the transaction page, **When** they are eligible for No Fee Campaign, **Then** the No Fee Campaign transaction card displays with eligibility information
+3. **Given** a user executing a transaction, **When** they are eligible and have remaining sponsored transactions, **Then** the No Fee Campaign execution method option is available in the execution selector
+4. **Given** a user with a transaction that exceeds gas limits, **When** they view the execution options, **Then** the Gas Too High banner appears and No Fee Campaign option is disabled appropriately
+5. **Given** a user who has reached their sponsored transaction limit, **When** they view execution options, **Then** the No Fee Campaign option shows limit reached state
+6. **Given** a user on a chain where No Fee Campaign is disabled, **When** they view any page, **Then** no No Fee Campaign components are rendered and no related code is loaded
+
+---
+</pre></div><div><b>B</b><pre>- **FR-023**: Geoblocking and blocked address checks MUST continue to work exactly as before</pre></div></div>

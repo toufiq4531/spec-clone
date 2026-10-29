@@ -1,0 +1,37 @@
+STEP 12d - REPO-RELATIVE SEMANTIC SCORE + ANNOTATION PACKETS
+================================================================
+Embedding cache key: 4141e0bd88d337da | margin k=4, mutual top-3
+
+Mutual-NN within-repo block pairs: 18,966  (lexically low: 18,593)
+Candidate pool (shared language, no lineage, not copied/gray): 48,943 episode pairs
+  ... with >= 1 mutual, lexically-low block pair (ranked): 4,794
+
+Episode-pair margin: median 1.006, p90 1.02, p99 1.045, max 1.106
+Ranked pairs by margin (counts / distinct repos / largest repo share):
+  margin >= 1.02:    507 pairs,  139 repos, top repo    8%
+  margin >= 1.04:     70 pairs,   46 repos, top repo    7%
+  margin >= 1.06:     16 pairs,   16 repos, top repo    6%
+  margin >= 1.08:      2 pairs,    2 repos, top repo   50%
+  margin >= 1.10:      2 pairs,    2 repos, top repo   50%
+  margin >= 1.15:      0 pairs,    0 repos, top repo    0%
+Size-bias check: median block pairs in top 100 / in all ranked = 2.00 (>> 1 means big episodes dominate the top)
+These thresholds are DESCRIPTIVE ONLY. Which margin means SAME_BEHAVIOUR is
+decided by the sem_top / sem_mid / sem_tail labels on the dev packet.
+
+ANNOTATION SAMPLE (stratum x split)
+split         dev  heldout  All
+stratum                        
+copied         25       12   37
+cross_copied    0        3    3
+cross_gray      9       21   30
+gray           61       52  113
+lineage         4       26   30
+random_ctrl    10       30   40
+sem_mid        13       37   50
+sem_tail        7       23   30
+sem_top        30       30   60
+All           159      234  393
+
+Packets in outputs\12d_annotation. Give annotators ONLY packet_*.html and their own labels_*.csv.
+Keep key.csv away from annotators until both label files are final.
+Runtime 4s
